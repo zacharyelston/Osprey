@@ -1,12 +1,14 @@
-# Remote runs on the ML hosts
+# Remote runs on the GPU hosts
 
 Two Linux workstations take Osprey's CPU sweeps and GPU (EGL) renders. Both
-are ThinkStation P620s with 32 hardware threads on Ubuntu 20.04.
+are ThinkStation P620s with 32 hardware threads on Ubuntu 20.04. Their real
+names and logins are not kept in this repository: set `HOST` to the SSH
+login for `gpu1` or `gpu2` (or use an alias in `~/.ssh/config`).
 
-| Host | Login | GPUs | RAM | uv |
-|---|---|---|---|---|
-| gpu1 | `user@gpu1` | Quadro RTX 8000 48 GB, RTX 6000 24 GB | 125 GB | `~/.local/bin/uv` |
-| gpu2 | `user@gpu2` (a dev host, despite the name) | 2x Quadro RTX 6000 24 GB | 157 GB | install to `~/.local/bin/uv` |
+| Host | GPUs | RAM | uv |
+|---|---|---|---|
+| gpu1 | Quadro RTX 8000 48 GB, RTX 6000 24 GB | 125 GB | `~/.local/bin/uv` |
+| gpu2 | 2x Quadro RTX 6000 24 GB | 157 GB | install to `~/.local/bin/uv` |
 
 Checked 2026-11-06. Both were idle; check `nvidia-smi` and `uptime` before a
 long job, since other projects (eOx) share gpu1.
@@ -16,7 +18,7 @@ long job, since other projects (eOx) share gpu1.
 Uncommitted edits do not travel. Record the SHA with the results.
 
 ```bash
-HOST=user@gpu1       # or user@gpu2
+HOST=gpu1            # an ssh alias or user@host for gpu1 or gpu2
 SHA=$(git rev-parse --short HEAD)
 git archive --format=tar HEAD -o /tmp/osprey-$SHA.tar
 RUN=$(ssh $HOST 'mkdir -p ~/osprey-sim && mktemp -d ~/osprey-sim/run-XXXXXX')
