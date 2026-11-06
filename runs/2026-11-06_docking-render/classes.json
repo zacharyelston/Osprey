@@ -1,0 +1,13 @@
+{
+ "classes": [
+  "water",
+  "self",
+  "dock",
+  "piling",
+  "boat",
+  "person",
+  "fender",
+  "line",
+  "sky"
+ ]
+}

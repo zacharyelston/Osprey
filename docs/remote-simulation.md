@@ -40,8 +40,18 @@ ssh $HOST "cd $RUN && MUJOCO_GL=egl MUJOCO_EGL_DEVICE_ID=0 .venv/bin/osprey rend
 ```
 
 The renderer picks EGL by itself on a Linux host with no display. EGL device
-numbering need not match `nvidia-smi`: on gpu1, EGL device 0 is the RTX 8000
-(verified for eOx). Run `tmux` for anything long.
+numbering need not match `nvidia-smi`, and it is not stable: eOx found EGL
+device 0 was the RTX 8000 on gpu1, but on 2026-11-06 `MUJOCO_EGL_DEVICE_ID=0`
+gave the RTX 6000. Check before a long render:
+
+```bash
+ssh $HOST "cd $RUN && MUJOCO_GL=egl MUJOCO_EGL_DEVICE_ID=0 .venv/bin/python -c \
+'import mujoco; from OpenGL import GL; m=mujoco.MjModel.from_xml_string(\"<mujoco/>\"); r=mujoco.Renderer(m,8,8); print(GL.glGetString(GL.GL_RENDERER).decode())'"
+```
+
+A 20 s, 10 fps docking clip at half resolution (200 frames x 5 cameras, RGB +
+depth + class masks) took 7 min and 1.3 GB. Most of that is PNG encoding on
+one CPU core, not the GPU. Run `tmux` for anything long.
 
 ## Bring results home
 
