@@ -67,6 +67,52 @@ one.
   and 1 ms. All of these depend on REF motion numbers that the Phase 0 pod will
   measure.
 
+## Gecko pods (2026-11-06, `runs/2026-11-06_gecko-sweep`)
+
+`gecko5` puts a pod at each station.
+- **Top and bottom:** a PTZ on top and another hung underneath, pointing
+  independently.
+- **In the middle:** a SOC, a 6-axis IMU and PoE on a single gigabit cable.
+
+See [docs/architecture.md](docs/architecture.md#gecko-pods-two-eyes-one-cable).
+
+**Docking works without giving up the watch.**
+- **Coverage:** the lower eyes take the water round the hull. Optimized
+  aims see 96.5 % of the 3 m band with two cameras.
+- **Hull edge:** 89 % of it has a stereo pair, at 4.6 cm depth (p95). That
+  beats every single-PTZ rig.
+- **Watch:** the top, forward and aft upper eyes stay on the horizon.
+- **The trade:** the pod blinds its upper eye straight down. The fisheye
+  version of the pod (dropped) also saw 97 % of the band, but only at 14 cm
+  depth, and couldn't join the watch.
+
+**The pod electronics are what make a looking group work on a bending mast.**
+- **Flex:** without pod gyros, mast flex puts 850 urad (p95) between the
+  masthead and gooseneck pods. Stereo range at 2 km degrades from about 14 m
+  to 220 m.
+- **Gyros:** each pod's gyro between 5 Hz horizon fixes brings that to
+  57 urad.
+- **Timing:** PTP shutter sync matters just as much. Software timestamps
+  would add 370 urad at the mast's angular rates.
+- **Accelerometers alone don't work:** at the masthead they misjudge tilt by
+  28 deg (p95).
+
+**The budgets fail, and they are the next design problem (all REF numbers).**
+
+| Budget | gecko5 | Limit |
+|---|---|---|
+| Mass on the mast, masthead equivalent | 11.9 kg (17.8 kg total) | 4 kg |
+| Masthead pod peak draw | 81 W | 71.3 W, 802.3bt Type 4 |
+| Other pods peak draw | 68 W each | Type 4 |
+| House bank, watch / active | 13 / 32 A at 12.6 V | |
+| Energy per day underway (20 h watch, 4 h active) | 381 Ah | 120 Ah |
+
+Ways down:
+- Sleep the idle pods on watch.
+- Go lighter on the lower eyes, or drop the long PTZ at the masthead if a
+  drone takes over long-range search.
+- Power the masthead pod from two cables.
+
 ## Quickstart
 
 ```bash

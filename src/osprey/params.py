@@ -32,7 +32,8 @@ def _pod_stations(pod: dict, kit: dict) -> list[dict]:
     lower one is <id>-down. A lower PTZ serves the same zones as the upper; a
     fixed down-looking camera (a fisheye) serves the near zone only."""
     x, y, z = pod["pos_m"]
-    common = {"face_az_deg": pod["face_az_deg"], "on_mast": pod["on_mast"], "pod": pod["id"]}
+    common = {"face_az_deg": pod["face_az_deg"], "on_mast": pod["on_mast"], "pod": pod["id"],
+              "sector_deg": pod.get("sector_deg", 360.0)}
     return [
         {"id": pod["id"], "camera": pod["up"], "pos_m": [x, y, z + kit["up_dz_m"]],
          "zones": pod.get("zones", ["exterior", "deck"]), **common},

@@ -1,4 +1,6 @@
 """Looking groups: the reserve rule, group sizes and the calc checks."""
+import math
+
 import numpy as np
 
 from osprey import calcs, occlusion, tasking
@@ -61,3 +63,29 @@ def test_calc_runs_and_grades():
     assert {c.status for c in checks} <= {"PASS", "WARN", "FAIL", "INFO"}
     groups = {c.group for c in checks}
     assert {"Motion", "Stabilization", "Coverage", "Mass aloft", "Docking"} <= groups
+
+
+def test_sector_watch_never_leaves_a_bearing_unswept():
+    """Gecko pods watch by overlapping sectors: groups may take any eye, but
+    every bearing some camera can see keeps a watcher, every tick."""
+    p = _short(load("mob", rig="gecko5"), 20)
+    sim = tasking.Sim(p)
+    out = sim.run()
+    s = tasking.summary(out)
+    assert s["watch_full_frac"] == 1.0
+    assert s["tasks"]["mob"]["group_max"] == p.rig.max_group
+    assert s["tasks"]["buoy-2"]["starved_frac"] < 0.5        # the reserve rule starved it on mast5-spreaders
+    assert not sim.keeps_watch([])
+
+
+def test_eyes_of_one_pod_pair_without_mast_flex():
+    p = _short(load("mob", rig="gecko5"), 5)
+    sim = tasking.Sim(p)
+    task = sim.tasks[0]
+    by = {s.id: s for s in sim.sts}
+    a, b = sim.view(by["port"], task, 0.0), sim.view(by["port-down"], task, 0.0)
+    if a.ok and b.ok:
+        q_pod = sim.quality([a, b], task)
+        sim.pod_of["port-down"] = "elsewhere"                  # same geometry, treated as two pods
+        assert q_pod.range_sigma <= sim.quality([a, b], task).range_sigma
+    assert by["port"].in_sector(math.radians(90 + 55)) and not by["port"].in_sector(math.radians(90 + 65))

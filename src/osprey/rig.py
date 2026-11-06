@@ -20,6 +20,12 @@ class Station:
     on_mast: bool
     zones: tuple[str, ...]
     pod: str | None = None
+    sector: float = 2 * math.pi   # watch sector, full width, centred on face_az
+
+    def in_sector(self, az: np.ndarray) -> np.ndarray:
+        """Is a body azimuth inside the sector this camera sweeps on watch?"""
+        daz = np.angle(np.exp(1j * (np.asarray(az, float) - self.face_az)))
+        return np.abs(daz) <= self.sector / 2 + 1e-9
 
     @property
     def fixed(self) -> bool:
@@ -85,7 +91,8 @@ def stations(p) -> list[Station]:
     out = []
     for s in p.station:
         out.append(Station(s.id, s.camera, getattr(p.camera, s.camera), np.array(s.pos_m, float),
-                           math.radians(s.face_az_deg), s.on_mast, tuple(s.zones), getattr(s, "pod", None)))
+                           math.radians(s.face_az_deg), s.on_mast, tuple(s.zones), getattr(s, "pod", None),
+                           math.radians(getattr(s, "sector_deg", 360.0))))
     return out
 
 

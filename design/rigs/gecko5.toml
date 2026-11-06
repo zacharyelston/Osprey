@@ -9,12 +9,19 @@
 # An earlier version had a fixed down-looking fisheye as the lower eye; see
 # runs/2026-11-06_pods-fisheye-sweep for why it was dropped.
 #
+# Every pod faces outward from the mast and its eyes sweep a sector of
+# horizon (sector_deg, full width, centred on face_az_deg) that overlaps its
+# neighbours'; the masthead pod sweeps all of it. Watch is by sectors: any
+# eye can be slaved to a target, with its pod partner or with any neighbour
+# on the mast, as long as every bearing keeps a watcher.
+#
 # pos_m is the pod centre; the kit in design/electronics.toml offsets the
 # cameras above and below it.
 
 [rig]
 name = "gecko5"
-reserve = 1
+watch = "sectors"
+reserve = 0
 max_group = 4
 
 [[pod]]
@@ -26,6 +33,7 @@ down = "ptz_mid_down"
 pos_m = [0.5, 0.0, 18.75]
 face_az_deg = 0.0
 on_mast = true
+sector_deg = 360.0
 
 [[pod]]
 id = "fwd"
@@ -35,6 +43,7 @@ down = "ptz_mid_down"
 pos_m = [0.30, 0.0, 13.85]
 face_az_deg = 0.0
 on_mast = true
+sector_deg = 120.0
 
 [[pod]]
 id = "port"
@@ -44,6 +53,7 @@ down = "ptz_mid_down"
 pos_m = [0.0, 1.0, 12.25]
 face_az_deg = 90.0
 on_mast = true
+sector_deg = 120.0
 
 [[pod]]
 id = "stbd"
@@ -53,6 +63,7 @@ down = "ptz_mid_down"
 pos_m = [0.0, -1.0, 12.25]
 face_az_deg = -90.0
 on_mast = true
+sector_deg = 120.0
 
 # Under the gooseneck: the lower eye sees the cockpit and companionway.
 [[pod]]
@@ -63,3 +74,4 @@ down = "ptz_mid_down"
 pos_m = [-0.30, 0.0, 2.55]
 face_az_deg = 180.0
 on_mast = true
+sector_deg = 120.0

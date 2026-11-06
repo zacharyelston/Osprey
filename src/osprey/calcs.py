@@ -287,6 +287,14 @@ def run(p) -> list[Check]:
         two = (mask.sum(0) >= 2).mean()
         add(Check(G, "Horizon seen by two or more cameras", f"{two:.1%}", "", "INFO",
                   "where a looking group of 2+ is possible"))
+    if any(s.sector < 2 * math.pi - 1e-9 for s in sts):
+        az = np.radians(np.arange(0, 360, 1.0))
+        sec = mask & np.array([s.in_sector(az) for s in sts])
+        one, two = sec.any(0).mean(), (sec.sum(0) >= 2).mean()
+        add(Check(G, "Horizon inside a watch sector, unblocked", f"{one:.1%}", f">= {req.coverage_min:.0%}",
+                  _grade(one, req.coverage_min, req.coverage_min - 0.05, True), "every bearing has a camera sweeping it"))
+        add(Check(G, "Horizon inside two or more watch sectors", f"{two:.1%}", "", "INFO",
+                  "overlap: a camera can leave its sector for a group while a neighbour keeps the watch"))
 
     # Mass aloft
     G = "Mass aloft"

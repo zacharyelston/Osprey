@@ -80,7 +80,9 @@ def cmd_sim(p, args) -> int:
     out = tasking.Sim(p).run()
     s = tasking.summary(out)
     d = _outdir(args)
-    title = f"Looking groups: {args.scenario} on {args.rig_name} (reserve {p.rig.reserve}, max group {p.rig.max_group})"
+    policy = (f"watch by sectors" if getattr(p.rig, "watch", "reserve") == "sectors"
+              else f"reserve {p.rig.reserve}")
+    title = f"Looking groups: {args.scenario} on {args.rig_name} ({policy}, max group {p.rig.max_group})"
     figures.gantt(out, d / "groups.png", title)
     rows = []
     for tid, v in s["tasks"].items():
@@ -92,7 +94,11 @@ def cmd_sim(p, args) -> int:
     md = [f"# {title}", "",
           f"Generated {date.today().isoformat()} at {_sha()} by `uv run osprey sim --scenario {args.scenario} "
           f"--rig {args.rig_name}`.", "",
-          f"A camera always on watch: **{'yes' if s['always_watch'] else 'NO'}**", "",
+          f"A camera always on watch: **{'yes' if s['always_watch'] else 'NO'}**. "
+          f"Whole horizon swept: **{s['watch_full_frac']:.0%}** of the time (worst moment "
+          f"{s['watch_min_frac']:.0%}); worst-bearing revisit {s['revisit_median_s']:.0f} s median, "
+          f"{s['revisit_p95_s']:.0f} s p95. Pairs in groups: {s['pairs_in_pod']} within a pod, "
+          f"{s['pairs_across']} across pods (pair-ticks).", "",
           "| Task | Class | Need | Priority | Need met | Group median / max | px median | Range σ/R median | Starved |",
           "|---|---|---|---|---|---|---|---|---|", *rows, "",
           "| Station | Tasked | Slewing | Watch |", "|---|---|---|---|", *srows, "", "![groups](groups.png)", ""]
@@ -139,7 +145,8 @@ def cmd_sweep(args) -> int:
     with ProcessPoolExecutor(max_workers=args.workers) as ex:
         for argv, rc, _ in ex.map(_job, jobs):
             print(f"rc={rc}  {' '.join(argv[:5])}", flush=True)
-    rows = ["| Scenario | Rig | FAIL / WARN / PASS | Always a camera on watch | Task needs met |", "|---|---|---|---|---|"]
+    rows = ["| Scenario | Rig | FAIL / WARN / PASS | Always a camera on watch | Whole horizon swept | Task needs met |",
+            "|---|---|---|---|---|---|"]
     for sc in SCENARIOS:
         for rig in rigs:
             d = root / sc / rig
@@ -148,7 +155,8 @@ def cmd_sweep(args) -> int:
             sim = json.loads((d / "sim.json").read_text())["summary"]
             met = ", ".join(f"{t} {v['met_frac']:.0%}" for t, v in sim["tasks"].items())
             rows.append(f"| {sc} | {rig} | {n['FAIL']} / {n['WARN']} / {n['PASS']} | "
-                        f"{'yes' if sim['always_watch'] else 'NO'} | {met} |")
+                        f"{'yes' if sim['always_watch'] else 'NO'} | {sim['watch_full_frac']:.0%} "
+                        f"({sim['revisit_median_s']:.0f} s revisit) | {met} |")
     md = [f"# Osprey sweep", "", f"Generated {date.today().isoformat()} at {_sha()} by `uv run osprey sweep "
           f"--workers {args.workers}`.", "", *rows, ""]
     (root / "summary.md").write_text("\n".join(md))
