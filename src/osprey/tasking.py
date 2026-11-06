@@ -206,7 +206,11 @@ class Sim:
             jobs: dict[str, str] = {}
             for task in self.tasks:
                 if len(ids) - len(free) >= cap:
-                    break
+                    # Starved: higher priorities hold every camera but the reserve.
+                    log[task.id].append({"t": float(t), "group": [], "live": 0, "px": 0.0, "p_vis": 0.0,
+                                         "sigma": math.inf, "met": False, "starved": True,
+                                         "range": float(np.linalg.norm(task.pos(t) - self.boat_vel * t))})
+                    continue
                 views = {s.id: self.view(s, task, t) for s in self.sts if s.id in free}
                 cands = [sid for sid, v in views.items() if v.ok]
                 score = {sid: views[sid].px * views[sid].p_vis * (1.5 if prev_job[sid] == task.id else 1.0)
@@ -281,6 +285,7 @@ def summary(out: dict) -> dict:
         fin = np.isfinite(sig)
         res[tid] = {"met_frac": float(met.mean()), "group_median": float(np.median(gs)),
                     "group_max": int(gs.max()), "px_median": float(np.median([r["px"] for r in rows])),
+                    "starved_frac": float(np.mean([r.get("starved", False) for r in rows])),
                     "sigma_frac_median": float(np.median(sig[fin] / rng[fin])) if fin.any() else math.inf}
     n = len(out["t"])
     st = {}

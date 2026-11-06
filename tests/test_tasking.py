@@ -24,6 +24,17 @@ def test_reserve_always_watches_and_mob_takes_the_max_group():
                for r in out["tasks"]["mob"])
 
 
+def test_lower_tasks_are_logged_when_starved():
+    """On the spreader rig the MOB group takes all four non-reserve cameras;
+    the buoy must still get a row every tick, marked starved."""
+    p = _short(load("mob", rig="mast5-spreaders"), 20)
+    out = tasking.Sim(p).run()
+    n = len(out["t"])
+    assert all(len(rows) == n for rows in out["tasks"].values())
+    s = tasking.summary(out)
+    assert s["tasks"]["buoy-2"]["starved_frac"] > 0
+
+
 def test_min_groups_stop_once_the_need_is_met():
     p = _short(load("coastal-watch"), 20)
     out = tasking.Sim(p).run()

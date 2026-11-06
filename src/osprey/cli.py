@@ -84,14 +84,14 @@ def cmd_sim(p, args) -> int:
         m = out["task_meta"][tid]
         rows.append(f"| {tid} | {m['cls'].replace('_', ' ')} | {m['need']} | {m['priority']} | {v['met_frac']:.0%} | "
                     f"{v['group_median']:.0f} / {v['group_max']} | {v['px_median']:.0f} | "
-                    f"{v['sigma_frac_median']:.1%} |")
+                    f"{v['sigma_frac_median']:.1%} | {v['starved_frac']:.0%} |")
     srows = [f"| {sid} | {v['tasked']:.0%} | {v['slew']:.0%} | {v['watch']:.0%} |" for sid, v in s["stations"].items()]
     md = [f"# {title}", "",
           f"Generated {date.today().isoformat()} at {_sha()} by `uv run osprey sim --scenario {args.scenario} "
           f"--rig {args.rig_name}`.", "",
           f"A camera always on watch: **{'yes' if s['always_watch'] else 'NO'}**", "",
-          "| Task | Class | Need | Priority | Need met | Group median / max | px median | Range σ/R median |",
-          "|---|---|---|---|---|---|---|---|", *rows, "",
+          "| Task | Class | Need | Priority | Need met | Group median / max | px median | Range σ/R median | Starved |",
+          "|---|---|---|---|---|---|---|---|---|", *rows, "",
           "| Station | Tasked | Slewing | Watch |", "|---|---|---|---|", *srows, "", "![groups](groups.png)", ""]
     (d / "sim.md").write_text("\n".join(md))
     (d / "sim.json").write_text(json.dumps({"summary": s, "tasks": out["tasks"]}, indent=1, default=float))
