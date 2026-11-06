@@ -10,7 +10,10 @@ import sys
 from datetime import date
 from pathlib import Path
 
+from types import SimpleNamespace
+
 from osprey import calcs, figures, motion, tasking
+from osprey.rig import stations
 from osprey.params import OUT, RIGS, ROOT, SCENARIOS, load
 
 COLS = ("status", "group", "check", "value", "limit", "note")
@@ -104,6 +107,9 @@ def cmd_render(p, args) -> int:
     from osprey.render import scene
 
     d = _outdir(args) / "render"
+    if args.aims == "optimized":
+        aims, focals = calcs.optimize_aims(p, [s for s in stations(p) if {"exterior", "near"} & set(s.zones)])
+        p.render.aim, p.render.focal_mm = SimpleNamespace(**aims), SimpleNamespace(**focals)
     info = scene.render(p, d, seconds=args.seconds, fps=args.fps, scale=args.scale)
     print(f"rendered {info['frames']} frames x {len(info['cameras'])} cameras ({info['backend']}) -> {d}")
     return 0
@@ -160,6 +166,8 @@ def main(argv=None) -> int:
     ap.add_argument("--seconds", type=float, default=6.0, help="render: clip length")
     ap.add_argument("--fps", type=float, default=5.0, help="render: frames per second")
     ap.add_argument("--scale", type=float, default=0.25, help="render: fraction of each camera's native resolution")
+    ap.add_argument("--aims", choices=["scenario", "optimized"], default="scenario",
+                    help="render: PTZ aims from the scenario file, or optimized for two-view docking coverage")
     ap.add_argument("--workers", type=int, default=8, help="sweep: parallel processes")
     args = ap.parse_args(argv)
     if args.cmd == "sweep":

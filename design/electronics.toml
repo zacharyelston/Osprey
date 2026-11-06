@@ -16,6 +16,16 @@ pd_efficiency = 0.90       # PoE PD 54 V -> 12 V conversion inside the pod
 up_dz_m = 0.18             # PTZ optical centre above the pod centre
 down_dz_m = -0.14
 
+# Gecko pod: a PTZ above and another hung below, each pointing on its own.
+[kit.gecko]
+soc = "orin_nx"
+imu = "mems_industrial"
+housing_kg = 0.60
+housing_radius_m = 0.10
+pd_efficiency = 0.90
+up_dz_m = 0.18
+down_dz_m = -0.18
+
 [kit.lean]
 soc = "rk3588"
 imu = "mems_industrial"

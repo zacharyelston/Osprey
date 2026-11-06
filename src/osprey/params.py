@@ -28,15 +28,17 @@ def _toml(path: Path) -> dict:
 
 
 def _pod_stations(pod: dict, kit: dict) -> list[dict]:
-    """A pod's two cameras as stations: the PTZ on top keeps the pod's id, the
-    down-looking fisheye is <id>-down and serves the near zone."""
+    """A pod's two cameras as stations: the upper one keeps the pod's id, the
+    lower one is <id>-down. A lower PTZ serves the same zones as the upper; a
+    fixed down-looking camera (a fisheye) serves the near zone only."""
     x, y, z = pod["pos_m"]
     common = {"face_az_deg": pod["face_az_deg"], "on_mast": pod["on_mast"], "pod": pod["id"]}
     return [
         {"id": pod["id"], "camera": pod["up"], "pos_m": [x, y, z + kit["up_dz_m"]],
          "zones": pod.get("zones", ["exterior", "deck"]), **common},
         {"id": f"{pod['id']}-down", "camera": pod["down"], "pos_m": [x, y, z + kit["down_dz_m"]],
-         "zones": ["near", "deck"], **common},
+         "zones": pod.get("down_zones", ["near", "deck"] if pod["down"].startswith("fisheye")
+                          else pod.get("zones", ["exterior", "deck"])), **common},
     ]
 
 

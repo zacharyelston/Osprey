@@ -1,0 +1,65 @@
+# Gecko pods at the mast5-spreaders positions: a pair of eyes on each pod,
+# one PTZ on top and one hung underneath, each pointing on its own, with a
+# SOC, a 6-axis IMU and a PoE PD between them on one gigabit cable. The upper
+# PTZ keeps the pod's id (so scenario aims still apply); the lower is
+# "<id>-down". The pod hides the nadir from the upper eye and the sky from the
+# lower one, so between them the pair covers everything from straight down to
+# 30 deg up. Both eyes serve the horizon watch, docking and the deck.
+#
+# An earlier version had a fixed down-looking fisheye as the lower eye; see
+# runs/2026-11-06_pods-fisheye-sweep for why it was dropped.
+#
+# pos_m is the pod centre; the kit in design/electronics.toml offsets the
+# cameras above and below it.
+
+[rig]
+name = "gecko5"
+reserve = 1
+max_group = 4
+
+[[pod]]
+id = "top"
+kit = "gecko"
+up = "ptz_long"
+down = "ptz_mid_down"
+# On the 0.5 m forward crane, clear of the mast cap.
+pos_m = [0.5, 0.0, 18.75]
+face_az_deg = 0.0
+on_mast = true
+
+[[pod]]
+id = "fwd"
+kit = "gecko"
+up = "ptz_mid"
+down = "ptz_mid_down"
+pos_m = [0.30, 0.0, 13.85]
+face_az_deg = 0.0
+on_mast = true
+
+[[pod]]
+id = "port"
+kit = "gecko"
+up = "ptz_mid"
+down = "ptz_mid_down"
+pos_m = [0.0, 1.0, 12.25]
+face_az_deg = 90.0
+on_mast = true
+
+[[pod]]
+id = "stbd"
+kit = "gecko"
+up = "ptz_mid"
+down = "ptz_mid_down"
+pos_m = [0.0, -1.0, 12.25]
+face_az_deg = -90.0
+on_mast = true
+
+# Under the gooseneck: the lower eye sees the cockpit and companionway.
+[[pod]]
+id = "aft"
+kit = "gecko"
+up = "ptz_mid"
+down = "ptz_mid_down"
+pos_m = [-0.30, 0.0, 2.55]
+face_az_deg = 180.0
+on_mast = true

@@ -40,6 +40,12 @@ fwd = [6.5, 0.0, 0.0]
 port = [-1.0, 3.2, 0.0]
 stbd = [-1.0, -3.2, 0.0]
 aft = [-9.0, 0.0, 0.0]
+# The lower eyes of gecko pods (ignored by rigs without them).
+top-down = [-1.0, 0.0, 0.0]
+fwd-down = [4.0, -2.5, 0.0]
+port-down = [-3.0, 3.2, 0.0]
+stbd-down = [-3.0, -3.2, 0.0]
+aft-down = [-5.0, 0.0, 0.0]
 
 [render.focal_mm]
 top = 6.5
@@ -47,3 +53,8 @@ fwd = 6.0
 port = 4.8
 stbd = 4.8
 aft = 6.0
+top-down = 4.8
+fwd-down = 4.8
+port-down = 4.8
+stbd-down = 4.8
+aft-down = 4.8

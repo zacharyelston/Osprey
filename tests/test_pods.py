@@ -1,4 +1,5 @@
-"""Two-sided pods: a PTZ on top, a fisheye underneath, electronics between."""
+"""Gecko pods: a PTZ on top, another hung underneath, electronics between.
+Also the fisheye camera class, which pods used before gecko eyes."""
 import math
 
 import numpy as np
@@ -6,24 +7,28 @@ import numpy as np
 from osprey import calcs, occlusion
 from osprey.params import load
 from osprey.render import scene
-from osprey.rig import pods, stations
+from osprey.rig import Station, pods, stations
+
+
+def _fisheye(p, z=12.0):
+    return Station("fe", "fisheye_down", p.camera.fisheye_down, np.array([0.0, 1.0, z]), 0.0, True, ("near",))
 
 
 def test_pods_expand_into_two_cameras_each():
-    p = load("docking", rig="pods5")
+    p = load("docking", rig="gecko5")
     sts = {s.id: s for s in stations(p)}
     assert len(sts) == 10
     for pd in pods(p):
         up, down = sts[pd.id], sts[f"{pd.id}-down"]
         assert up.pos[2] > pd.pos[2] > down.pos[2]
-        assert "exterior" in up.zones and down.zones == ("near", "deck")
-        assert down.fisheye and not up.fisheye
+        assert "exterior" in up.zones and "exterior" in down.zones
+        assert not up.fixed and not down.fixed
         assert {s.id for s in pd.members} == {up.id, down.id}
 
 
 def test_fisheye_sees_a_hemisphere_and_more():
-    p = load("docking", rig="pods5")
-    fe = next(s for s in stations(p) if s.fisheye)
+    p = load("docking", rig="gecko5")
+    fe = _fisheye(p)
     assert fe.can_point(0.0, math.radians(-89)).all()
     assert fe.can_point(np.radians([0, 90, 180]), np.radians([2, 2, 2])).all()   # 190 deg: just above level
     assert not fe.can_point(0.0, math.radians(10)).any()
@@ -31,20 +36,25 @@ def test_fisheye_sees_a_hemisphere_and_more():
     assert calcs.in_fov(fe, fe.pos + fe.boresight, fe.f_min, pts).tolist() == [True, False]
 
 
-def test_housing_hides_the_nadir_from_the_ptz_not_the_fisheye():
-    p = load("docking", rig="pods5")
+def test_the_pod_splits_the_sphere_between_its_eyes():
+    """The pod hides the nadir from the upper eye and the zenith from the lower;
+    both see the horizon."""
+    p = load("docking", rig="gecko5")
     occ = occlusion.build(p, sail="down")
     sts = {s.id: s for s in stations(p)}
-    below = sts["port"].pos - [0, 0, 5.0]
-    assert occ.blocked(sts["port"].pos, below[None], hull=False)[0]
-    assert not occ.blocked(sts["port-down"].pos, below[None], hull=False)[0]
-    level = sts["port"].pos + [0, 50.0, 0]
-    assert not occ.blocked(sts["port"].pos, level[None], hull=False)[0]
+    up, down = sts["port"], sts["port-down"]
+    below, above = up.pos - [0, 0, 5.0], up.pos + [0, 0, 5.0]
+    assert occ.blocked(up.pos, below[None], hull=False)[0]
+    assert not occ.blocked(down.pos, below[None], hull=False)[0]
+    assert occ.blocked(down.pos, above[None], hull=False)[0]
+    level = up.pos + [0, 50.0, 0]
+    assert not occ.blocked(up.pos, level[None], hull=False)[0]
+    assert not occ.blocked(down.pos, level[None], hull=False)[0]
 
 
 def test_fisheye_lut_matches_the_projection():
-    p = load("docking", rig="pods5")
-    fe = next(s for s in stations(p) if s.fisheye)
+    p = load("docking", rig="gecko5")
+    fe = _fisheye(p)
     size, face_px = 400, 240
     lut = scene._fisheye_lut(fe, size, face_px)
     assert lut["face"][size // 2, size // 2] == 0                    # the centre looks down the boresight
@@ -64,7 +74,7 @@ def test_fisheye_lut_matches_the_projection():
 
 
 def test_pod_checks_report_power_network_and_flex():
-    p = load("coastal-watch", rig="pods5")
+    p = load("coastal-watch", rig="gecko5")
     checks = calcs.run(p)
     groups = {c.group for c in checks}
     assert {"Pod power", "Pod network", "Pod timing"} <= groups
@@ -72,7 +82,10 @@ def test_pod_checks_report_power_network_and_flex():
     flex = next(c for n, c in by.items() if n.startswith("Mast flex"))
     gyro = by["Relative orientation with pod gyros between horizon fixes"]
     assert float(flex.value.split()[0]) > float(gyro.value.split()[0])
-    assert all(c.status == "PASS" for c in checks if c.name.endswith("peak draw at the PoE port"))
+    poe = [c for c in checks if c.name.endswith("peak draw at the PoE port")]
+    assert len(poe) == len(pods(p))
+    for c in poe:                                    # PASS exactly when one PoE class can feed the pod
+        assert (c.status == "PASS") == (float(c.value.split()[0]) <= 71.3)
 
 
 def test_rigs_without_pods_skip_the_pod_checks():

@@ -117,7 +117,8 @@ def in_fov(s: Station, aim_body: np.ndarray, focal_mm: float, pts: np.ndarray) -
 def optimize_aims(p, sts: list[Station], rounds: int = 3) -> tuple[dict, dict]:
     """Coordinate descent over each PTZ's aim point (on the water) and zoom to
     maximize the fraction of the docking band seen by two or more cameras.
-    Fixed cameras keep their mount direction."""
+    Fixed cameras keep their mount direction. A PTZ that adds nothing is sent
+    back to watch the horizon (its aim is then far out, at its own height)."""
     occ = occlusion.build(p, sail="down")
     pts = dock_band(p)
     b = p.boat
@@ -148,6 +149,12 @@ def optimize_aims(p, sts: list[Station], rounds: int = 3) -> tuple[dict, dict]:
                     if sc > best[0] + 1e-9:
                         best = (sc, a, f, m)
             _, aims[s.id], focals[s.id], masks[s.id] = best
+    for s in sorted(movable, key=lambda s: masks[s.id].sum()):
+        trial = {**masks, s.id: np.zeros_like(masks[s.id])}
+        if score(trial) >= score(masks) - 1e-9:   # adds nothing to docking: keep watch on the horizon
+            masks = trial
+            aims[s.id] = s.pos + frames.direction(s.face_az, 0.0) * 1000
+            focals[s.id] = s.f_min
     return {k: v.tolist() for k, v in aims.items()}, focals
 
 
@@ -317,8 +324,10 @@ def run(p) -> list[Check]:
         add(Check(G, "Same, with aims optimized for two views", f"{(dko['count'] >= 2).mean():.1%}",
                   f">= {req.dock_two_view_min:.0%}", _grade(float((dko['count'] >= 2).mean()), req.dock_two_view_min,
                                                               req.dock_two_view_min - 0.15, True),
-                  f"hull edge with a stereo pair: {np.isfinite(e).mean():.0%}; aims: " +
-                  ", ".join(f"{k} ({v[0]:.0f}, {v[1]:.0f}) @ {focals[k]:.1f} mm" for k, v in aims.items())))
+                  f"hull edge with a stereo pair: {np.isfinite(e).mean():.0%}, depth p95 "
+                  f"{np.percentile(e[np.isfinite(e)], 95) * 100 if np.isfinite(e).any() else math.inf:.1f} cm; aims: " +
+                  ", ".join(f"{k} watch" if v[2] > 0 else f"{k} ({v[0]:.0f}, {v[1]:.0f}) @ {focals[k]:.1f} mm"
+                            for k, v in aims.items())))
         for s in sts:
             if s.id not in vars(p.render.aim):
                 continue
