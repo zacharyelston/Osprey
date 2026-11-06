@@ -1,0 +1,75 @@
+# Osprey Recon reference airframe: a printed, electric fixed-wing pusher,
+# launched from the boat and recovered to it. Every number is REF for the
+# class of part, not a product. The sizing loop (osprey recon-size) changes
+# the wing, the spar, the battery and the search speed; everything else here
+# is held fixed.
+
+[layout]
+label = "Printed fixed-wing pusher: LW-PLA shell wing on a carbon tube spar, one motor"
+
+[wing]
+num_y = 9                  # spanwise mesh nodes across the half wing (symmetric)
+num_x = 2
+span_m = 2.0               # starting point for the optimizer
+root_chord_m = 0.24
+t_over_c = 0.12
+span_bounds_m = [1.2, 3.2]
+chord_scale_bounds = [0.4, 1.4]   # per control point, on root_chord_m
+cl_max = 1.15              # clean, low-Reynolds printed section
+re_min = 150000.0          # chord Reynolds number floor at the search speed: below it a
+                           # printed section's drag rises faster than the model knows
+k_lam = 0.10               # laminar fraction: printed skins trip early
+cd0_extra = 0.004          # surface finish and joints of a printed skin
+fem_origin = 0.30          # spar at 30 % chord
+
+[spar]                     # carbon fibre tube, quasi-isotropic layup
+E_pa = 70e9
+G_pa = 5e9
+yield_pa = 600e6
+safety_factor = 1.5
+density_kgm3 = 1550.0
+radius_m = 0.008
+radius_bounds_m = [0.004, 0.014]
+wall_m = 0.0008
+wall_bounds_m = [0.0005, 0.003]
+clearance_m = 0.002        # skin and sleeve between the tube and the outer surface
+
+[skin]                     # printed shell: foaming LW-PLA, one wall, plus ribs
+density_kgm3 = 540.0
+wall_m = 0.0006
+rib_fraction = 0.30        # ribs, spar sleeve and panel joints, as a fraction of the shell
+
+[body]
+mass_kg = 0.45             # fuselage pod, tail booms and surfaces, servos, wiring
+cda_m2 = 0.010             # fuselage, tail and gimbal drag area
+
+[propulsion]
+battery_wh_per_kg = 200.0  # Li-ion, pack level
+battery_usable = 0.80
+battery_kg = 0.8
+battery_bounds_kg = [0.15, 3.0]
+prop_efficiency = 0.62
+motor_efficiency = 0.85
+motor_kg = 0.18            # motor, ESC and prop
+motor_peak_w = 400.0       # shaft power, for climb
+
+[avionics]
+mass_kg = 0.20             # autopilot, GNSS, radio and video downlink
+power_w = 8.0
+
+[payload]
+camera = "recon_eo"        # design/cameras.toml; its mass_kg is the gimbal's
+search_focal_mm = 8.0
+depression_deg = 35.0      # search look angle below the horizon
+detector_recall = 0.90     # per pass, when the target is resolved and not behind a crest
+
+[limits]
+stall_speed_max_ms = 12.0  # net or hand recovery on a moving boat
+search_speed_bounds_ms = [12.0, 30.0]
+stall_margin = 1.25        # search speed >= this x stall speed, banked at bank_max_deg
+load_factor = 3.0          # sizing manoeuvre and gust
+bank_max_deg = 35.0
+
+[print]
+bed_m = [0.22, 0.22, 0.25]  # build volume x, y, z; wing panels print span-wise along z
+chord_margin_m = 0.02       # the section must fit the bed diagonal with this margin

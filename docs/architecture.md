@@ -36,8 +36,8 @@ Instead the work is split:
   up the residual on the long lens.
 - **Software:** solves each frame's pose from things in the image. At sea the
   horizon gives roll and pitch. In harbour the deck, a rigid body of known
-  shape, gives the full 6-DoF masthead pose relative to the hull, the way
-  hydra-vision's Pointer engine registers against a fiducial map.
+  shape, gives the full 6-DoF masthead pose relative to the hull, by
+  registering against it like a fiducial map.
 
 The pose chain is world, then hull (deck GNSS and IMU), then masthead (deck
 registration), then each camera.

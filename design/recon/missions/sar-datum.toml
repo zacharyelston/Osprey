@@ -1,0 +1,25 @@
+# Man overboard noticed late: the person is about 3 km astern. Recon launches
+# from the boat, flies to the datum, runs an expanding-square search drifting
+# with the water, and returns to the boat, which has turned back to the datum.
+
+[mission]
+name = "sar-datum"
+label = "MOB 3 km astern, sea state 3, 15 kn wind"
+sea_state = "ss3"
+visibility_km = 10.0
+target = "person_in_water"
+boat_speed_kn = 6.0
+boat_mode = "return"        # after launch: "return" to the datum and heave to, or "sail" on
+boat_heading_deg = 0.0
+datum_range_m = 3000.0
+datum_bearing_deg = 180.0  # from the boat at launch, true
+datum_sigma_m = 150.0      # 1-sigma error of the datum: late notice, drift and navigation
+drift_ms = [0.25, 0.15]    # current and leeway carrying the person, east and north
+wind_from_deg = 90.0
+wind_kn = 15.0
+cruise_alt_m = 100.0
+search_alt_m = 80.0             # 120 m is the usual drone ceiling
+search_pod = 0.90          # stop searching once the probability of detection reaches this
+search_time_max_s = 1800.0
+reserve_frac = 0.20        # energy kept for the return, beyond the estimate
+recovery_radius_m = 30.0

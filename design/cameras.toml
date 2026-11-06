@@ -103,3 +103,20 @@ exposure_ms = 1.0
 mass_kg = 1.2
 power_w = [5.0, 18.0]
 stabilization = { outer_hz = 3.0, inner_hz = 0.0, inner_stroke_deg = 0.0, floor_urad = 60.0 }
+
+# Osprey Recon's search camera: a small 3-axis gimbal under the drone. It
+# searches at a fixed wide focal length (search_focal_mm in the airframe) and
+# zooms to confirm.
+[camera.recon_eo]
+label = "Drone gimbal EO camera (1/2.3 in 12 MP, 6-30 mm)"
+width_px = 4056
+height_px = 3040
+pixel_um = 1.55
+focal_mm = [6.0, 30.0]
+tilt_deg = [-90.0, 0.0]
+slew_dps = 120.0
+zoom_s = 1.5
+exposure_ms = 1.0
+mass_kg = 0.35
+power_w = [4.0, 6.0]
+stabilization = { outer_hz = 6.0, inner_hz = 0.0, inner_stroke_deg = 0.0, floor_urad = 100.0 }
