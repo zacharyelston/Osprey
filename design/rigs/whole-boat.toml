@@ -1,0 +1,42 @@
+# The whole-boat expansion: the mast5 rig plus deck-level and interior
+# cameras. Every camera feeds the same tasking and CV pipeline; a station only
+# takes tasks in the zones it lists. The reserve rule applies to the
+# exterior-capable cameras.
+
+[rig]
+name = "whole-boat"
+include = "mast5"
+reserve = 1
+max_group = 4
+
+[[station]]
+id = "bow"
+camera = "fixed_wide"
+pos_m = [4.3, 0.0, 2.2]
+face_az_deg = 0.0
+on_mast = false
+zones = ["exterior", "deck"]
+
+[[station]]
+id = "stern"
+camera = "fixed_wide"
+pos_m = [-7.3, 0.0, 3.2]
+face_az_deg = 180.0
+on_mast = false
+zones = ["exterior", "deck"]
+
+[[station]]
+id = "saloon"
+camera = "dome_interior"
+pos_m = [-1.5, 0.0, 2.6]
+face_az_deg = 0.0
+on_mast = false
+zones = ["interior"]
+
+[[station]]
+id = "engine"
+camera = "dome_interior"
+pos_m = [-3.2, 0.0, 0.9]
+face_az_deg = 180.0
+on_mast = false
+zones = ["interior"]

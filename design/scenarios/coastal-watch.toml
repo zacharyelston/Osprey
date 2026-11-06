@@ -1,0 +1,66 @@
+# Coastal passage under sail, moderate sea: the spotting and inspection case.
+
+[scenario]
+name = "coastal-watch"
+rig = "mast5"
+sea_state = "ss4"
+sail = "main+jib"         # down | main | main+jib
+heel_deg = 15.0           # steady heel, + = starboard down (wind from port)
+wave_rel_deg = 60.0       # wave direction relative to the bow, 0 = head seas
+boat_speed_kn = 6.5
+heading_deg = 0.0
+duration_s = 600
+dt_s = 1.0
+visibility_km = 15.0
+seed = 7
+
+# What the system must do in this scenario (calc checks).
+[requirement]
+detect_m = { person_in_water = 1000, lobster_buoy = 500, sailboat_30ft = 8000, ship = 15000 }
+blur_px_max = 1.0
+coverage_min = 0.98       # horizon fraction seen by at least one camera
+
+# Targets start at a range and nautical relative bearing (0 = bow, 90 =
+# starboard) and move on a true course at a speed. need: detect | recognize |
+# identify; range_frac optional, the 1-sigma range precision wanted.
+[[target]]
+id = "buoy-1"
+kind = "lobster_buoy"
+range_m = 700
+bearing_deg = 5
+course_deg = 0
+speed_kn = 0
+priority = 1
+need = "recognize"
+
+[[target]]
+id = "kayak"
+kind = "kayak"
+range_m = 1800
+bearing_deg = 25
+course_deg = 270
+speed_kn = 3
+priority = 2
+need = "recognize"
+range_frac = 0.05
+
+[[target]]
+id = "ferry"
+kind = "ship"
+range_m = 9000
+bearing_deg = 40
+course_deg = 250
+speed_kn = 16
+priority = 3
+need = "recognize"
+range_frac = 0.10
+
+[[target]]
+id = "sloop"
+kind = "sailboat_30ft"
+range_m = 4000
+bearing_deg = -60
+course_deg = 20
+speed_kn = 6
+priority = 4
+need = "identify"

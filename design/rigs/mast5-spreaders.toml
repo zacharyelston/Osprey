@@ -1,0 +1,51 @@
+# Variant of mast5: the port and starboard cameras move from brackets on the
+# mast to the upper spreader tips. Outboard of the sails, the leeward camera
+# can see past the jib and main, which on mast brackets hide the whole lee
+# side from every camera but the masthead PTZ. The tips also give the
+# docking stereo pair a 1.9 m baseline.
+
+[rig]
+name = "mast5-spreaders"
+reserve = 1
+max_group = 4
+
+[[station]]
+id = "top"
+camera = "ptz_long"
+# On a 0.5 m forward crane: straight down from the truck it would see its own mast cap.
+pos_m = [0.5, 0.0, 18.9]
+face_az_deg = 0.0
+on_mast = true
+zones = ["exterior", "deck"]
+
+[[station]]
+id = "fwd"
+camera = "ptz_mid"
+pos_m = [0.30, 0.0, 14.0]
+face_az_deg = 0.0
+on_mast = true
+zones = ["exterior", "deck"]
+
+[[station]]
+id = "port"
+camera = "ptz_mid"
+pos_m = [0.0, 1.0, 12.4]
+face_az_deg = 90.0
+on_mast = true
+zones = ["exterior", "deck"]
+
+[[station]]
+id = "stbd"
+camera = "ptz_mid"
+pos_m = [0.0, -1.0, 12.4]
+face_az_deg = -90.0
+on_mast = true
+zones = ["exterior", "deck"]
+
+[[station]]
+id = "aft"
+camera = "ptz_mid"
+pos_m = [-0.30, 0.0, 2.7]
+face_az_deg = 180.0
+on_mast = true
+zones = ["exterior", "deck"]

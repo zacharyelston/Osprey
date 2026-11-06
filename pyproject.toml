@@ -1,0 +1,26 @@
+[project]
+name = "osprey"
+version = "0.1.0"
+description = "Osprey: mast-mounted multi-camera vision for sailboats: models, simulations and synthetic data"
+authors = [
+    { name = "Zac Elston", email = "zacharyelston@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "matplotlib>=3.9",
+    "mujoco>=3.3.0",
+    "numpy>=2.0",
+    "pillow>=11.0",
+]
+
+[project.scripts]
+osprey = "osprey.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.9.18,<0.11.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+]

@@ -1,0 +1,60 @@
+# Camera models. Each is a class of hardware, not a product: the numbers are
+# REF values typical of the class. Stations in design/rigs/ pick one by key.
+#
+# stabilization: outer_hz is the 2-axis gimbal loop bandwidth (0 = none),
+# inner_hz the fast small-angle stage (sensor shift or steering mirror, 0 = none)
+# with +/- inner_stroke_deg of travel, floor_urad the residual noise floor.
+
+[camera.ptz_long]
+label = "Long-zoom PTZ, gyro-stabilized (1/1.8 in 4K, 6.5-200 mm)"
+width_px = 3840
+height_px = 2160
+pixel_um = 2.0
+focal_mm = [6.5, 200.0]
+tilt_deg = [-90.0, 30.0]
+slew_dps = 120.0
+zoom_s = 3.0
+exposure_ms = 1.0
+mass_kg = 2.4
+stabilization = { outer_hz = 4.0, inner_hz = 60.0, inner_stroke_deg = 1.5, floor_urad = 15.0 }
+
+[camera.ptz_mid]
+label = "Mid-zoom PTZ, gimbal-levelled (1/2.8 in 4K, 4.8-120 mm)"
+width_px = 3840
+height_px = 2160
+pixel_um = 1.45
+focal_mm = [4.8, 120.0]
+tilt_deg = [-90.0, 30.0]
+slew_dps = 90.0
+zoom_s = 2.5
+exposure_ms = 1.0
+mass_kg = 1.2
+stabilization = { outer_hz = 3.0, inner_hz = 0.0, inner_stroke_deg = 0.0, floor_urad = 60.0 }
+
+[camera.fixed_wide]
+label = "Fixed wide, unstabilized (1/2.8 in 4K, 2.8 mm)"
+width_px = 3840
+height_px = 2160
+pixel_um = 1.45
+focal_mm = [2.8, 2.8]
+tilt_deg = [-30.0, -30.0]
+fixed = true
+slew_dps = 0.0
+zoom_s = 0.0
+exposure_ms = 2.0
+mass_kg = 0.4
+stabilization = { outer_hz = 0.0, inner_hz = 0.0, inner_stroke_deg = 0.0, floor_urad = 0.0 }
+
+[camera.dome_interior]
+label = "Interior dome, fixed (1/2.9 in 1080p fisheye-ish 1.6 mm)"
+width_px = 1920
+height_px = 1080
+pixel_um = 2.9
+focal_mm = [1.6, 1.6]
+tilt_deg = [-60.0, -60.0]
+fixed = true
+slew_dps = 0.0
+zoom_s = 0.0
+exposure_ms = 8.0
+mass_kg = 0.3
+stabilization = { outer_hz = 0.0, inner_hz = 0.0, inner_stroke_deg = 0.0, floor_urad = 0.0 }

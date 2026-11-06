@@ -1,0 +1,49 @@
+# Docking into a slip, sails down, in a marina: the look-down case. The boat
+# comes alongside a finger pier to starboard with another boat to port.
+
+[scenario]
+name = "docking"
+rig = "mast5"
+sea_state = "ss1"
+sail = "down"
+heel_deg = 0.0
+wave_rel_deg = 90.0
+boat_speed_kn = 0.8
+heading_deg = 0.0
+duration_s = 60
+dt_s = 0.5
+visibility_km = 10.0
+seed = 3
+
+[requirement]
+blur_px_max = 1.0
+coverage_min = 0.95
+dock_band_m = 3.0          # watch this band of water around the hull
+dock_stereo_cm = 5.0       # 1-sigma depth wanted at the hull edge
+dock_two_view_min = 0.90   # fraction of the band seen by >= 2 cameras
+
+[dock]
+# Pier and pilings, world frame at t = 0 (boat at the origin heading north).
+pier_offset_m = 0.8        # gap from the hull's max beam to the finger pier
+pier_width_m = 1.2
+pier_length_m = 12.0
+pier_height_m = 0.6        # deck above the water
+piling_radius_m = 0.15
+neighbour_offset_m = 1.0   # gap to the boat on the port side
+neighbour_beam_m = 3.6
+neighbour_loa_m = 11.0
+
+# Where each station looks during docking (body-frame aim point, metres).
+[render.aim]
+top = [-1.0, 0.0, 0.0]
+fwd = [6.5, 0.0, 0.0]
+port = [-1.0, 3.2, 0.0]
+stbd = [-1.0, -3.2, 0.0]
+aft = [-9.0, 0.0, 0.0]
+
+[render.focal_mm]
+top = 6.5
+fwd = 6.0
+port = 4.8
+stbd = 4.8
+aft = 6.0

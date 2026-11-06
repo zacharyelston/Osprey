@@ -1,0 +1,58 @@
+# The Osprey mast rig: one long-zoom PTZ at the masthead and four mid-zoom
+# PTZs around the mast at staggered lower heights. Any 1-4 of them can form a
+# looking group on one target; `reserve` cameras always stay out of groups and
+# keep watch.
+#
+# pos_m is in the body frame (x forward, y port, z up from the waterline).
+# face_az_deg is the direction the bracket faces, CCW from the bow (port +).
+# zones lists what a station can serve: exterior (water, horizon, dock),
+# deck (crew and gear on deck), interior.
+
+[rig]
+name = "mast5"
+reserve = 1
+max_group = 4
+
+[[station]]
+id = "top"
+camera = "ptz_long"
+# On a 0.5 m forward crane: straight down from the truck it would see its own mast cap.
+pos_m = [0.5, 0.0, 18.9]
+face_az_deg = 0.0
+on_mast = true
+zones = ["exterior", "deck"]
+
+[[station]]
+id = "fwd"
+camera = "ptz_mid"
+pos_m = [0.30, 0.0, 14.0]
+face_az_deg = 0.0
+on_mast = true
+zones = ["exterior", "deck"]
+
+[[station]]
+id = "port"
+camera = "ptz_mid"
+pos_m = [0.0, 0.30, 11.0]
+face_az_deg = 90.0
+on_mast = true
+zones = ["exterior", "deck"]
+
+[[station]]
+id = "stbd"
+camera = "ptz_mid"
+pos_m = [0.0, -0.30, 11.0]
+face_az_deg = -90.0
+on_mast = true
+zones = ["exterior", "deck"]
+
+# The mast's aft face carries the mainsail track up to the gooseneck, so the
+# aft camera sits just under it: low, but it sees the cockpit, the stern and
+# the water astern under the boom.
+[[station]]
+id = "aft"
+camera = "ptz_mid"
+pos_m = [-0.30, 0.0, 2.7]
+face_az_deg = 180.0
+on_mast = true
+zones = ["exterior", "deck"]

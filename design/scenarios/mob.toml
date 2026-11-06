@@ -1,0 +1,43 @@
+# Man overboard: a person in the water astern while the boat carries way and
+# rounds up. The MOB task takes the biggest looking group the rig allows.
+
+[scenario]
+name = "mob"
+rig = "mast5"
+sea_state = "ss3"
+sail = "main"
+heel_deg = 8.0
+wave_rel_deg = 120.0
+boat_speed_kn = 5.0
+heading_deg = 0.0
+duration_s = 300
+dt_s = 1.0
+visibility_km = 10.0
+seed = 11
+
+[requirement]
+detect_m = { person_in_water = 1000 }
+blur_px_max = 1.0
+coverage_min = 0.95
+
+[[target]]
+id = "mob"
+kind = "person_in_water"
+range_m = 40
+bearing_deg = 175
+course_deg = 0
+speed_kn = 0
+priority = 0
+need = "recognize"
+range_frac = 0.03
+group = "max"             # take every camera the reserve rule allows
+
+[[target]]
+id = "buoy-2"
+kind = "lobster_buoy"
+range_m = 900
+bearing_deg = -20
+course_deg = 0
+speed_kn = 0
+priority = 2
+need = "detect"

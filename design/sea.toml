@@ -1,0 +1,16 @@
+# Sea states (WMO code, mid-band significant wave height) with a typical
+# open-water peak period, and the atmosphere the optics see through.
+
+[sea]
+ss0 = { hs_m = 0.0, tp_s = 2.0, label = "calm, glassy" }
+ss1 = { hs_m = 0.05, tp_s = 2.0, label = "calm, rippled (a marina)" }
+ss2 = { hs_m = 0.3, tp_s = 3.5, label = "smooth, wavelets" }
+ss3 = { hs_m = 0.9, tp_s = 5.0, label = "slight" }
+ss4 = { hs_m = 1.9, tp_s = 7.0, label = "moderate" }
+ss5 = { hs_m = 3.2, tp_s = 9.0, label = "rough" }
+
+[atmosphere]
+earth_radius_m = 6371000
+k_refraction = 0.13        # standard optical refraction coefficient
+k_uncertainty = 0.04       # day-to-day spread over water; drives the dip-ranging bias
+contrast_threshold = 0.02  # Koschmieder liminal contrast
