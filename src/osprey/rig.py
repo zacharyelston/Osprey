@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from osprey import optics
+from osprey import frames, optics
 
 
 @dataclass
@@ -19,10 +19,20 @@ class Station:
     face_az: float         # rad, CCW from the bow
     on_mast: bool
     zones: tuple[str, ...]
+    pod: str | None = None
 
     @property
     def fixed(self) -> bool:
         return bool(getattr(self.cam, "fixed", False))
+
+    @property
+    def fisheye(self) -> bool:
+        return getattr(self.cam, "projection", "pinhole") == "equidistant"
+
+    @property
+    def boresight(self) -> np.ndarray:
+        """A fixed camera's look direction in the body frame."""
+        return frames.direction(self.face_az, math.radians(self.cam.tilt_deg[0]))
 
     @property
     def f_min(self) -> float:
@@ -33,18 +43,33 @@ class Station:
         return self.cam.focal_mm[1]
 
     def ifov(self, focal_mm: float | None = None) -> float:
+        """Radial pixel angle; for an equidistant fisheye it is the same at every
+        field angle (tangentially it is finer away from the centre)."""
         return optics.ifov(self.cam.pixel_um, focal_mm or self.f_max)
 
     def hfov(self, focal_mm: float | None = None) -> float:
+        if self.fisheye:
+            return math.radians(self.cam.fov_deg)
         return optics.fov(self.cam.width_px, self.cam.pixel_um, focal_mm or self.f_min)
 
     def vfov(self, focal_mm: float | None = None) -> float:
+        if self.fisheye:
+            return math.radians(self.cam.fov_deg)
         return optics.fov(self.cam.height_px, self.cam.pixel_um, focal_mm or self.f_min)
+
+    @property
+    def image_circle_px(self) -> int:
+        """A fisheye's image circle diameter: the fov_deg circle, cropped to the sensor's short side."""
+        f_px = self.f_min * 1e3 / self.cam.pixel_um
+        return min(int(2 * f_px * math.radians(self.cam.fov_deg) / 2), self.cam.width_px, self.cam.height_px)
 
     def can_point(self, az: np.ndarray, el: np.ndarray) -> np.ndarray:
         """Inside the pan/tilt envelope (a fixed camera: inside its field of view)."""
         az, el = np.asarray(az, float), np.asarray(el, float)
         lo, hi = (math.radians(v) for v in self.cam.tilt_deg)
+        if self.fisheye:
+            cos_off = frames.direction(az, el) @ self.boresight
+            return cos_off >= math.cos(math.radians(self.cam.fov_deg) / 2)
         if self.fixed:
             daz = np.angle(np.exp(1j * (az - self.face_az)))
             return (np.abs(daz) <= self.hfov() / 2) & (np.abs(el - lo) <= self.vfov() / 2)
@@ -60,13 +85,54 @@ def stations(p) -> list[Station]:
     out = []
     for s in p.station:
         out.append(Station(s.id, s.camera, getattr(p.camera, s.camera), np.array(s.pos_m, float),
-                           math.radians(s.face_az_deg), s.on_mast, tuple(s.zones)))
+                           math.radians(s.face_az_deg), s.on_mast, tuple(s.zones), getattr(s, "pod", None)))
     return out
 
 
-def mass_aloft(sts: list[Station], truck_z: float) -> tuple[float, float]:
-    """Total camera mass above the deck and its masthead equivalent: the mass
-    at the truck with the same heeling moment (sum of m z / z_truck)."""
-    m = sum(s.cam.mass_kg for s in sts if s.on_mast)
-    eq = sum(s.cam.mass_kg * s.pos[2] / truck_z for s in sts if s.on_mast)
-    return m, eq
+@dataclass
+class Pod:
+    """A two-sided mount: its cameras, and the SOC, IMU and housing between them."""
+    id: str
+    kit: object
+    soc: object
+    imu: object
+    pos: np.ndarray
+    on_mast: bool
+    members: list[Station]
+
+    @property
+    def electronics_kg(self) -> float:
+        return self.kit.housing_kg + self.soc.mass_kg + self.imu.mass_kg
+
+    def load_w(self, mode: str, working: set[str] = frozenset()) -> float:
+        """Power the pod draws from its PoE port. mode "active": everything
+        working; "watch": SOC at watch power, cameras parked unless in `working`."""
+        i = 1 if mode == "active" else 0
+        cams = sum(s.cam.power_w[1 if (mode == "active" or s.id in working or s.fixed) else 0]
+                   for s in self.members)
+        return (cams + self.soc.power_w[i] + self.imu.power_w) / self.kit.pd_efficiency
+
+    def pixel_rate(self, fps: float) -> float:
+        """Pixels per second off both sensors (a fisheye: its image circle's square)."""
+        return sum((s.image_circle_px ** 2 if s.fisheye else s.cam.width_px * s.cam.height_px) * fps
+                   for s in self.members)
+
+
+def pods(p) -> list[Pod]:
+    el = p.electronics
+    sts = stations(p)
+    out = []
+    for d in p.pod:
+        kit = getattr(el.kit, d.kit)
+        out.append(Pod(d.id, kit, getattr(el.soc, kit.soc), getattr(el.imu, kit.imu), np.array(d.pos_m, float),
+                       d.on_mast, [s for s in sts if s.pod == d.id]))
+    return out
+
+
+def mass_aloft(sts: list[Station], truck_z: float, pods: list[Pod] = ()) -> tuple[float, float]:
+    """Total mass above the deck and its masthead equivalent: the mass at the
+    truck with the same heeling moment (sum of m z / z_truck). Cameras, plus
+    each pod's SOC, IMU and housing at the pod centre."""
+    items = [(s.cam.mass_kg, s.pos[2]) for s in sts if s.on_mast]
+    items += [(pd.electronics_kg, pd.pos[2]) for pd in pods if pd.on_mast]
+    return sum(m for m, _ in items), sum(m * z / truck_z for m, z in items)

@@ -1,8 +1,11 @@
-"""What the boat itself hides from each camera: the mast, the sails and the hull.
+"""What the boat itself hides from each camera: the mast, the sails, the hull
+and the camera pods.
 
 Everything is in the body frame. The mast is a vertical cylinder, each sail a
-flat triangle (luff, foot, leech) swung to leeward by its sheet angle, and the
-hull a prism: the deck planform extruded from below the waterline to the deck.
+flat triangle (luff, foot, leech) swung to leeward by its sheet angle, the
+hull a prism (the deck planform extruded from below the waterline to the
+deck), and each pod housing a sphere, which is what hides the nadir from a
+PTZ sitting on top of its own pod.
 """
 
 from __future__ import annotations
@@ -20,6 +23,7 @@ class Occluders:
     mast: tuple[float, float, float]                     # radius, z0, z1 (axis at x = y = 0)
     sails: list[np.ndarray] = field(default_factory=list)  # (3, 3) triangles
     hull: object = None                                   # boat namespace, for the planform
+    housings: list[tuple[np.ndarray, float]] = field(default_factory=list)  # pod centre, radius
 
     def half_beam(self, x: np.ndarray) -> np.ndarray:
         b = self.hull
@@ -40,6 +44,8 @@ class Occluders:
         out = self._mast(cam, d)
         for tri in self.sails:
             out |= _tri_hits(cam, d, tri)
+        for c, r in self.housings:
+            out |= _ball_hits(cam, d, c, r)
         if hull and self.hull is not None:
             ts = np.linspace(0.02, 0.98, 64)
             samples = cam[None, None, :] + ts[None, :, None] * d[:, None, :]
@@ -60,6 +66,19 @@ class Occluders:
             z = cam[2] + t * d[:, 2]
             hit |= ok & (t > EPS) & (t < 1 - EPS) & (z >= z0) & (z <= z1)
         return hit
+
+
+def _ball_hits(o: np.ndarray, d: np.ndarray, c: np.ndarray, r: float) -> np.ndarray:
+    """Segment o + t d, t in (0, 1), against a sphere (a camera inside it sees out)."""
+    f = o - c
+    cc = f @ f - r**2
+    if cc <= 0:
+        return np.zeros(d.shape[0], bool)
+    a = np.einsum("ij,ij->i", d, d)
+    b = 2 * (d @ f)
+    disc = b**2 - 4 * a * cc
+    t = (-b - np.sqrt(np.maximum(disc, 0))) / (2 * a)
+    return (disc >= 0) & (t > EPS) & (t < 1 - EPS)
 
 
 def _tri_hits(o: np.ndarray, d: np.ndarray, tri: np.ndarray) -> np.ndarray:
@@ -86,6 +105,9 @@ def build(p, sail: str | None = None, heel_deg: float | None = None) -> Occluder
     lee = -1.0 if heel >= 0 else 1.0
     rg, m = p.sailplan, p.mast
     occ = Occluders((m.radius_m, m.deck_z_m, m.truck_z_m), [], p.boat)
+    for pod in getattr(p, "pod", []):
+        kit = getattr(p.electronics.kit, pod.kit)
+        occ.housings.append((np.array(pod.pos_m, float), kit.housing_radius_m))
     if sail in ("main", "main+jib"):
         a = math.radians(rg.main_sheet_deg)
         clew = [-rg.boom_length_m * math.cos(a), lee * rg.boom_length_m * math.sin(a), rg.boom_z_m]

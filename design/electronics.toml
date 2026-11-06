@@ -1,0 +1,80 @@
+# Pod electronics: what sits between a pod's upper PTZ and its down-looking
+# fisheye. One cable per pod carries gigabit Ethernet and PoE power down the
+# mast; the pod's SOC encodes both cameras, runs detection on full-resolution
+# frames before compression, and timestamps every frame with the pod's IMU
+# attitude on a PTP-synchronized clock. All numbers are REF for the class of
+# part, not a product, except the PoE limits, which are IEEE 802.3.
+
+# A pod build: which SOC and IMU, the housing, and where the cameras sit
+# relative to the pod centre (pos_m in the rig).
+[kit.standard]
+soc = "orin_nx"
+imu = "mems_industrial"
+housing_kg = 0.60          # sealed housing, heat-sink fins, PoE PD board, connector, clamp
+housing_radius_m = 0.10    # modelled as a sphere at the pod centre
+pd_efficiency = 0.90       # PoE PD 54 V -> 12 V conversion inside the pod
+up_dz_m = 0.18             # PTZ optical centre above the pod centre
+down_dz_m = -0.14
+
+[kit.lean]
+soc = "rk3588"
+imu = "mems_industrial"
+housing_kg = 0.45
+housing_radius_m = 0.08
+pd_efficiency = 0.90
+up_dz_m = 0.15
+down_dz_m = -0.12
+
+[soc.orin_nx]
+label = "Jetson Orin NX 16 GB class (dense INT8)"
+tops_int8 = 50.0           # 100 with structured sparsity
+power_w = [10.0, 25.0]     # [watch, working]
+encode_mpx_s = 750.0       # H.265, 3 x 4K30
+mass_kg = 0.30             # module, carrier and heat spreader
+
+[soc.rk3588]
+label = "RK3588 class with NPU"
+tops_int8 = 6.0
+power_w = [4.0, 10.0]
+encode_mpx_s = 1000.0      # H.265, 8K30
+mass_kg = 0.15
+
+# A 6-axis IMU (gyro + accelerometer). Accelerometers alone cannot give
+# attitude aloft: the mast's own acceleration swamps gravity's direction.
+[imu.mems_industrial]
+label = "6-axis MEMS IMU, industrial grade"
+gyro_arw_deg_rt_h = 0.15   # angle random walk
+gyro_bias_deg_h = 3.0      # in-run bias instability
+rate_hz = 1000.0
+mass_kg = 0.02
+power_w = 0.3
+
+[network]
+link_mbps = 1000.0         # per pod, one cable down the mast
+uplink_mbps = 1000.0       # PoE switch to the pilot computer
+usable_frac = 0.70
+fps = 30.0
+raw_bits_px = 12.0
+codec_bits_px = 0.08       # H.265, moving sea scene: about 20 Mb/s for 4K30
+ptp_sync_us = 1.0          # IEEE 1588 with hardware timestamps
+sw_sync_us = 2000.0        # software timestamps, for comparison
+horizon_fix_hz = 5.0       # each pod re-solves its attitude from the horizon this often
+detector_gop_per_mpx = 20.0  # nano-class detector, tiled at full resolution
+detect_fps = 10.0
+npu_utilization = 0.40
+
+# PoE power available at the powered device (after 100 m of cable), IEEE 802.3.
+[poe]
+"802.3af" = 12.95
+"802.3at" = 25.5
+"802.3bt Type 3" = 51.0
+"802.3bt Type 4" = 71.3
+
+[power]
+house_v = 12.6
+pse_efficiency = 0.88      # PoE switch: 12 V house bank to 54 V
+budget_ah_day = 120.0      # what the camera system may take from the house bank per day
+# A REF day underway: hours in each mode. watch = the reserve PTZ working,
+# the other PTZs parked, fisheyes on, SOCs at watch power; active = everything
+# working (docking, MOB, traffic).
+duty_h = { watch = 20.0, active = 4.0 }
