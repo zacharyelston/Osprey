@@ -1,0 +1,65 @@
+{
+ "summary": {
+  "tasks": {},
+  "stations": {
+   "top": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   },
+   "top-down": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   },
+   "fwd": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   },
+   "fwd-down": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   },
+   "port": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   },
+   "port-down": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   },
+   "stbd": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   },
+   "stbd-down": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   },
+   "aft": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   },
+   "aft-down": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   }
+  },
+  "always_watch": true,
+  "watch_full_frac": 1.0,
+  "watch_min_frac": 1.0,
+  "revisit_median_s": 1.1319400328919513,
+  "revisit_p95_s": 1.1319400328919513,
+  "pairs_in_pod": 0,
+  "pairs_across": 0
+ },
+ "tasks": {}
+}

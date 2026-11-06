@@ -80,6 +80,20 @@ take the water round the hull and the upper eyes stay on the horizon
 watch). The pods use the mast5-spreaders positions. Their electronics, kits
 and power and network budgets are in `design/electronics.toml`.
 
+**Watch by sectors.**
+- **Sectors:** every pod faces outward from the mast, and its eyes sweep
+  their own sector of horizon (120 deg for the lower pods, all round for the
+  masthead). Each sector overlaps its neighbours'.
+- **The rule:** with `watch = "sectors"`, a looking group may take any eye,
+  as long as every bearing a camera can see is still swept by at least one
+  watcher. This replaces the fixed reserve camera.
+- **Pairs:** a pod's two eyes can be slaved to one target, or each can pair
+  with a neighbour on the mast.
+  - Pairs within a pod share a rigid body: no mast flex between them
+    (20 urad), but only a 0.36 m baseline.
+  - Pairs across pods have metres of baseline, and need the pod gyros to
+    hold 50 urad.
+
 What the pod electronics are for:
 - **Gyros, not just accelerometers.** Aloft, the mast's own acceleration
   swamps gravity's direction: accelerometers alone get tilt wrong by about

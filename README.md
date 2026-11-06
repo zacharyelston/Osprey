@@ -75,6 +75,33 @@ one.
 - **In the middle:** a SOC, a 6-axis IMU and PoE on a single gigabit cable.
 
 See [docs/architecture.md](docs/architecture.md#gecko-pods-two-eyes-one-cable).
+Each pod faces outward, and its eyes sweep a 120 deg sector that overlaps its
+neighbours' (the masthead pod sweeps all round). Any eye can join a looking
+group, with its pod partner or a neighbour, as long as every bearing keeps a
+watcher.
+
+![Gecko pods docking: lower eyes on the water, upper eyes on the horizon](docs/img/gecko-docking-sheet.png)
+
+*Frame 50 of the gecko5 docking render on gpu1 (`runs/2026-11-06_gecko-docking-render`).
+Upper eyes `top`, `fwd` and `aft` keep the horizon watch; the lower eyes take
+the dock. `port` and `stbd` upper eyes, aimed across the boat, mostly see
+their own pod (red): the optimizer keeps them only for a sliver of extra
+overlap.*
+
+**Watch by sectors keeps the whole horizon watched; a reserve camera doesn't.**
+
+| Underway, need met | gecko5 | mast5-spreaders | mast5 |
+|---|---|---|---|
+| Whole horizon swept, share of time | **100 %** (8 s worst revisit) | 0 % | 0 % |
+| MOB, recognize with range (group of 4) | 99 % | 99 % | 99 % |
+| buoy during the MOB | 99 % | **0 %** | 99 % |
+| coastal-watch: buoy / kayak / ferry / sloop | 80 / 88 / 84 / 99 % | 86 / 84 / 86 / 88 % | 87 / 57 / 0 / 96 % |
+
+- **The reserve rigs:** "a camera on watch" was always true, but under sail
+  that camera never saw the whole horizon. The leeward sails blind whichever
+  lower camera is left over.
+- **gecko5:** never leaves a bearing unswept, and still gives MOB a group of 4
+  without starving the buoy.
 
 **Docking works without giving up the watch.**
 - **Coverage:** the lower eyes take the water round the hull. Optimized
