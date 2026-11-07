@@ -629,8 +629,8 @@ def fig_hero(theme: str):
         a1.set_axis_off()
         a1.set_title("Osprey Nest: the pods' lower eyes, docking (synthetic frames)", loc="left", fontsize=11,
                      color=t["ink"])
-        # The bird over the sea with the boat below (osprey recon-render, offshore design), cropped.
-        bird = Image.open(IMG / "bird-hero.png").convert("RGB").crop((430, 200, 1290, 720))
+        # The bird out ahead, looking back at the boat (osprey recon-render, offshore design), cropped.
+        bird = Image.open(IMG / "bird-hero.png").convert("RGB").crop((400, 200, 1600, 900))
         a2 = fig.add_axes([0.615, 0.0, 0.385, 0.9])
         a2.imshow(bird)
         a2.set_axis_off()

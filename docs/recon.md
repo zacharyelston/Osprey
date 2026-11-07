@@ -58,7 +58,7 @@ six jobs and the matrix take about 30 s on a laptop.
 ## The bird
 
 `uv run osprey recon-render --mission all` builds each sized drone as meshes (`recon/geometry.py`) and
-renders it in MuJoCo (`recon/render.py`): a hero shot over the sea with the sailboat below, an orthographic
+renders it in MuJoCo (`recon/render.py`): a hero shot out ahead of the sailboat, looking back at it, an orthographic
 three-view, an exploded view of the printed panels on the spar, a turntable GIF, and every mission's
 drone side by side to scale (the lightest, a middle one and the heaviest). Use `--run runs/2026-11-06_recon-missions` to render the kept designs.
 

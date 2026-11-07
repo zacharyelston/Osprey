@@ -85,13 +85,13 @@ const AIRFRAMES = {
     label: "Crescent",
     name: "Crescent flying wing, printed",
     what: "A printed tailless crescent wing, after the NX-2: the cleanest of the three in the air.",
-    img: { gimbal: "img/bird-crescent-turntable.gif", dual: "img/bird-crescent-turntable.gif" },
+    img: { gimbal: "img/bird-crescent-hero.png", dual: "img/bird-crescent-hero.png" },
   },
   tailsitter: {
     label: "Tailsitter",
     name: "Tailsitter blended wing",
     what: "The blended wing with two tractor props for hovering and four float pods on struts. It stands on its tail on deck, floats upright on the pods at sea, and takes off and lands vertically.",
-    img: { gimbal: "img/recon-tailsitter-launch.png", dual: "img/recon-tailsitter-launch.png" },
+    img: { gimbal: "img/bird-tailsitter-hero.png", dual: "img/bird-tailsitter-hero.png" },
   },
 };
 
