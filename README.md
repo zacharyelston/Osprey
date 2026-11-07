@@ -22,7 +22,7 @@ Every frame also comes with metric depth, a class mask and the camera's exact po
 | | |
 |---|---|
 | **Osprey Nest** | Mast-mounted camera "gecko pods". Each pod carries a PTZ camera on top and a second one hung underneath, with a computer (SOC), a 6-axis IMU and PoE between them. Pods face outward from the mast and sweep overlapping sectors of the horizon. They serve horizon watch, man-overboard (MOB), docking and guidance for an AI pilot. This repository is mostly Nest. |
-| **Osprey Recon** | A 3D-printed drone for search and rescue. In progress: work has just started in [issue #1](https://github.com/zacharyelston/Osprey/issues/1). No results yet. |
+| **Osprey Recon** | A 3D-printed fixed-wing drone for search and rescue, launched from the boat and recovered to it. Each airframe is sized for a mission profile with OpenMDAO and OpenAeroStruct, then flown through that mission in a 3-DOF simulation. Phase 1 is below and in [docs/recon.md](docs/recon.md); the split is tracked in [issue #1](https://github.com/zacharyelston/Osprey/issues/1). |
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/nest-layout-dark.png">
@@ -169,6 +169,36 @@ underway (20 h watch, 4 h active) takes 381 Ah against a 120 Ah budget. Ways dow
   long-range search;
 - power the masthead pod from two cables.
 
+## Osprey Recon: a search drone sized around its mission
+
+When the mast has lost the person, or never saw them, Recon flies to the
+datum and searches it from up to 120 m. From there it looks almost straight
+down, so wave crests hide almost nothing. Each mission profile, the
+search theory and an OpenMDAO / OpenAeroStruct sizing loop produce a printed
+wing on a carbon spar. A 3-DOF flight sim then flies it through the same
+mission, and its results recalibrate the sizing until they agree.
+Details: [docs/recon.md](docs/recon.md).
+
+| Mission ([`runs/2026-11-06_recon-phase1`](runs/2026-11-06_recon-phase1/)) | Take-off mass | Span | POD 90 % at | Battery left at recovery |
+|---|---|---|---|---|
+| MOB 3 km astern, sea state 3, boat turns back | 1.56 kg | 1.20 m | 18 min | 18 % |
+| 5 km astern, boat sails on | 1.89 kg | 1.36 m | 20 min | 17 % |
+| MOB 10 km astern, sea state 4, 20 kn | 2.73 kg | 2.03 m | 94 min | 17 % |
+
+| The 3 km mission, flown | Offshore: battery and POD over the flight |
+|---|---|
+| ![Ground track of the 3 km mission: out, expanding-square search drifting with the person, back to the boat](docs/img/recon-track-datum.png) | ![Offshore timeline: altitude, power, battery and POD](docs/img/recon-timeline-offshore.png) |
+
+- The fixed parts (body, avionics, gimbal, motor; 1.18 kg) and the body's
+  drag set the size: a cleaner fuselage beats a better wing.
+- Every wing sits on the 12 m/s stall limit (recovery on a moving boat) and
+  a 150,000 chord Reynolds floor. The chord stays near 13 cm and the span
+  grows with the battery.
+- Offshore, the last 10 points of POD take as long as the first 80: a
+  second drone or a thermal camera beats a bigger battery.
+- The boat turning back to the datum is what makes the offshore case work.
+  Sailing on, the drone spent 80 minutes chasing it home upwind.
+
 ## How the simulation works
 
 ```mermaid
@@ -220,6 +250,7 @@ uv run osprey calc --scenario coastal-watch --rig gecko5    # PASS/WARN/FAIL che
 uv run osprey sim --scenario mob --rig gecko5               # looking-group timeline
 uv run osprey render --scenario docking --rig gecko5        # RGB, depth, class masks, poses
 uv run osprey sweep --workers 8                             # every scenario x rig
+uv run osprey recon --mission all                           # Recon: size, calibrate and fly each mission
 ```
 
 Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two workstations, `gpu1` and
@@ -236,14 +267,17 @@ Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two works
 | [`design/targets.toml`](design/targets.toml) | Target classes and Johnson criteria |
 | [`design/rigs/`](design/rigs/) | `gecko5` (pods), `mast5` (1 top + 4 round the mast), `mast5-spreaders`, `whole-boat` |
 | [`design/scenarios/`](design/scenarios/) | `coastal-watch` (sea state 4), `mob` (sea state 3), `docking` |
+| [`design/recon/`](design/recon/) | Recon: the reference printed airframe and the mission profiles |
 | [`src/osprey/`](src/osprey/) | `frames`, `motion`, `optics`, `stabilize`, `occlusion`, `rig`, `tasking`, `calcs`, `figures`, `render/scene`, `cli` |
+| [`src/osprey/recon/`](src/osprey/recon/) | `search` (sweep width, POD), `flight` (3-DOF), `sizing` (OpenMDAO + OpenAeroStruct), `figures` |
 | [`runs/`](runs/README.md) | Kept runs, never edited after they are archived |
-| [`docs/`](docs/) | [Architecture](docs/architecture.md), [remote runs](docs/remote-simulation.md), README figures |
+| [`docs/`](docs/) | [Architecture](docs/architecture.md), [Recon](docs/recon.md), [remote runs](docs/remote-simulation.md), README figures |
 
 ## Kept runs
 
 | Run | What it shows |
 |---|---|
+| [`2026-11-06_recon-phase1`](runs/2026-11-06_recon-phase1/) | Recon: each mission's sized airframe, flight report, planform, track and timeline |
 | [`2026-11-06_gecko-sweep`](runs/2026-11-06_gecko-sweep/summary.md) | Every scenario x rig with sector watch; `gecko5` reports in full |
 | [`2026-11-06_gecko-docking-render`](runs/2026-11-06_gecko-docking-render/) | 10 s docking render on `gecko5` with optimized aims: video, one frame of `port-down`, all labels |
 | [`2026-11-06_pods-fisheye-sweep`](runs/2026-11-06_pods-fisheye-sweep/summary.md) | The dropped design: pods with a down-looking fisheye |
@@ -269,6 +303,11 @@ spreader cameras, the aft camera under the gooseneck, and an overview.</sub>
 1. **Look-down docking:** stereo pairs plus deck registration give a costmap for the pilot.
 2. **Spotting:** horizon-band detection, horizon-dip ranging and thermal.
 3. **Inspection:** the long-zoom PTZ, cued and slewed to targets.
+
+Recon has its own roadmap in [docs/recon.md](docs/recon.md#roadmap):
+- design for additive manufacturing in CadQuery;
+- stability derivatives and a 6-DOF sim;
+- SU2, printed-shell FEA and surrogates.
 
 README figures in `docs/img/` other than the renders and run plots are made from the files in this
 repository by [`docs/img/make_readme_figures.py`](docs/img/make_readme_figures.py)
