@@ -1,0 +1,8 @@
+local, on the commit that adds src/osprey/recon/water.py (branch feat/recon-water, from d01834a)
+sized/<airframe>/<payload>: OMP_NUM_THREADS=1 uv run osprey recon --mission all --airframe {twinboom,bwb,crescent} --payload {gimbal,dual} --water --out <this>/sized/<airframe>/<payload>, six in parallel
+sized/<airframe>/<payload>/<one bird>/water: uv run osprey recon-water --run <this>/sized/<airframe>/<payload> --mission <one bird> --airframe <airframe> --payload <payload> --water
+bolt-on/<airframe>/<payload>/<one bird>/water: uv run osprey recon-water --run runs/2026-11-06_recon-{payloads,wings}/... --mission <one bird> --airframe <airframe> --payload <payload> --out <this>/bolt-on/<airframe>/<payload>
+docs/img/recon-afloat.png: render.afloat of the three sized/*/gimbal/sar-offshore birds
+tailsitter/<payload>: OMP_NUM_THREADS=1 uv run osprey recon --mission all --airframe tailsitter --payload {gimbal,dual} --out <this>/tailsitter/<payload>, two in parallel (struts at 0.40 m; strut length does not enter the sizing)
+tailsitter/<payload>/<one bird>/water: uv run osprey recon-water --run <this>/tailsitter/<payload> --mission <one bird> --airframe tailsitter --payload <payload> (struts at 0.50 m)
+docs/img/recon-tailsitter-launch.png: copy of tailsitter/gimbal/sar-offshore/water/launch.png

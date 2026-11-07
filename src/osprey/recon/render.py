@@ -323,3 +323,83 @@ def frame(p, d: dict, path: Path, W: int = 1600, H: int = 900, frames_: dict | N
     _save(img, path, labels=[(14, f"front: upper-surface frame, {n['upper'][0]} ribs and {n['upper'][1]} stringers"),
                              (14, "behind: lower-surface frame, turned over"),
                              (14, f"{p.frame.thickness_mm:g} mm sheet, half-depth slots, standing on flat tables")])
+
+
+def afloat(birds: list[tuple[object, dict, dict, str]], path: Path, W: int = 1800, H: int = 760):
+    """Birds floating side by side at the draft and trim recon/water.py finds,
+    each pusher prop raised on the pylon the water needs (dashed in grey):
+    (params, design, afloat result, label) for each."""
+    from osprey.recon import water
+
+    assets, bodies, labels = [], [], []
+    y0 = 0.0
+    spans = [d["span_m"] for _, d, _, _ in birds]
+    gap = 0.5
+    for k, ((p, d, fl, label), span) in enumerate(zip(birds, spans)):
+        yc = y0 + span / 2
+        y0 += span + gap
+        th = math.radians(fl["trim_deg"])
+        cg = np.array(fl["cg"])
+        parts = geometry.build(p, d)
+        hub = None
+        for q in parts:
+            if q.kind in ("disc", "prop") and fl["pylon_m"] > 0:
+                if hub is None:
+                    hub = q.verts.mean(0)
+                q.verts = q.verts + [0, 0, fl["pylon_m"]]
+        if hub is not None:
+            v, f = geometry._tube(hub + [0.03, 0, -0.02], hub + [0.0, 0, fl["pylon_m"]], 0.008, 10)
+            parts.append(geometry.Part("pylon", "carbon", v, f))
+        for q in parts:
+            v = water._pitch(q.verts, cg, th)
+            v[:, 2] -= fl["waterline_z"]
+            v[:, 1] += yc
+            q.verts = v
+        a, b = _drone_xml(f"b{k}", parts, np.zeros(3), _quat())
+        assets.append(a)
+        bodies.append(b)
+        labels.append(label)
+    width = y0 - gap
+    centre = np.array([0.0, width / 2, 0.0])
+    eye = centre + np.array([0.5 * width + 0.4, -0.05 * width, 0.14 * width + 0.1])
+    cam = _cam("f", eye, centre + np.array([-0.3, 0, -0.02]), fovy=42)
+    img = _shoot(_world("sea", "".join(assets), "".join(bodies), cam, W, H), ["f"], W, H)["f"]
+    _save(img, path, labels=[(14, "afloat at the draft and trim the model finds; each prop raised on its pylon"),
+                             (14, "left to right: " + ",  ".join(labels))])
+
+
+def launch_sequence(p, d: dict, fl: dict, track: list, path: Path, W: int = 1800, H: int = 760):
+    """A tailsitter's water launch in one picture: the same bird afloat upright on its pods, clear of the
+    water, pitching over and wing-borne, posed from the launch track (recon/tailsitter.py)."""
+    from osprey.recon import tailsitter as ts
+
+    tr = np.array(track)
+    t_end = tr[-1, 0]
+    picks = [0.0, float(tr[np.argmax(tr[:, 2] > fl["draft_m"] + 1.2), 0])]
+    pitch = tr[:, 3]
+    picks += [float(tr[np.argmax(pitch < math.radians(55)), 0]), t_end]
+    assets, bodies, labels = [], [], []
+    cg = np.array(fl["cg"])
+    for k, tk in enumerate(picks):
+        i = int(np.argmin(np.abs(tr[:, 0] - tk)))
+        _, x, rise, th = tr[i]
+        R = ts._rot_y(-th)                                   # nose up by th: forward goes to (cos, 0, sin)
+        parts = geometry.build(p, d)
+        for q in parts:
+            q.verts = (q.verts - cg) @ R.T + [x, 0.0, rise - fl["waterline_z"]]
+        a, b = _drone_xml(f"s{k}", parts, np.zeros(3), _quat())
+        assets.append(a)
+        bodies.append(b)
+        labels.append(f"{tr[i, 0]:.1f} s")
+    sel = [int(np.argmin(np.abs(tr[:, 0] - tk))) for tk in picks]
+    xs, zs = tr[sel, 1], tr[sel, 2] - fl["draft_m"]
+    centre = np.array([float(xs.mean()), 0.0, float(zs.max()) / 2 + 0.4])
+    span = max(float(np.ptp(xs)), 2.2 * float(zs.max())) + 4.0
+    # From ahead and to one side: upright, the wing lies across the view, its face toward the camera.
+    eye = centre + np.array([0.42 * span, -0.72 * span, 0.10 * span])
+    cam = _cam("l", eye, centre, fovy=36)
+    img = _shoot(_world("sea", "".join(assets), "".join(bodies), cam, W, H), ["l"], W, H)["l"]
+    _save(img, path, labels=[(14, "tailsitter water launch: afloat on its pods, clear of the water, pitching over, "
+                                  "wing-borne"),
+                             (14, "at " + ",  ".join(labels) + f" after throttle-up; wing-borne {t_end:.1f} s, "
+                                  f"{tr[-1, 1]:.0f} m downrange")])

@@ -1,0 +1,129 @@
+{
+ "afloat": {
+  "mass_kg": 1.900170394644499,
+  "displaced_l": 1.853824775262926,
+  "sealed_l": 5.026730134315649,
+  "reserve": 2.711545449921346,
+  "trim_deg": -0.166472177952528,
+  "draft_m": -0.026668023865218236,
+  "waterline_m": 0.5847748564670872,
+  "beam_m": 1.1582726547328601,
+  "prop_clear_m": -0.12506623185299953,
+  "pylon_m": 0.17506623185299952,
+  "camera_clear_m": -0.07610272427509912,
+  "waterline_z": 0.010698431709309333,
+  "cg": [
+   -0.26846090029343245,
+   0.0,
+   0.0
+  ]
+ },
+ "takeoff": {
+  "v_liftoff_ms": 14.17811689023169,
+  "v_stall_ms": 12.328797295853645,
+  "static_thrust_n": 18.03203356335337,
+  "thrust_to_weight": 0.9673489227158024,
+  "run_m": 12.110088075859004,
+  "run_s": 1.6900000000000013,
+  "energy_wh": 0.22091503267973875,
+  "margin_min": 0.7714248912540869,
+  "margin_at_ms": 5.004889590364535,
+  "gets_off": true
+ },
+ "impact_g": 8.386746031118259,
+ "hull_m": 0.4411764705882354,
+ "sea_hs_m": 0.04411764705882354,
+ "sea_state": "ss0",
+ "kit_kg": 0.1,
+ "load_factor": 3.0,
+ "water": {
+  "density_kgm3": 1025.0,
+  "reserve_min": 2.0,
+  "prop_clearance_m": 0.05,
+  "kit_kg": 0.1,
+  "kit_cda_m2": 0.0015,
+  "deadrise_deg": 20.0,
+  "r_hump": 0.2,
+  "r_plane": 0.07,
+  "hump_speed_frac": 0.35,
+  "cl_run": 0.35,
+  "liftoff_frac": 1.15,
+  "figure_of_merit": 0.6,
+  "thrust_margin_min": 0.1,
+  "wave_frac": 0.1,
+  "impact_c1": 0.012,
+  "kit_aboard": false
+ },
+ "jobs": {
+  "escort-flanks": {
+   "bare": {
+    "ok": true,
+    "energy_left": 0.1459216479220587
+   },
+   "kit": {
+    "ok": true,
+    "energy_left": 0.0220695450468031
+   }
+  },
+  "inspect-vessel": {
+   "bare": {
+    "ok": true,
+    "energy_left": 0.8055945690856362
+   },
+   "kit": {
+    "ok": true,
+    "energy_left": 0.7784929006632667
+   }
+  },
+  "sar-convoy": {
+   "bare": {
+    "ok": true,
+    "energy_left": 0.6514052451479779
+   },
+   "kit": {
+    "ok": true,
+    "energy_left": 0.6014560455642964
+   }
+  },
+  "sar-datum": {
+   "bare": {
+    "ok": true,
+    "energy_left": 0.8858029156287687
+   },
+   "kit": {
+    "ok": true,
+    "energy_left": 0.8724677655312689
+   }
+  },
+  "sar-offshore": {
+   "bare": {
+    "ok": true,
+    "energy_left": 0.5260577494168965
+   },
+   "kit": {
+    "ok": true,
+    "energy_left": 0.4593058576943482
+   }
+  },
+  "scout-anchorage": {
+   "bare": {
+    "ok": true,
+    "energy_left": 0.6897288006123464
+   },
+   "kit": {
+    "ok": true,
+    "energy_left": 0.6475664868639649
+   }
+  },
+  "scout-island": {
+   "bare": {
+    "ok": true,
+    "energy_left": 0.7063493757183613
+   },
+   "kit": {
+    "ok": true,
+    "energy_left": 0.6654543715182407
+   }
+  }
+ }
+}

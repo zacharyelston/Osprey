@@ -48,3 +48,6 @@ method = "printed"
 pod_length_m = 0.42
 pod_diameter_m = 0.085
 pod_nose_x_m = 0.30
+
+[water]
+kit_kg = 0.14                  # sealing the printed panels, a shoe under the nose pod, a prop pylon

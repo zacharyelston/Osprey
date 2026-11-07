@@ -397,3 +397,104 @@ def test_ladder_frame_layout_files(tmp_path):
                 assert (a1 <= b0).any() or (b1 <= a0).any()
     md = (tmp_path / "frame.md").read_text()
     assert md.count("| R") + md.count("| S") >= info["parts"]
+
+
+def test_buoyancy_integral_is_exact_on_a_box_and_a_sphere():
+    from osprey.recon import geometry, water
+
+    v = np.array([[x, y, z] for x in (-.5, .5) for y in (-.5, .5) for z in (-.5, .5)], float)
+    f = np.array([[0, 1, 3], [0, 3, 2], [4, 6, 7], [4, 7, 5], [0, 4, 5], [0, 5, 1],
+                  [2, 3, 7], [2, 7, 6], [0, 2, 6], [0, 6, 4], [1, 5, 7], [1, 7, 3]])
+    V, cx, pts = water._below([(v + [0.3, 0, 0], f)], 0.1)
+    assert V == pytest.approx(0.6) and cx == pytest.approx(0.3)
+    assert np.ptp(pts[:, 0]) == pytest.approx(1.0)                         # the waterplane spans the box
+    vs, fs = geometry._sphere([0.2, 0, 0], 1.0, 40)
+    V, cx, _ = water._below([(vs, fs)], 0.0)
+    assert V == pytest.approx(2 / 3 * math.pi, rel=0.02) and cx == pytest.approx(0.2, abs=1e-9)
+
+
+def test_a_bird_floats_with_its_buoyancy_under_its_weight():
+    from osprey.recon import geometry, water
+
+    p, d = _wing("bwb")
+    fl = water.afloat(p, d)
+    assert fl["displaced_l"] == pytest.approx((d["mass_total_kg"] + p.water.kit_kg) / p.water.density_kgm3 * 1e3)
+    assert fl["reserve"] > 1
+    sealed = [(water._pitch(q.verts, np.array(fl["cg"]), math.radians(fl["trim_deg"])), q.faces)
+              for q in geometry.build(p, d) if q.kind in water.SEALED]
+    V, cbx, _ = water._below(sealed, fl["waterline_z"])
+    assert V * 1e3 == pytest.approx(fl["displaced_l"], rel=1e-3)
+    assert abs(cbx) < 2e-3                                                 # buoyancy straight under the CG
+
+
+def test_water_takeoff_and_landing_loads_move_the_right_way():
+    from osprey.recon import water
+
+    p, d = _wing("bwb")
+    light, heavy = water.takeoff(p, d, 2.0), water.takeoff(p, d, 2.6)
+    assert light["gets_off"] and heavy["run_m"] > light["run_m"] and heavy["margin_min"] < light["margin_min"]
+    assert water.resistance(p, p.water.hump_speed_frac) == pytest.approx(p.water.r_hump)
+    n20 = water.impact_factor(p, 12.0, 2.0)
+    # FAR 23.527 by hand: 0.012 x (12 m/s in knots)^2 / (tan(20 deg)^(2/3) x (2 kg in lb)^(1/3))
+    assert n20 == pytest.approx(0.012 * (12 / 0.514444) ** 2 / (math.tan(math.radians(20)) ** (2 / 3)
+                                                              * (2 / 0.453592) ** (1 / 3)))
+    p.water.deadrise_deg = 30.0
+    assert water.impact_factor(p, 12.0, 2.0) < n20                        # a sharper V lands softer
+
+
+def test_the_float_kit_goes_into_the_sizing():
+    bare, wet = load("sar-offshore", airframe="bwb"), load("sar-offshore", airframe="bwb", water=True)
+    assert wet.body.mass_kg == pytest.approx(bare.body.mass_kg + bare.water.kit_kg)
+    assert wet.body.cda_m2 == pytest.approx(bare.body.cda_m2 + bare.water.kit_cda_m2)
+    assert wet.water.kit_aboard and not bare.water.kit_aboard
+
+
+TAILSITTER = Path(__file__).resolve().parents[1] / "runs/2026-11-07_recon-water/tailsitter/gimbal/sar-offshore/design.json"
+
+
+def _tailsitter():
+    import json
+
+    return load("sar-offshore", airframe="tailsitter"), json.loads(TAILSITTER.read_text())
+
+
+def test_tailsitter_stacks_on_the_blended_wing_and_sizes_its_motors_for_the_hover():
+    from osprey.recon import tailsitter as ts
+
+    p, d = _tailsitter()
+    assert p.layout.kind == "bwb" and ts.vtol(p) and p.wing.sweep_bounds_deg == [5.0, 35.0]
+    # Momentum theory by hand for two props sharing the weight: n (T/n)^1.5 / sqrt(2 rho A_i) / FM.
+    T = d["mass_total_kg"] * 9.81
+    A_i = math.pi * 0.15 ** 2
+    assert ts.hover_power(p, T) == pytest.approx(2 * (T / 2) ** 1.5 / math.sqrt(2 * 1.225 * A_i) / 0.65, rel=1e-3)
+    assert ts.thrust_for_power(p, ts.hover_power(p, T)) == pytest.approx(T)
+    kg, peak = ts.motors(p, d["mass_total_kg"])
+    assert d["motor_peak_w"] == pytest.approx(peak, rel=0.03) and d["motor_kg"] == pytest.approx(kg, rel=0.03)
+    assert d["hover_energy_wh"] == pytest.approx(ts.hover_energy_j(p, d["mass_total_kg"]) / 3600, rel=1e-6)
+
+
+def test_tailsitter_floats_upright_on_its_pods_and_launches_inside_fifteen_seconds():
+    from osprey.recon import tailsitter as ts
+
+    p, d = _tailsitter()
+    fl = ts.upright(p, d)
+    assert fl["pods_only"] or all(n.startswith(("float", "strut")) for n in fl["wet_parts"])
+    assert fl["prop_height_m"] >= p.floats.prop_height_min_m
+    assert min(fl["gm_across_m"], fl["gm_along_m"]) >= p.floats.gm_min_m
+    lr = ts.launch(p, d, fl)
+    assert lr["ok"] and lr["t_wing_borne_s"] <= 15.0 and lr["t_clear_s"] < lr["t_safe_s"] < lr["t_wing_borne_s"]
+    assert lr["surface_tension_of_weight"] < 0.01                         # a rounding error next to the thrust
+    assert lr["buoyancy_n"] == pytest.approx(lr["weight_n"], rel=1e-3)    # afloat at rest before the throttle
+
+
+def test_tailsitter_wind_limits_match_their_formulas():
+    from osprey.recon import tailsitter as ts
+
+    p, d = _tailsitter()
+    W, S = d["mass_total_kg"] * 9.81, d["S_m2"]
+    v = ts.hover_wind_max(p, d)
+    assert 0.5 * 1.225 * v ** 2 * S * p.floats.wind_cd == pytest.approx(W * math.sqrt(1.6 ** 2 - 1), rel=1e-3)
+    fl = ts.upright(p, d)
+    rows = ts.sea(p, d, fl, ts.periods(p, d, fl))
+    heels = [r["heel_deg"] for r in rows]
+    assert heels == sorted(heels) and rows[0]["ok"]                        # more wind, more heel; calm is fine

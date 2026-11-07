@@ -89,10 +89,11 @@ class Aircraft:
     @classmethod
     def from_design(cls, p, d: dict) -> "Aircraft":
         pr = p.propulsion
+        # A tailsitter has already spent its launch and landing hover from the battery.
+        energy = d["battery_kg"] * pr.battery_wh_per_kg * 3600 * pr.battery_usable - d.get("hover_energy_wh", 0.0) * 3600
         return cls(d["mass_total_kg"], d["S_m2"], d["span_m"], d["cd0"], d["k"], p.wing.cl_max,
                    pr.prop_efficiency, pr.motor_efficiency, p.avionics.power_w + payload_w(p),
-                   d["battery_kg"] * pr.battery_wh_per_kg * 3600 * pr.battery_usable, pr.motor_peak_w,
-                   d["v_search_ms"], math.radians(p.limits.bank_max_deg))
+                   energy, d.get("motor_peak_w", pr.motor_peak_w), d["v_search_ms"], math.radians(p.limits.bank_max_deg))
 
 
 def _wind(m) -> np.ndarray:

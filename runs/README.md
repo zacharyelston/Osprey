@@ -16,6 +16,7 @@ docs/remote-simulation.md).
 | [2026-11-06_docking-render](2026-11-06_docking-render/) | 9af2de6 | gpu1 (EGL) | Sample of a 20 s docking render on mast5-spreaders: contact-sheet video, one frame's RGB/depth/class, all labels |
 | [2026-11-06_pods-fisheye-sweep](2026-11-06_pods-fisheye-sweep/) | 952d1da | gpu1 | Pods with a down-looking fisheye (the dropped design): calc reports for the three scenarios |
 | [2026-11-06_gecko-docking-render](2026-11-06_gecko-docking-render/) | 0f30414 | gpu1 (EGL) | Sample of a 10 s docking render on gecko5 with optimized aims: video, one frame of `port-down`, all labels |
+| [2026-11-07_recon-water](2026-11-07_recon-water/) | feat/recon-water | local | Recon on the water: every one-bird afloat, take-off from the sea, landing loads; the float kit bolted on, and every airframe and payload re-sized with it aboard; the tailsitter sized, floated upright and launched from the water |
 | [2026-11-06_recon-wings](2026-11-06_recon-wings/) | d81f91c | gpu1 | Recon: blended wing and crescent flying wing, both payloads, seven jobs each, capability matrices; anti-piracy awareness; plugs for the blended wings, ladder frames for both flying wings |
 | [2026-11-06_recon-payloads](2026-11-06_recon-payloads/) | 7f1236d | local | Recon: seven jobs for each payload (gimbal; a PTZ eye each side plus a belly fisheye), with both capability matrices |
 | [2026-11-06_pairs-sweep](2026-11-06_pairs-sweep/) | 70118ad | gpu1 | Every scenario x rig with `spreader-pairs` (dual mounts on the spreader tips) in full |
