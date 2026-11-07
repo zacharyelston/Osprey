@@ -428,6 +428,9 @@ def cmd_recon_water(args) -> int:
     from osprey.recon import water
 
     for name, p, d, dst in _sized(args):
+        if d.get("vtol") == "tailsitter":
+            _tailsitter_water(name, p, d, dst / "water", args)
+            continue
         a = water.assess(p, d, args.payload, args.airframe)
         o = dst / "water"
         o.mkdir(parents=True, exist_ok=True)
@@ -439,6 +442,22 @@ def cmd_recon_water(args) -> int:
               f"run {to['run_m']:.0f} m, landing {a['impact_g']:.1f} g, jobs with the kit "
               f"{sum(r['kit']['ok'] for r in a['jobs'].values())}/{len(a['jobs'])} -> {o}")
     return 0
+
+
+def _tailsitter_water(name, p, d, o: Path, args):
+    """A tailsitter floats upright and launches straight up: its own sheet and pictures."""
+    from osprey.recon import render as rr
+    from osprey.recon import tailsitter
+
+    a = tailsitter.assess(p, d)
+    o.mkdir(parents=True, exist_ok=True)
+    (o / "tailsitter.md").write_text(tailsitter.report(a, f"{name}, {args.payload}", d))
+    (o / "tailsitter.json").write_text(json.dumps(a, indent=1, default=float))
+    rr.launch_sequence(p, d, a["afloat"], a["launch"]["track"], o / "launch.png")
+    fl, lr = a["afloat"], a["launch"]
+    print(f"{name}: afloat upright, props {fl['prop_height_m'] * 100:.0f} cm up, GM {fl['gm_across_m'] * 100:.0f}/"
+          f"{fl['gm_along_m'] * 100:.0f} cm; clear of the water {lr['t_clear_s']:.2f} s, wing-borne "
+          f"{lr['t_wing_borne_s']:.1f} s; surface tension {lr['surface_tension_n']:.2f} N -> {o}")
 
 
 def main(argv=None) -> int:

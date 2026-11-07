@@ -41,6 +41,7 @@ from openaerostruct.meshing.mesh_generator import generate_mesh
 from openaerostruct.integration.aerostruct_groups import AerostructGeometry, AerostructPoint
 
 from osprey.motion import KN
+from osprey.recon import tailsitter
 from osprey.recon.flight import G, rho
 from osprey.recon.params import payload_kg, payload_w
 
@@ -182,6 +183,8 @@ class Performance(om.ExplicitComponent):
         o["power"] = D * v / (pr.prop_efficiency * pr.motor_efficiency) + aux
         o["LD"] = i["CL"] * S / (i["CD"] * S + p.body.cda_m2)
         e = i["battery_kg"] * pr.battery_wh_per_kg * 3600 * pr.battery_usable
+        if tailsitter.vtol(p):
+            e = e - tailsitter.hover_energy_j(p, i["mass"])          # the launch and landing hover
         o["endurance"] = e / o["power"]
         w, vb, d = mi["wind_ms"], mi["boat_ms"], mi["dist_m"]
         t_task = mi["task_m"] * v / (v**2 - w**2)                    # a closed pattern in wind
@@ -392,6 +395,9 @@ def optimize(p, time_factor: float = 1.0) -> dict:
         "airframe": getattr(p.layout, "kind", "twinboom"),
         "float_kit": bool(p.water.kit_aboard),
     }
+    if tailsitter.vtol(p):
+        d.update(vtol="tailsitter", motor_kg=float(p.propulsion.motor_kg), motor_peak_w=float(p.propulsion.motor_peak_w),
+                 hover_energy_wh=float(tailsitter.hover_energy_j(p, d["mass_total_kg"]) / 3600))
     if bwb(p):
         le = np.array(d["le_x_m"])
         d.update(sweep_deg=float(math.degrees(math.atan2(le[0] - le[-1], b / 2))), cg_x_m=float(g("empty_cg", "m")[0]),
@@ -413,8 +419,15 @@ def size_and_fly(p, iters: int = 6, tol: float = 0.03) -> tuple[dict, list[dict]
     from osprey.recon import flight
 
     factor, history = 1.0, []
+    mass = None
     for _ in range(iters):
+        if tailsitter.vtol(p):
+            # The motors follow the mass they have to hover: set them from the last sizing's mass.
+            guess = mass or 2.5
+            p.propulsion.motor_kg, p.propulsion.motor_peak_w = tailsitter.motors(p, guess)
         d = optimize(p, factor)
+        moved = mass is not None and abs(d["mass_total_kg"] - mass) / mass > 0.01
+        mass = d["mass_total_kg"]
         ac = flight.Aircraft.from_design(p, d)
         big = replace(ac, energy_j=1e12)
         r = flight.simulate(p, big, t_max=8 * 3600.0, task_time_max=6 * 3600.0)     # work the task to its goal
@@ -425,7 +438,7 @@ def size_and_fly(p, iters: int = 6, tol: float = 0.03) -> tuple[dict, list[dict]
                         "flown_energy_wh": used / 3600, "estimated_energy_wh": estimated / 3600,
                         "flown_progress": float(r["progress"][-1]), "outcome": r["outcome"],
                         "flown_task_min": float((r["phase"] == "task").sum() * 0.5 / 60)})
-        if abs(new - factor) / factor < tol:
+        if abs(new - factor) / factor < tol and not (tailsitter.vtol(p) and (moved or len(history) < 2)):
             break
         factor = new
     return d, history

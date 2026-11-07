@@ -253,7 +253,8 @@ Findings:
   questions are in [docs/blended-wing](blended-wing/README.md).
 
 Water operations (floating, take-off from the sea, landing loads, `osprey recon-water` and the `--water`
-float kit) are in their own notebook, [docs/float-launch](float-launch/README.md).
+float kit) and the **`tailsitter`** airframe (the blended wing with hover props and float pods, launched
+straight up out of the water) are in their own notebook, [docs/float-launch](float-launch/README.md).
 
 ## Anti-piracy awareness (`osprey recon-awareness`)
 

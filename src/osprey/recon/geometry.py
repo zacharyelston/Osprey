@@ -367,6 +367,9 @@ def build_bwb(p, d: dict, *, explode: float = 0.0) -> list[Part]:
         parts.append(Part("gimbal", "gimbal", v, f))
         v, f = _sphere([xc + 0.04 + g.gimbal_radius_m * 0.75, 0, -0.42 * depth - 0.01], g.gimbal_radius_m * 0.45)
         parts.append(Part("lens", "lens", v, f))
+    if d.get("vtol") == "tailsitter":
+        parts += _tailsitter_parts(p, d, y, le, c, lz)
+        return parts
     xp = -(le[0] + c[0]) - 0.03                             # behind the root trailing edge
     if kind == "crescent":
         xp = min(xp, g.pod_nose_x_m - g.pod_length_m - 0.02)
@@ -378,4 +381,53 @@ def build_bwb(p, d: dict, *, explode: float = 0.0) -> list[Part]:
         tip = np.array([0, math.cos(ang), math.sin(ang)]) * rp * 0.97
         v, f = _tube([xp - 0.002, 0, 0], [xp - 0.002, tip[1], tip[2]], 0.009, 8)
         parts.append(Part(f"blade_{blade:.0f}", "prop", v, f))
+    return parts
+
+
+def _pod(x_bottom: float, y: float, z: float, r: float, length: float, n: int = 18) -> tuple[np.ndarray, np.ndarray]:
+    """A float pod: a body of revolution along x, round at both ends, bottom (aft) end at x_bottom."""
+    s = np.linspace(0, 1, n)
+    radius = r * np.sqrt(np.clip(1 - (np.clip(np.abs(s - 0.5) - 0.5 + r / length, 0, None) * length / r) ** 2, 0.03, 1))
+    a = np.linspace(0, 2 * math.pi, 20, endpoint=False)
+    return loft([np.stack([np.full_like(a, x_bottom + q * length), y + rr * np.cos(a), z + rr * np.sin(a)], 1)
+                 for q, rr in zip(s, radius)])
+
+
+def _tailsitter_parts(p, d: dict, y, le, c, lz) -> list[Part]:
+    """Two tractor props on the leading edge, and four float pods on struts at the trailing edge:
+    one at each wing tip, and one either side of the wing plane on struts from the root."""
+    h, fp = p.hover, p.floats
+    half = d["span_m"] / 2
+    parts = []
+    rp = h.prop_diameter_m / 2
+    for sign in (1, -1):
+        yp = h.prop_y_frac * d["span_m"]
+        xle = -float(np.interp(yp, y, le))
+        zp = float(np.interp(yp, y, lz))
+        v, f = _tube([xle + 0.06, sign * yp, zp], [xle - 0.02, sign * yp, zp], 0.018, 12)      # motor nacelle
+        parts.append(Part(f"nacelle_{sign}", "carbon", v, f))
+        xd = xle + 0.07
+        v, f = _tube([xd, sign * yp, zp], [xd - 0.004, sign * yp, zp], rp, 40)
+        parts.append(Part(f"prop_disc_{sign}", "disc", v, f))
+        for blade in (0, math.pi):
+            ang = 0.6 + blade + (0.8 if sign < 0 else 0.0)
+            tip = np.array([0, math.cos(ang), math.sin(ang)]) * rp * 0.97
+            v, f = _tube([xd - 0.002, sign * yp, zp], [xd - 0.002, sign * yp + tip[1], zp + tip[2]], 0.009, 8)
+            parts.append(Part(f"blade_{sign}_{blade:.0f}", "prop", v, f))
+    x_te = -(le + c)
+    x_bottom = float(x_te.min()) - fp.pod_drop_m
+    r, L = fp.pod_radius_m, fp.pod_length_m
+    for sign in (1, -1):                                         # wing-tip pods, under the tip trailing edge
+        v, f = _pod(x_bottom, sign * (half - r), float(lz[-1]), r, L)
+        parts.append(Part(f"float_tip_{sign}", "pod", v, f))
+        v, f = _tube([float(x_te[-1]) + 0.02, sign * (half - r), float(lz[-1])], [x_bottom + L, sign * (half - r),
+                     float(lz[-1])], 0.006, 8)
+        parts.append(Part(f"strut_tip_{sign}", "carbon", v, f))
+    for sign in (1, -1):                                         # strut pods, above and below the wing plane
+        zs = sign * fp.strut_half_m
+        v, f = _pod(x_bottom, 0.0, zs, r, L)
+        parts.append(Part(f"float_strut_{sign}", "pod", v, f))
+        for x0 in (float(x_te[0]) + 0.10, float(x_te[0]) + 0.01):
+            v, f = _tube([x0, 0.0, float(lz[0])], [x_bottom + L * 0.7, 0.0, zs], 0.007, 8)
+            parts.append(Part(f"strut_{sign}_{x0:.2f}", "carbon", v, f))
     return parts

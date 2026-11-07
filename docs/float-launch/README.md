@@ -140,7 +140,77 @@ So there are three ways to go:
 | Launch | From the water in flat calm; from the deck otherwise | From the deck (throw or catapult) | From the deck, vertically |
 | Recovery | Planing landing on the water, then the boathook | Parachute onto the water, then the boathook | Vertically onto the deck |
 | What it adds | Shoe and step, prop pylon, 7–8 g structure, seals | Parachute and its bay, seals, floating volume | Hover motors and battery, deck-landing control |
-| Limit | Waves of a few cm for take-off | Wind drift under the canopy; finding it in the water | Deck motion and gusts on landing |
+| Limit | Waves of a few cm for take-off | Wind drift under the canopy; finding it in the water | Deck motion and gusts on landing; wind heeling it afloat |
+
+## The tailsitter: afloat upright, launched straight up
+
+The third way, modelled ([`src/osprey/recon/tailsitter.py`](../../src/osprey/recon/tailsitter.py),
+[`design/recon/airframes/tailsitter.toml`](../../design/recon/airframes/tailsitter.toml)). The blended wing
+becomes a tailsitter:
+- **Props:** two 30 cm tractor props on the leading edge, sized for 1.6 × the weight in the hover.
+- **Floats:** four float pods on struts at the trailing edge, one under each wing tip and two on struts
+  50 cm either side of the wing plane.
+- **Deck:** it stands on the pods on deck.
+- **Water:** it floats upright on them, props high, and launches straight up.
+
+![The tailsitter's water launch: afloat upright on its pods, lifting clear, pitching over, wing-borne](../img/recon-tailsitter-launch.png)
+
+**Sizing.** The motors are set from the hover (momentum theory, figure of merit 0.65). Every sortie is
+charged 45 s of hover for the launch and the landing. Sized and flown through all seven jobs
+([`runs/2026-11-07_recon-water/tailsitter`](../../runs/2026-11-07_recon-water/tailsitter/)):
+
+| | Gimbal | A PTZ eye each side |
+|---|---|---|
+| Do-everything bird | 2.96 kg, 181 cm (sar-offshore) | 2.22 kg, 140 cm (escort-flanks) |
+| Against the blended wing: plain / float plane | 2.11 / 2.38 kg | 1.80 / 1.97 kg |
+| Hover motors | 828 W peak, 0.22 kg | 537 W peak, 0.16 kg |
+| Hover energy per sortie | 6.0 Wh | 3.9 Wh |
+| Cruise power at task speed | 106 W | 105 W |
+
+**Afloat and the launch**, for the gimbal bird (the side-eye bird is lighter and does slightly better).
+Its full sheet is
+[`tailsitter/gimbal/sar-offshore/water/tailsitter.md`](../../runs/2026-11-07_recon-water/tailsitter/gimbal/sar-offshore/water/tailsitter.md).
+
+| | |
+|---|---|
+| Afloat | On its pods alone, 11 cm deep, the wing clear; 5 × the volume it needs |
+| Props and camera above the water | 56 cm and 51 cm |
+| Metacentric height (stays upright), tipping across the span / along it | 79 / 332 cm |
+| Throttle-up to clear of the water | 0.37 s |
+| To 3 m up, then wing-borne after the pitch-over | 2.1 s, then **4.3 s**: against the 15 s asked; 10 m downrange, lowest point 3 m up |
+| Surface tension at the waterline | 0.09 N: 0.3 % of the 29 N weight. The props give 47 N; at rest, buoyancy holds the whole 29 N |
+| Landing: settling onto the pods at 1.5 m/s | 2.0 g, against 6–8 g for the float plane's planing landing |
+| Strongest wind it can hover in, broadside | 11.9 m/s, close to the 12 m/s Wingtra rates the Ray to |
+
+**The sea.** For the float plane, the waves were the limit: its shoe takes off in 4–5 cm at most. A
+vertical launch only cares how far the water tips the bird and how fast it rises. Even sea state 5's
+design wave tips it less than 8°, and the climb out beats the water's rise. **What limits it is the wind.**
+Standing upright, the wing is a 0.3 m² sail, 51 cm above the pods' grip. The strut pods across the wing
+plane hold it, and the launch is allowed 30° of slope and heel together, since full thrust still lifts it
+at 1.4 × its weight.
+
+| Struts either side of the wing | Gimbal bird launches to | Side-eye bird launches to |
+|---|---|---|
+| ±30 cm | Falls over (negative metacentric height) | |
+| ±40 cm | Sea state 2 (5 m/s) | Sea state 3 (8 m/s) |
+| **±50 cm (the spec)** | **Sea state 3 (8 m/s): heels 20°** | Sea state 4 (11 m/s) |
+| ±60 cm | Sea state 4 (11 m/s) | Sea state 4 |
+
+Sea state 5 (14 m/s) is beyond the hover's 11.9 m/s whatever the struts.
+
+What it says:
+- **Fifteen seconds is easy.** Out of the water in under half a second and wing-borne in about 4. Surface
+  tension doesn't matter at this scale: a fraction of a percent of the weight. Buoyancy holds the bird
+  until the props take it, and the pods' drag and the water they carry are what slow the first few
+  centimetres.
+- **The tailsitter launches from the water in the seas Recon works in, up to sea state 3–4, where the
+  float plane needs a flat calm.** It also lands at 2 g on its pods, not 6–8 g on its belly, and keeps its
+  props and cameras half a metre clear.
+- **It costs 0.25–0.6 kg against the float plane**, and 0.4–0.85 kg against the plain blended wing. The
+  weight goes into the hover motors, the pods and struts, and a cruise prop sized for the hover. The
+  side-eye bird is the one to build: 2.22 kg, 0.25 kg more than its float plane, launching to sea state 4.
+- **The struts set the sea state.** A wider stance is cheap on paper, but it's a big cross of carbon to
+  stow on a boat.
 
 ## Not worked out yet
 
@@ -153,3 +223,11 @@ So there are three ways to go:
 - **The meshes overlap.** Where the wing passes through the pod, the volume counts twice, so reserve
   buoyancy is a little high on the twin-boom and the crescent.
 - **Salt.** Sealing and the motor's tolerance of a dunking are mass in the kit, not a design.
+- **The tailsitter's launch is a point mass.** The pitch-over has prescribed pitch and thrust, with lift
+  and drag past the stall; it has no control loop, no prop wash over the elevons, and no wind. Its wind
+  limits are static: heel against metacentric height, and side force against the thrust margin.
+- **Upright in waves**, the pods follow the water's slope. Roll and pitch dynamics, and a wave crest
+  slapping a pod as it lifts, aren't modelled. The radii of gyration for the natural periods are REF.
+- **Landing on the deck** of a pitching boat isn't modelled yet; the Nest motion model can supply the deck
+  motion.
+- **The struts' and pods' mass and drag** are REF, and don't change with strut length.

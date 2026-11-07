@@ -30,7 +30,11 @@ def load(mission: str = "sar-datum", payload: str = "gimbal", airframe: str = "t
     af = _toml(RECON / "airframe.toml")
     af["layout"].setdefault("kind", "twinboom")
     if airframe != "twinboom":
-        af = _merge(af, _toml(RECON / "airframes" / f"{airframe}.toml"))
+        over = _toml(RECON / "airframes" / f"{airframe}.toml")
+        base = over.get("layout", {}).get("base")
+        if base:                                       # a variant of a variant: the tailsitter on the blended wing
+            af = _merge(af, _toml(RECON / "airframes" / f"{base}.toml"))
+        af = _merge(af, over)
     if payload != "gimbal":
         af = _merge(af, _toml(RECON / "payloads" / f"{payload}.toml"))
     af["payload"].setdefault("layout", "gimbal")

@@ -1,0 +1,54 @@
+# Airframe variant: the blended wing body as a tailsitter. It takes off and
+# lands standing on its trailing edge, and flies as a wing, like the
+# WingtraRAY. Two tractor props on the leading edge give the hover; four
+# float pods on landing struts at the trailing edge stand it on the deck and
+# float it upright in the water, props high and dry. Overlaid on bwb.toml,
+# then on design/recon/airframe.toml, with `--airframe tailsitter`.
+#
+# The sizing sets the motors from the hover (peak thrust over weight) and
+# charges every sortie the hover energy of a launch and a landing.
+
+[layout]
+base = "bwb"
+vtol = "tailsitter"
+label = "Tailsitter blended wing: two tractor props on the leading edge, stands and floats on four strut pods"
+
+[propulsion]
+prop_efficiency = 0.55      # two props sized for the hover, turning slowly in cruise
+motor_kg = 0.30             # a starting point: the sizing sets it from the hover
+motor_peak_w = 900.0        # likewise, total shaft power
+
+[hover]
+props = 2
+prop_diameter_m = 0.30
+prop_y_frac = 0.25          # each prop's span station, as a fraction of the span
+figure_of_merit = 0.65
+thrust_to_weight = 1.6      # peak: control in gusts, and the climb out of the water
+specific_kg_per_kw = 0.22   # motor, ESC and prop per kW of peak shaft power
+fixed_kg = 0.04             # mounts and wiring for two motors
+time_s = 45.0               # hover per sortie: the launch and transition, and the landing
+spool_s = 0.5               # throttle up to full thrust
+climb_ms = 2.0              # out of the water, up to the safe height
+safe_height_m = 3.0         # above the water before pitching over
+pitch_rate_dps = 40.0       # the pitch-over from vertical to wing-borne
+
+[body]
+mass_kg = 0.45              # the blended wing's 0.25 kg, plus struts, four float pods and seals
+cda_m2 = 0.0075             # the blended wing's 0.004, plus the pods and struts
+
+[floats]
+pod_radius_m = 0.05          # 1.5 l each: four carry it with the wing clear of the water
+pod_length_m = 0.22
+strut_half_m = 0.50         # the strut pods this far either side of the wing plane: 0.30 falls over, 0.40 launches to sea state 2, 0.50 to 3
+pod_drop_m = 0.22           # every pod hangs its whole length below the lowest trailing edge
+added_mass = 0.2            # water carried along with the pods, as a fraction of what they displace
+cd = 0.5                    # the pods' drag coming up out of the water, on their end area
+surface_tension_npm = 0.073 # sea water against a wetted surface
+design_wave = 1.67          # design wave height / significant height: the highest in a hundred
+tilt_max_deg = 30.0         # wave slope and wind heel together: full thrust still lifts it at 1.6 cos 30 = 1.4 x its weight
+gm_min_m = 0.03             # upright metacentric height, each way
+prop_height_min_m = 0.30    # props above the calm water, afloat upright
+launch_s_max = 15.0         # from throttle-up on the water to wing-borne flight
+sink_ms = 1.5               # settling onto the pods to land
+wind_ms = [0.0, 2.0, 5.0, 8.0, 11.0, 14.0]   # the wind typical of sea states 0-5 (Beaufort 0-6)
+wind_cd = 1.2               # the wing standing upright is a flat plate to the wind
