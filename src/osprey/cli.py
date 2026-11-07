@@ -478,7 +478,7 @@ def cmd_recon_cyclone(args) -> int:
     for pl in payloads:
         _, d = one(base / pl)
         tn, ts = one(tsr / pl)
-        tw = json.loads((tsr / pl / tn / "water" / "tailsitter.json").read_text())
+        tw = json.loads((ROOT / "runs" / "2026-11-07_recon-tailsitter-launch" / pl / tn / "water" / "tailsitter.json").read_text())
         a = cyclone.assess(d, pl, ts, tw)
         o = dst / pl
         o.mkdir(parents=True, exist_ok=True)

@@ -402,7 +402,8 @@ def launch_sequence(p, d: dict, fl: dict, track: list, path: Path, W: int = 1800
     centre = np.array([float(xs.mean()), 0.0, float(zs.max()) / 2 + 0.4])
     span = max(float(np.ptp(xs)), 2.2 * float(zs.max())) + 4.0
     # From ahead and to one side: upright, the wing lies across the view, its face toward the camera.
-    eye = centre + np.array([0.42 * span, -0.72 * span, 0.10 * span])
+    eye = centre + np.array([0.30 * span, -0.85 * span, 0.10 * span])
+    eye[0] = max(eye[0], float(xs.max()) + 2.0)                        # stay ahead of the last pose
     cam = _cam("l", eye, centre, fovy=36)
     img = _shoot(_world("sea", "".join(assets), "".join(bodies), cam, W, H), ["l"], W, H)["l"]
     _save(img, path, labels=[(14, "tailsitter water launch: afloat on its pods, clear of the water, pitching over, "

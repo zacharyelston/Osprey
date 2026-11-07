@@ -177,7 +177,7 @@ Its full sheet is
 | Props and camera above the water | 56 cm and 51 cm |
 | Metacentric height (stays upright), tipping across the span / along it | 79 / 332 cm |
 | Throttle-up to clear of the water | 0.37 s |
-| To 3 m up, then wing-borne after the pitch-over | 2.1 s, then **4.3 s**: against the 15 s asked; 10 m downrange, lowest point 3 m up |
+| To 3 m up, then wing-borne after the pitch-over | 2.1 s, then **4.2 s**: against the 15 s asked; 12 m downrange, lowest point 3 m up ([re-run](../../runs/2026-11-07_recon-tailsitter-launch/) with flat-plate lift past the stall and the props' thrust falling with airspeed) |
 | Surface tension at the waterline | 0.09 N: 0.3 % of the 29 N weight. The props give 47 N; at rest, buoyancy holds the whole 29 N |
 | Landing: settling onto the pods at 1.5 m/s | 2.0 g, against 6–8 g for the float plane's planing landing |
 | Strongest wind it can hover in, broadside | 11.9 m/s, close to the 12 m/s Wingtra rates the Ray to |
@@ -323,8 +323,11 @@ and B's authority in each mode.
 - **The meshes overlap.** Where the wing passes through the pod, the volume counts twice, so reserve
   buoyancy is a little high on the twin-boom and the crescent.
 - **Salt.** Sealing and the motor's tolerance of a dunking are mass in the kit, not a design.
-- **The tailsitter's launch is a point mass.** The pitch-over has prescribed pitch and thrust, with lift
-  and drag past the stall; it has no control loop, no prop wash over the elevons, and no wind. Its wind
+- **The tailsitter's launch is a point mass.** The pitch-over has prescribed pitch and thrust, a flat
+  plate past the stall, and props whose thrust falls with airspeed. (The first version credited the wing
+  with up to 2.4 lift coefficient past the stall and the props with full static thrust at any speed; fixing
+  both moved wing-borne from 4.3 to 4.2 s, because the thrust law holds the height on the props.) It has
+  no control loop, no prop wash over the elevons, and no wind. Its wind
   limits are static: heel against metacentric height, and side force against the thrust margin.
 - **Upright in waves**, the pods follow the water's slope. Roll and pitch dynamics, and a wave crest
   slapping a pod as it lifts, aren't modelled. The radii of gyration for the natural periods are REF.

@@ -13,7 +13,7 @@ struts, props high and dry, and launches straight up out of the sea.
 - The launch: throttle up; climb out of the water against the pods' drag,
   the water they carry, surface tension and the buoyancy they lose; climb
   to a safe height; pitch over to wing-borne flight. A 2-D point mass
-  through the pitch-over, with lift and drag past the stall.
+  through the pitch-over, a flat plate past the stall.
 - The sea: the design wave's slope (how far the water tips the bird before
   it lifts) and its surface speed (what the climb has to outrun).
 
@@ -240,7 +240,7 @@ def launch(p, d: dict, fl: dict | None = None, dt: float = 0.005) -> dict:
         sp = math.hypot(vx, vz)
         gam = math.atan2(vz, vx) if sp > 0.1 else math.pi / 2
         a = theta - gam
-        cl = cla * a if abs(a) <= a_stall else p.wing.cl_max * math.sin(2 * a) / math.sin(2 * a_stall)
+        cl = cla * a if abs(a) <= a_stall else 1.2 * math.sin(a) * math.cos(a)       # past the stall, a flat plate
         cd = d["cd0"] + d["k"] * min(cl * cl, p.wing.cl_max ** 2) + 1.2 * math.sin(a) ** 2
         q = 0.5 * flight.rho(z) * sp * sp
         L, D = q * S * cl, q * S * cd
@@ -248,7 +248,11 @@ def launch(p, d: dict, fl: dict | None = None, dt: float = 0.005) -> dict:
         # more of the weight as it speeds up; whatever that leaves drives it forward.
         lift_up = L * math.cos(gam) - D * math.sin(gam)
         hold = (W - lift_up + m * (0.5 * h.climb_ms - vz) / 0.5) / max(math.sin(theta), 0.2)
-        T = min(max(hold, 0.3 * W), T_max)
+        # The props' thrust falls away with the air along their axis: momentum theory's static thrust, then
+        # the propulsive efficiency times the peak power over the speed.
+        u = max(sp * math.cos(a), 0.1)
+        T_avail = min(T_max, p.propulsion.prop_efficiency * d.get("motor_peak_w", p.propulsion.motor_peak_w) / u)
+        T = min(max(hold, 0.3 * W), T_avail)
         ax = T * math.cos(theta) - D * math.cos(gam) - L * math.sin(gam)
         az = T * math.sin(theta) - D * math.sin(gam) + L * math.cos(gam) - W
         vx += ax / m * dt
@@ -261,6 +265,7 @@ def launch(p, d: dict, fl: dict | None = None, dt: float = 0.005) -> dict:
         if theta <= theta_end + 1e-9 and sp >= v_wing:
             break
     phase_t["wing_borne_s"] = t
+    track.append((t, x, z, theta))                       # the end, whatever the sampling
     hover_e = hover_power(p, W) / p.propulsion.motor_efficiency
     return {"t_clear_s": phase_t["clear_s"], "t_safe_s": phase_t["safe_s"], "t_wing_borne_s": phase_t["wing_borne_s"],
             "v_exit_ms": v_exit, "height_min_m": z_min - rs[-1], "v_wing_ms": v_wing, "distance_m": x,

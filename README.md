@@ -364,7 +364,7 @@ Every bird needs to float, so it can come down beside the boat when a catch on d
 the water and the landing loads. `--water` sizes the bird with the float kit aboard. In short: they float,
 but each needs its prop on a 17–24 cm pylon, and take-off from the water only works in a flat calm. A
 tailsitter version of the blended wing does better. It floats upright on four strut pods, props half a
-metre up, and is wing-borne 4.3 s after throttle-up in up to sea state 3–4. It costs 0.25–0.6 kg against
+metre up, and is wing-borne 4.2 s after throttle-up in up to sea state 3–4. It costs 0.25–0.6 kg against
 the float plane. A Cyclone (`osprey recon-cyclone`, after Nick Rehm's spinning tricopter) has four modes,
 run by a modes manager:
 1. lifting on its tip motors for the first and last 25 ft;
