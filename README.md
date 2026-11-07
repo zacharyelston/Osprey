@@ -365,11 +365,16 @@ the water and the landing loads. `--water` sizes the bird with the float kit abo
 but each needs its prop on a 17–24 cm pylon, and take-off from the water only works in a flat calm. A
 tailsitter version of the blended wing does better. It floats upright on four strut pods, props half a
 metre up, and is wing-borne 4.3 s after throttle-up in up to sea state 3–4. It costs 0.25–0.6 kg against
-the float plane. A Cyclone (`osprey recon-cyclone`, after Nick Rehm's spinning tricopter) hovers only by
-spinning as one big rotor, on 2.2–2.7× less power. It flies with two arms up in dihedral and one down
-as a fin, all three tip motors pushing forward. It falls like a seed with the motors off and hovers on
-one motor. With the gimbal it comes out 0.05 kg lighter than the tailsitter; with side eyes, 0.08 kg
-heavier. It gives up hovering in winds above 7–8 m/s. The notebook, with the WingtraRAY as prior art, is
+the float plane. A Cyclone (`osprey recon-cyclone`, after Nick Rehm's spinning tricopter) has four modes,
+run by a modes manager:
+1. lifting on its tip motors for the first and last 25 ft;
+2. a spinning hover on 2.2–2.6× less power;
+3. spinning travel at 7–8 m/s;
+4. wing-borne flight with two arms up in dihedral and one down as a fin.
+
+It falls like a seed with the motors off. With the gimbal it matches the tailsitter, 2.95 kg against
+2.96. Optional mid-wing motors (A2) cover the one window where a motor out isn't survivable: the first
+and last 25 ft. The notebook, with the WingtraRAY as prior art, is
 [docs/float-launch](docs/float-launch/README.md).
 
 ### Anti-piracy awareness
@@ -508,7 +513,7 @@ Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two works
 | [`design/scenarios/`](design/scenarios/) | `coastal-watch` (sea state 4), `mob` (sea state 3), `docking` |
 | [`design/recon/`](design/recon/) | Recon: the reference printed airframe, airframe variants (blended wing, crescent), payload variants, and the mission profiles (search, survey, inspect, escort) |
 | [`src/osprey/`](src/osprey/) | `frames`, `motion`, `optics`, `stabilize`, `occlusion`, `rig`, `tasking`, `calcs`, `figures`, `render/scene`, `cli` |
-| [`src/osprey/recon/`](src/osprey/recon/) | `tasks` (search, survey, inspect, escort), `search` (sweep width, POD), `flight` (3-DOF), `sizing` (OpenMDAO + OpenAeroStruct, trim and stability for flying wings), `fleet` (one bird, many jobs), `geometry` and `render` (the bird in MuJoCo), `plug` and `frame` (mould plugs, CNC ladder frames), `water` (afloat, take-off from the sea, landing loads), `tailsitter` (hover sizing, afloat upright, the water launch), `cyclone` (three wing arms spinning as a rotor), `awareness` (anti-piracy ranges), `figures` |
+| [`src/osprey/recon/`](src/osprey/recon/) | `tasks` (search, survey, inspect, escort), `search` (sweep width, POD), `flight` (3-DOF), `sizing` (OpenMDAO + OpenAeroStruct, trim and stability for flying wings), `fleet` (one bird, many jobs), `geometry` and `render` (the bird in MuJoCo), `plug` and `frame` (mould plugs, CNC ladder frames), `water` (afloat, take-off from the sea, landing loads), `tailsitter` (hover sizing, afloat upright, the water launch), `cyclone` (three wing arms spinning as a rotor), `cyclone_modes` (its modes, the moves between them, the manager), `awareness` (anti-piracy ranges), `figures` |
 | [`runs/`](runs/README.md) | Kept runs, never edited after they are archived |
 | [`docs/`](docs/) | [Architecture](docs/architecture.md), [Recon](docs/recon.md), [remote runs](docs/remote-simulation.md), README figures |
 
@@ -516,7 +521,7 @@ Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two works
 
 | Run | What it shows |
 |---|---|
-| [`2026-11-07_recon-cyclone-modes`](runs/2026-11-07_recon-cyclone-modes/) | Recon as a Cyclone that hovers only by spinning and flies with a dihedral wing: every mode's abilities, both transitions, re-sized for all seven jobs |
+| [`2026-11-07_recon-cyclone-modes`](runs/2026-11-07_recon-cyclone-modes/) | Recon as a Cyclone flown by its four modes: every move's guard and cost, launch and recovery, A alone against A with A2, re-sized for all seven jobs |
 | [`2026-11-07_recon-cyclone`](runs/2026-11-07_recon-cyclone/) | Superseded: the first Cyclone, with tricopter transitions and a flat Y wing |
 | [`2026-11-06_recon-wings`](runs/2026-11-06_recon-wings/) | Recon: the blended wing and crescent flying wing, each payload, seven jobs and capability matrices; awareness ranges; plugs and ladder frames for the flying wings |
 | [`2026-11-06_recon-payloads`](runs/2026-11-06_recon-payloads/) | Recon: seven jobs (search, survey, inspect, escort) for each payload (gimbal, side PTZ eyes), each one's sized airframe and flight, and both capability matrices |

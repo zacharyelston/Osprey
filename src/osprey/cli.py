@@ -463,7 +463,7 @@ def _tailsitter_water(name, p, d, o: Path, args):
 def cmd_recon_cyclone(args) -> int:
     """Recon as a Cyclone: the twin-boom one-bird rebuilt with three wing arms that spin as a rotor,
     against the tailsitter one-bird for the same cameras."""
-    from osprey.recon import cyclone
+    from osprey.recon import cyclone, cyclone_modes
     from osprey.recon import figures as rfig
 
     payloads = ("gimbal", "dual") if args.payload == "all" else (args.payload,)
@@ -485,10 +485,13 @@ def cmd_recon_cyclone(args) -> int:
         (o / "cyclone.md").write_text(cyclone.report(a, pl))
         (o / "cyclone.json").write_text(json.dumps(a, indent=1, default=float))
         rfig.cyclone(a, f"Recon as a Cyclone, {pl}: {a['mass']['mass_kg']:.2f} kg re-sized for all seven jobs", o / "cyclone.png")
-        h, ab = a["hover"], a["abilities"]
+        (o / "modes.md").write_text(cyclone_modes.report(a["modes"], pl))
+        rfig.cyclone_modes(a["modes"], f"The Cyclone's modes, {pl}", o / "modes.png")
+        h, ab, mo = a["hover"], a["abilities"], a["modes"]["A+A2" if a["mass"]["a2"] else "A"]
         print(f"{pl}: {a['mass']['mass_kg']:.2f} kg; hover {h['p_shaft_w']:.0f} W at {h['rpm']:.0f} rpm "
-              f"(tailsitter {a['tailsitter']['hover_w']:.0f} W); motors off {ab['seed']['sink_ms']:.1f} m/s; spin to wing "
-              f"from {ab['to_wing']['height_m']:.0f} m; jobs {sum(r['ok'] for r in a['resized']['jobs'].values())}/7 -> {o}")
+              f"(tailsitter {a['tailsitter']['hover_w']:.0f} W); motors off {ab['seed']['sink_ms']:.1f} m/s; launch "
+              f"{mo['launch']['time_s']:.0f} s + recovery {mo['recover']['time_s']:.0f} s = {a['hover_wh']:.1f} Wh; jobs "
+              f"{sum(r['ok'] for r in a['resized']['jobs'].values())}/7 -> {o}")
     return 0
 
 

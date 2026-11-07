@@ -195,3 +195,64 @@ def cyclone(a: dict, title: str, path):
     fig.tight_layout()
     fig.savefig(path, dpi=130)
     plt.close(fig)
+
+
+MODE_COLORS = {1: "#DD8452", 2: "#4C72B0", 3: "#55A868", 4: "#8172B2"}
+
+
+def cyclone_modes(a: dict, title: str, path):
+    """The Cyclone's modes: the moves between them, and the launch and recovery mode by mode."""
+    from osprey.recon.cyclone_modes import NAMES
+
+    r = a["A+A2" if a["modes"]["a2"] else "A"]
+    fig = plt.figure(figsize=(15, 4.8))
+    gs = fig.add_gridspec(1, 3, width_ratios=[1.5, 1.2, 1.2])
+    ax = fig.add_subplot(gs[0])
+    pos = {1: (0, 0), 2: (0, 1), 3: (1.6, 1), 4: (1.6, 0)}
+    for k, (x, y) in pos.items():
+        ax.add_patch(plt.Rectangle((x - 0.42, y - 0.14), 0.84, 0.28, color=MODE_COLORS[k], alpha=0.85, ec="none"))
+        ax.text(x, y + 0.04, f"{k}", ha="center", va="center", fontsize=14, color="white", weight="bold")
+        ax.text(x, y - 0.07, NAMES[k], ha="center", va="center", fontsize=7, color="white")
+    # Each move's arrow on its own side of the pair's centre line, its label beside it.
+    for row in r["matrix"]:
+        a_, b_ = row["from"], row["to"]
+        (x0, y0), (x1, y1) = pos[a_], pos[b_]
+        lo, hi = sorted((a_, b_))
+        px, py = pos[hi][0] - pos[lo][0], pos[hi][1] - pos[lo][1]
+        n = math.hypot(px, py)
+        sgn = 1 if a_ < b_ else -1
+        ox, oy = -py / n * 0.07 * sgn, px / n * 0.07 * sgn
+        dx, dy = (x1 - x0) / n, (y1 - y0) / n
+        sx, sy = x0 + dx * 0.46 + ox, y0 + dy * 0.18 + oy
+        ex, ey = x1 - dx * 0.46 + ox, y1 - dy * 0.18 + oy
+        col = "#34495e" if row["ok"] else "#c0392b"
+        ax.annotate("", xy=(ex, ey), xytext=(sx, sy),
+                    arrowprops=dict(arrowstyle="->", lw=1.4, color=col, ls="-" if row["ok"] else "--"))
+        sep = "\n" if not px else ": "
+        label = f"{a_}→{b_}{sep}{row['t_s']:.0f} s, {row['dh_m']:+.0f} m" if row["ok"] else f"{a_}→{b_}{sep}refused"
+        lx, ly = (sx + ex) / 2 + ox * 1.3, (sy + ey) / 2 + oy * 1.3
+        ha = "center" if px else ("left" if ox > 0 else "right")
+        ax.text(lx, ly, label, fontsize=7, ha=ha, va="center", color=col)
+    ax.set_xlim(-0.85, 2.45)
+    ax.set_ylim(-0.4, 1.4)
+    ax.set_aspect("equal")
+    ax.set_axis_off()
+    ax.set_title("The modes and the moves between them", fontsize=10)
+    for i, (key, name) in enumerate((("launch", "Launch"), ("recover", "Recovery"))):
+        bx = fig.add_subplot(gs[1 + i])
+        for ph in r[key]["phases"]:
+            t0, t1 = ph["t0_s"], ph["t0_s"] + ph["dt_s"]
+            bx.plot([t0, t1], [ph["h0_m"], ph["h1_m"]], color=MODE_COLORS[ph["mode"]], lw=3, solid_capstyle="butt")
+        bx.axhline(a["modes"]["clearance_m"], color="#7f8c8d", ls=":", lw=1)
+        bx.text(0.2, a["modes"]["clearance_m"] + 0.4, "25 ft", fontsize=7, color="#7f8c8d")
+        bx.set_xlabel("time (s)")
+        bx.set_ylabel("height (m)")
+        bx.set_title(f"{name}: {r[key]['time_s']:.0f} s, {r[key]['energy_wh']:.1f} Wh", fontsize=10)
+        bx.set_ylim(bottom=0)
+        bx.grid(alpha=0.3)
+    handles = [plt.Line2D([], [], color=MODE_COLORS[k], lw=3, label=f"mode {k}") for k in (1, 2, 3, 4)]
+    fig.legend(handles=handles, loc="lower center", ncol=4, frameon=False, fontsize=8)
+    fig.suptitle(title, fontsize=11)
+    fig.tight_layout(rect=(0, 0.05, 1, 1))
+    fig.savefig(path, dpi=130)
+    plt.close(fig)

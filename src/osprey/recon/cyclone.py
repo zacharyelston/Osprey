@@ -77,26 +77,49 @@ def tri_power(p, cy, thrust_n: float, v: float = 0.0, h: float = 0.0, cda: float
     return cy.induced_factor * T * vi + p_ideal * (1 / cy.tri_figure_of_merit - cy.induced_factor) + D * v
 
 
-def motors(p, d: dict, cy, mass_kg: float) -> tuple[float, float]:
-    """Three tip motors: their mass (kg) and rated shaft power in all (W). Rated for the spinning
-    peak thrust, or for the sea lift-off as a tricopter carried at the burst factor, whichever is more."""
+def lift_power(p, cy, thrust_n: float, u: float = 0.0, props: int | None = None) -> float:
+    """Shaft power for A (and A2) pushing along their axes, B centred: momentum theory with the air
+    coming at them at u along the axis (a climb; no credit taken for descending into the wake), and
+    the props' profile power from the hover figure of merit."""
+    A = (props or cy.arms) * math.pi * (cy.tri_prop_diameter_m / 2) ** 2
+    vh = math.sqrt(thrust_n / (2 * flight.rho(0.0) * A))
+    u = max(u, 0.0)
+    return (cy.induced_factor * thrust_n * (u / 2 + math.sqrt(u * u / 4 + vh * vh))
+            + thrust_n * vh * (1 / cy.tri_figure_of_merit - cy.induced_factor))
+
+
+def motors(p, d: dict, cy, mass_kg: float, a2: bool = False) -> dict:
+    """A (three motors, and A2's three if fitted): mass (kg) and rated shaft power in all (W). A is
+    rated for the spinning peak, or for its share of mode 1's peak, whichever is more; A2 for its
+    share of mode 1. Mode 1 runs over the rating, at the burst factor, if its stints are short enough."""
+    from osprey.recon import cyclone_modes
+
     spin = rotor(p, d, cy, mass_kg, cy.thrust_to_weight * mass_kg * G)["p_shaft_w"]
-    liftoff = tri_power(p, cy, cy.tri_thrust_to_weight * mass_kg * G) / cy.burst_factor
-    rated = max(spin, liftoff)
-    return cy.specific_kg_per_kw * rated / 1000 + cy.fixed_kg, rated
+    over = cy.burst_factor if cyclone_modes.burst_ok(cyclone_modes.inputs()) else 1.0
+    lift = lift_power(p, cy, cy.tri_thrust_to_weight * mass_kg * G, props=cy.arms * (2 if a2 else 1)) / over
+    a = max(spin, lift / 2 if a2 else lift)
+    b = lift / 2 if a2 else 0.0
+    kg = cy.specific_kg_per_kw * (a + b) / 1000 + cy.fixed_kg + (cyclone_modes.inputs().a2_fixed_kg if a2 else 0.0)
+    return {"kg": kg, "a_w": a, "a2_w": b, "spin_peak_w": spin, "lift_peak_w": lift * over, "burst": over > 1}
 
 
-def mass(p, d: dict, cy=None) -> dict:
-    """The base bird with its pod, booms, tail and pusher swapped for the hub, a third arm and three
-    tip motors. The motors are sized for the mass they lift, so iterate."""
+def mass(p, d: dict, cy=None, a2: bool | None = None) -> dict:
+    """The base bird with its pod, booms, tail and pusher swapped for the hub, a third arm and the
+    A motors (and A2, if a2, or if the modes' inputs pick it). The motors are sized for the mass
+    they lift, so iterate."""
+    from osprey.recon import cyclone_modes
+
     cy = cy or inputs()
+    a2 = cyclone_modes.inputs().a2 if a2 is None else a2
     g = geometry(p, d, cy)
     base = d["mass_total_kg"] - p.body.mass_kg - p.propulsion.motor_kg + cy.hub_kg + g["arm_kg"]
     m = base
     for _ in range(30):
-        mk, peak = motors(p, d, cy, m)
-        m = base + mk
-    return {"mass_kg": m, "motor_kg": mk, "motor_peak_w": peak, "delta_kg": m - d["mass_total_kg"]}
+        mo = motors(p, d, cy, m, a2)
+        m = base + mo["kg"]
+    return {"mass_kg": m, "motor_kg": mo["kg"], "motor_peak_w": mo["a_w"], "a2_w": mo["a2_w"], "a2": a2,
+            "lift_props": cy.arms * (2 if a2 else 1), "spin_peak_w": mo["spin_peak_w"],
+            "lift_peak_w": mo["lift_peak_w"], "burst": mo["burst"], "delta_kg": m - d["mass_total_kg"]}
 
 
 def rotor(p, d: dict, cy, mass_kg: float, thrust_n: float | None = None) -> dict:
@@ -189,67 +212,12 @@ def _thrust(p, cy, shaft_w: float, v: float) -> float:
     return min(static, p.propulsion.prop_efficiency * shaft_w / max(v, 0.1))
 
 
-def fly_out(p, d: dict, cy, m: dict, dt: float = 0.005) -> dict:
-    """Spin to wing: the spin has died with the arms at the flight setting, the bird nose-down with
-    the motors pushing forward at the burst. Pitch up at a set rate to level flight; done when level
-    at 1.2 x the stall and no longer sinking. A 2-D point mass with lift and drag past the stall."""
-    w = _wing(p, d, cy)
-    S, clm = w["S_m2"], w["cl_max"]
-    ar = w["span_m"] ** 2 / S
-    cla = 2 * math.pi * ar / (ar + 2)
-    a_stall = clm / cla
-    W, mk = m["mass_kg"] * G, m["mass_kg"]
-    v_wing = 1.2 * math.sqrt(2 * W / (flight.rho(0.0) * S * clm))
-    shaft = m["motor_peak_w"] * cy.burst_factor
-    theta, theta_end = math.radians(cy.flyout_pitch_deg), math.radians(4.0)
-    t = x = z = vx = vz = 0.0
-    z_min = 0.0
-    while t < 60:
-        theta = min(theta + math.radians(cy.pitch_rate_dps) * dt, theta_end)
-        sp = math.hypot(vx, vz)
-        gam = math.atan2(vz, vx) if sp > 0.1 else theta
-        a = theta - gam
-        cl = cla * a if abs(a) <= a_stall else clm * math.sin(2 * a) / math.sin(2 * a_stall)
-        cd = w["cd0"] + w["k"] * min(cl * cl, clm ** 2) + 1.2 * math.sin(a) ** 2
-        q = 0.5 * flight.rho(0.0) * sp * sp
-        L, D = q * S * cl, q * S * cd
-        T = _thrust(p, cy, shaft, sp)
-        vx += (T * math.cos(theta) - D * math.cos(gam) - L * math.sin(gam)) / mk * dt
-        vz += (T * math.sin(theta) - D * math.sin(gam) + L * math.cos(gam) - W) / mk * dt
-        x += vx * dt
-        z += vz * dt
-        z_min = min(z_min, z)
-        t += dt
-        if theta >= theta_end - 1e-9 and sp >= v_wing and vz >= 0:
-            break
-    return {"t_s": t, "height_lost_m": -z_min, "distance_m": x, "v_ms": math.hypot(vx, vz), "v_wing_ms": v_wing,
-            "ok": t < 60}
-
-
-def conversion(p, d: dict, cy, m: dict) -> dict:
-    """From the spin to the wing at a height that leaves the safety margin under the fly-out; the
-    spinning climb up to it."""
-    fo = fly_out(p, d, cy, m)
-    h = fo["height_lost_m"] + cy.safety_height_m
-    return {**fo, "height_m": h, "climb_s": h / cy.climb_ms,
-            "climb_j": m["mass_kg"] * G * h / cy.tip_prop_efficiency}
-
-
-def entry(p, d: dict, cy, m: dict, v0: float) -> dict:
-    """Wing to spin, the forced move: the zoom trades speed for height, then the inflow spins the
-    rotor up while it sinks at the autorotation rate."""
-    zoom = cy.zoom_efficiency * v0 * v0 / (2 * G)
-    loss = autorotation(p, d, cy, m)["sink_ms"] * cy.entry_s
-    return {"v0_ms": v0, "zoom_m": zoom, "entry_loss_m": loss, "net_m": zoom - loss}
-
-
 def hover_j(p, d: dict, cy, m: dict) -> float:
-    """Each sortie's time off the wing, as the tailsitter's: all of it spinning but the sea lift-off
-    as a tricopter, and the spinning climb to the height the fly-out onto the wing needs. Charged as
-    if every sortie launched from the sea."""
-    spin = rotor(p, d, cy, m["mass_kg"])["p_shaft_w"] * (cy.hover_time_s - cy.sea_liftoff_s)
-    tri = tri_power(p, cy, cy.tri_thrust_to_weight * m["mass_kg"] * G) * cy.sea_liftoff_s
-    return (spin + tri + conversion(p, d, cy, m)["climb_j"]) / p.propulsion.motor_efficiency
+    """Each sortie's launch and recovery, mode by mode, from the deck or the water up to wing-borne
+    and back: what the modes' manager charges against the battery."""
+    from osprey.recon import cyclone_modes
+
+    return cyclone_modes.off_wing_j(p, d, cy, m)
 
 
 def aircraft(p, d: dict, cy, m: dict) -> flight.Aircraft:
@@ -356,9 +324,9 @@ def _climb_rate(p, d: dict, cy, m: dict, shaft_w: float) -> float:
 
 
 def abilities(p, d: dict, cy, m: dict, base: dict) -> dict:
-    """What each mode can do. Spinning: hover power and endurance, climb, wind, the seed fall.
-    Flying: stall, the speeds for least power and best range, top speed, lift-to-drag, endurance and
-    range, against the twin-boom it was built from. The sea lift-off as a tricopter. Both transitions."""
+    """What spinning and wing-borne flight can do. Spinning: hover power and endurance, climb, wind,
+    the seed fall. Wing-borne: stall, the speeds for least power and best range, top speed, lift-to-drag,
+    endurance and range, against the twin-boom it was built from. The modes' manager does the rest."""
     from osprey.recon.params import payload_w
 
     pr = p.propulsion
@@ -382,9 +350,6 @@ def abilities(p, d: dict, cy, m: dict, base: dict) -> dict:
 
     wing = aircraft(p, d, cy, m)
     bac = flight.Aircraft.from_design(p, base)
-    A3 = cy.arms * math.pi * (cy.tri_prop_diameter_m / 2) ** 2
-    lift_burst = (burst * cy.tri_figure_of_merit * math.sqrt(2 * flight.rho(0.0) * A3)) ** (2 / 3)
-    cv = conversion(p, d, cy, m)
     fl = envelope(wing, rated)
     return {
         "spin": {"hover_w": h["p_shaft_w"], "hover_elec_w": h["p_shaft_w"] / pr.motor_efficiency + aux,
@@ -394,8 +359,6 @@ def abilities(p, d: dict, cy, m: dict, base: dict) -> dict:
         "seed": autorotation(p, d, cy, m),
         "flight": {**fl, "v_top_burst_ms": envelope(wing, burst)["v_top_ms"]},
         "base_flight": envelope(bac, bac.p_shaft_max_w),
-        "liftoff": {"thrust_to_weight": lift_burst / W, "power_w": burst, "seconds": cy.sea_liftoff_s},
-        "to_wing": cv, "to_spin": entry(p, d, cy, m, fl["v_range_ms"]),
     }
 
 
@@ -409,8 +372,9 @@ def cruise_curves(p, d: dict, cy, m: dict, base: dict, h: float) -> dict:
 
 def assess(d: dict, payload: str, ts: dict, ts_water: dict) -> dict:
     """The Cyclone built from a one-bird: flown as built, then re-sized to do all seven jobs, and
-    the re-sized one's abilities in every mode. ts and ts_water are the tailsitter one-bird's design
-    and water sheet, to compare against."""
+    the re-sized one's abilities in every mode, with the modes' manager's sorties. ts and ts_water
+    are the tailsitter one-bird's design and water sheet, to compare against."""
+    from osprey.recon import cyclone_modes
     from osprey.recon.params import load
 
     cy = inputs()
@@ -427,7 +391,7 @@ def assess(d: dict, payload: str, ts: dict, ts_water: dict) -> dict:
            "built": built, "resized": {k: v for k, v in rs.items() if k != "design"}, "design": dc,
            "geometry": geometry(p, dc, cy), "wing": _wing(p, dc, cy), "mass": m, "hover": hov,
            "hover_peak": rotor(p, dc, cy, m["mass_kg"], cy.thrust_to_weight * m["mass_kg"] * G),
-           "liftoff_w": tri_power(p, cy, cy.tri_thrust_to_weight * m["mass_kg"] * G),
+           "liftoff_w": m["lift_peak_w"], "modes": cyclone_modes.assess(p, dc, cy),
            "hover_wh": hover_j(p, dc, cy, m) / 3600, "abilities": abilities(p, dc, cy, m, d),
            "spin_up": spin_up(p, dc, cy, m), "one_motor_w": m["motor_peak_w"] / cy.arms,
            "one_motor_burst_w": m["motor_peak_w"] * cy.burst_factor / cy.arms,
@@ -444,13 +408,13 @@ def assess(d: dict, payload: str, ts: dict, ts_water: dict) -> dict:
 
 
 def report(a: dict, title: str) -> str:
-    """The Cyclone's sheet: the bird, what each mode can do, the transitions, the jobs."""
+    """The Cyclone's sheet: the bird, what each mode can do, launch and recovery, the jobs."""
     from osprey.recon.params import MISSIONS
 
     g, m, h, cy, rs, ts, ab = (a["geometry"], a["mass"], a["hover"], a["cyclone"], a["resized"], a["tailsitter"],
                                a["abilities"])
-    sp, sd, fl, bf, lo, tw, tsp = (ab["spin"], ab["seed"], ab["flight"], ab["base_flight"], ab["liftoff"], ab["to_wing"],
-                                   ab["to_spin"])
+    sp, sd, fl, bf = ab["spin"], ab["seed"], ab["flight"], ab["base_flight"]
+    mo = a["modes"]["A+A2" if m["a2"] else "A"]
     yes = lambda ok: "✓" if ok else "✗"                                # noqa: E731
     lines = [f"# Recon as a Cyclone: {title}", "",
              "Three arms that are wings, after Nick Rehm's Cyclone-Rotor tricopter. It hovers only by spinning, the "
@@ -475,10 +439,11 @@ def report(a: dict, title: str) -> str:
              f"{a['stall_margin_min']:g}×) | |",
              f"| Jobs done | 7 / 7 | {sum(r['ok'] for r in a['built']['jobs'].values())} / 7 | "
              f"{sum(r['ok'] for r in rs['jobs'].values())} / 7 | 7 / 7 |", "",
-             "The motors are rated for the larger of the spinning peak "
-             f"({a['hover_peak']['p_shaft_w']:.0f} W at {cy['thrust_to_weight']:g} × weight) and the sea lift-off "
-             f"({a['liftoff_w']:.0f} W at {cy['tri_thrust_to_weight']:g} × weight) carried at {cy['burst_factor']:g} × the "
-             "rating for its few seconds.", "",
+             f"A{' and A2' if m['a2'] else ''}: A is rated for the larger of the spinning peak "
+             f"({m['spin_peak_w']:.0f} W at {cy['thrust_to_weight']:g} × weight) and its share of mode 1's "
+             f"({m['lift_peak_w']:.0f} W at {cy['tri_thrust_to_weight']:g} × weight), which it carries at "
+             f"{cy['burst_factor']:g} × the rating for a stint of {a['modes']['stint_s']:.0f} s at most. The modes, the "
+             "moves between them and A2 are in `modes.md`.", "",
              "## What each mode can do", "",
              "| Mode | Ability | |", "|---|---|---|",
              f"| Spinning | Hover | **{sp['hover_w']:.0f} W** shaft at {sp['rpm']:.0f} rpm, tips at {sp['v_tip_ms']:.1f} m/s (tailsitter "
@@ -487,7 +452,11 @@ def report(a: dict, title: str) -> str:
              f"| | Climb | {sp['climb_ms']:.1f} m/s on the rated power, {sp['climb_burst_ms']:.1f} m/s at the burst |",
              f"| | Wind it can hold station in | {sp['wind_ms']:.1f} m/s, before the retreating arm stalls (tailsitter "
              f"{ts['wind_max_ms']:.1f} m/s) |",
-             f"| | Spin-up from rest | {a['spin_up']['t_s']:.1f} s, plus the motors' spool |",
+             f"| | The spin building (1->2) | {a['spin_up']['t_s']:.1f} s on A's rating, inside B's "
+             f"{a['modes']['modes']['b_ramp_s']:g} s turn |",
+             f"| Spinning travel (3) | Best range | {mo['travel']['v_range_ms']:.0f} m/s at {mo['travel']['p_range_w']:.0f} W, up to "
+             f"{mo['travel']['v_top_ms']:.0f} m/s ({mo['travel']['limit']}); {mo['travel']['endurance_h']:.1f} h, "
+             f"{mo['travel']['range_km']:.0f} km on the battery |",
              f"| | One motor | {yes(a['one_motor_w'] >= h['p_shaft_w'])} rated {a['one_motor_w']:.0f} W, "
              f"{yes(a['one_motor_burst_w'] >= h['p_shaft_w'])} at the burst {a['one_motor_burst_w']:.0f} W, against "
              f"{h['p_shaft_w']:.0f} W to hover |",
@@ -501,28 +470,22 @@ def report(a: dict, title: str) -> str:
              f"(twin-boom {bf['v_top_ms']:.0f}) |",
              f"| | Endurance, range on the battery | {fl['endurance_h']:.1f} h, {fl['range_km']:.0f} km (twin-boom "
              f"{bf['endurance_h']:.1f} h, {bf['range_km']:.0f} km) |",
-             f"| | Control | the tip motors' PWM for the fine corrections, the arms' twist servos for the large |",
-             f"| Sea lift-off | As a tricopter | {lo['thrust_to_weight']:.2f} × weight at the burst, for {lo['seconds']:g} s, "
-             "then it twists into the spin |", "",
-             "## The transitions", "",
-             f"- **Spin to wing:** climb spinning to **{tw['height_m']:.0f} m** ({tw['climb_s']:.0f} s at {cy['climb_ms']:g} m/s), "
-             f"drive the arms to the flight setting as the spin dies, pitch over nose-down "
-             f"({-cy['flyout_pitch_deg']:g}°) and fly out: {tw['height_lost_m']:.0f} m lost, {tw['t_s']:.1f} s, "
-             f"{tw['distance_m']:.0f} m on, {tw['v_ms']:.1f} m/s at the bottom, {cy['safety_height_m']:g} m above the water.",
-             f"- **Wing to spin:** pitch up hard from {tsp['v0_ms']:.0f} m/s: the zoom gains {tsp['zoom_m']:.0f} m, the inflow "
-             f"spins the rotor up in about {cy['entry_s']:g} s for {tsp['entry_loss_m']:.0f} m, {tsp['net_m']:+.0f} m in all. "
-             "Powered from there, or an autogyro.",
-             f"- **Each sortie off the wing**, as the tailsitter's {cy['hover_time_s']:.0f} s: "
-             f"{cy['hover_time_s'] - cy['sea_liftoff_s']:.0f} s spinning, {cy['sea_liftoff_s']:g} s lifting off the sea and "
-             f"the climb to the fly-out: **{a['hover_wh']:.1f} Wh** (tailsitter {ts['hover_wh']:.1f} Wh).", "",
+             f"| | Control | A's PWM for the fine corrections, B for the large |",
+             f"| Lift-off and landing (1) | B centred, A lifting | {mo['lift_w']:.0f} W to hover, the first "
+             f"{a['modes']['modes']['clearance_m']:g} m up and the last down |", "",
+             "## Launch and recovery", "",
+             f"Run by the modes' manager (`modes.md`): up in 1 to {a['modes']['modes']['clearance_m']:g} m, 2, up to "
+             f"{mo['h34_m']:.0f} m, 3, pitch over to 4; back by the forced pull-up, 3, 2, down to the clearance, 1, down. "
+             f"Launch {mo['launch']['time_s']:.0f} s, recovery {mo['recover']['time_s']:.0f} s: **{a['hover_wh']:.1f} Wh** a "
+             f"sortie off the wing (tailsitter {ts['hover_wh']:.1f} Wh).", "",
              "## The jobs", "",
              "| Job | As built | Re-sized |", "|---|---|---|"]
     for mn in MISSIONS:
         b, r = a["built"]["jobs"][mn], rs["jobs"][mn]
         lines.append(f"| {mn} | {yes(b['ok'])} {b['energy_left']:.0%} left, {b['power_w']:.0f} W | {yes(r['ok'])} "
                      f"{r['energy_left']:.0%} left |")
-    lines += ["", "Not modelled: floating and the sea lift-off itself (it floats flat, so the tip props need pylons), "
-              "the spin dying and starting again (the fly-out starts with it stopped; the entry is a fixed time), "
+    lines += ["", "Not modelled: floating and lifting off the water (B centred points A's props up, clear of it), "
+              "the spin dying and building as dynamics (each is a fixed time), "
               "stability and control in each mode, the PWM and servo authority, a de-spun camera mount, and the arms' "
               "loads in the spin."]
     return "\n".join(lines) + "\n"
