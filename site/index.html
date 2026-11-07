@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Osprey</title>
+<meta name="description" content="High-performance vision for seafaring. Nest camera pods on the mast and Recon, a tailsitter drone that floats and launches from the water, together give complete situational awareness.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="bar">
+  <a class="brand" href="#top">Osprey</a>
+  <nav>
+    <a href="#nest">Nest</a>
+    <a href="#recon">Recon</a>
+    <a href="#water">On the water</a>
+    <a href="#together">Together</a>
+    <a href="https://github.com/zacharyelston/Osprey">GitHub</a>
+  </nav>
+</header>
+
+<main id="top">
+
+<section class="hero">
+  <div class="wrap">
+    <p class="kicker">Situational awareness for a sailboat</p>
+    <h1>Eyes on the mast.<br>A scout in the air.</h1>
+    <p class="lede"><b>Nest</b> puts camera pods on the mast that keep watch over the whole horizon, spot a
+      person in the water and guide the boat into a slip. <b>Recon</b> is the boat's scout: a drone that flies
+      out to look at whatever the captain needs to know about, then comes home to the deck or the sea.</p>
+    <p class="status">Designed in simulation first. Every number here comes from screening models with
+      stand-in parts, not from hardware.</p>
+  </div>
+  <picture class="wide">
+    <source media="(prefers-color-scheme: dark)" srcset="img/hero-dark.png">
+    <img src="img/hero.png" alt="Left: four synthetic frames from the mast pods' lower cameras while docking. Right: the Recon drone banking over the sea above the sailboat.">
+  </picture>
+</section>
+
+<section class="wrap">
+  <div class="stats">
+    <div><b>100%</b><span>of the horizon swept under sail by the gecko pods, 8 s worst revisit</span></div>
+    <div><b>2,044 m</b><span>to detect a person in the water from the masthead, sea state 3</span></div>
+    <div><b>1 bird, 7 jobs</b><span>search, survey, inspect and escort, all from one airframe</span></div>
+    <div><b>4.3 s</b><span>from throttle-up on the water to flying on the wing</span></div>
+  </div>
+</section>
+
+<section id="nest" class="wrap">
+  <p class="kicker">Osprey Nest</p>
+  <h2>Pick a mast rig</h2>
+  <p class="lede">Four ways to put cameras on the same 40&nbsp;ft sloop, run through the same coastal watch,
+    man-overboard and docking scenarios.</p>
+
+  <div class="seg" role="tablist" data-group="rig"></div>
+
+  <div class="panel">
+    <figure class="shot"><picture id="rig-pic"><source id="rig-dark"><img id="rig-img" alt=""></picture></figure>
+    <div>
+      <h3 id="rig-name"></h3>
+      <p id="rig-what" class="what"></p>
+      <dl id="rig-stats" class="kv"></dl>
+      <p id="rig-take" class="take"></p>
+    </div>
+  </div>
+</section>
+
+<section id="recon" class="wrap">
+  <p class="kicker">Osprey Recon</p>
+  <h2>Build a bird</h2>
+  <p class="lede">Each combination is sized by the optimizer to do all seven jobs and get home with a
+    reserve: the 10&nbsp;km offshore search sizes the gimbal birds, the 45&nbsp;minute escort sizes the
+    side-eyed ones.</p>
+
+  <div class="pickers">
+    <div><span class="label">Airframe</span><div class="seg" role="tablist" data-group="airframe"></div></div>
+    <div><span class="label">Cameras</span><div class="seg" role="tablist" data-group="payload"></div></div>
+    <div><span class="label">Recovery</span><div class="seg" role="tablist" data-group="recovery"></div></div>
+  </div>
+
+  <div class="panel">
+    <figure class="shot"><img id="bird-img" alt=""></figure>
+    <div>
+      <h3 id="bird-name"></h3>
+      <p id="bird-what" class="what"></p>
+      <div class="big">
+        <div><b id="bird-mass"></b><span>take-off mass</span></div>
+        <div><b id="bird-span"></b><span>span</span></div>
+      </div>
+      <dl id="bird-stats" class="kv"></dl>
+      <p id="bird-take" class="take"></p>
+    </div>
+  </div>
+</section>
+
+<section id="water" class="wrap">
+  <p class="kicker">Recon on the water</p>
+  <h2>Three ways home when the deck is out</h2>
+  <p class="lede">A catch on a heeling, pitching deck isn't always possible, so the bird has to float. How it
+    leaves the water again is the choice.</p>
+
+  <div class="cards three">
+    <article>
+      <h3>Float plane</h3>
+      <p>A planing shoe with a step under the belly, the prop raised on a pylon. It takes off in 12–18&nbsp;m,
+        but only in waves of a few centimetres, and lands at 6–8&nbsp;g.</p>
+      <p class="tag">Adds 0.17–0.33 kg</p>
+    </article>
+    <article>
+      <h3>Parachute to the water</h3>
+      <p>Launched from the deck as now, it comes down under a canopy beside the boat and is picked up with
+        the boathook. The canopy drifts in the wind, and the bird has to be found in the water.</p>
+      <p class="tag">Not modelled yet</p>
+    </article>
+    <article class="pick">
+      <h3>Tailsitter</h3>
+      <p>The blended wing stands on four strut pods with its props 56&nbsp;cm clear of the water. It climbs
+        straight up and pitches over onto the wing in 4.3&nbsp;s, and settles back onto the pods at 2&nbsp;g.</p>
+      <p class="tag">Launches up to sea state 3–4</p>
+    </article>
+  </div>
+
+  <figure class="wide-fig">
+    <img src="img/recon-tailsitter-launch.png" alt="Four poses of the tailsitter launch: afloat on its pods, climbing out of the water, at 3 m, and pitching over onto the wing">
+    <figcaption>The tailsitter's launch, from the simulated track: afloat, clear of the water at 0.37&nbsp;s,
+      3&nbsp;m up at 2.1&nbsp;s, then wing-borne. Surface tension at the waterline is 0.09&nbsp;N, 0.3% of
+      the bird's weight.</figcaption>
+  </figure>
+</section>
+
+<section id="together" class="wrap">
+  <p class="kicker">One system</p>
+  <h2>How Nest and Recon work together</h2>
+  <ol class="steps">
+    <li><b>Nest keeps the watch.</b> The pods sweep the horizon, track traffic and see a person go over the
+      side, out to about 2&nbsp;km in sea state 3.</li>
+    <li><b>Recon goes and looks.</b> Nest's tracks become Recon's tasks: a datum to search, a vessel to
+      inspect, an anchorage to survey before arrival.</li>
+    <li><b>Or they split the circle.</b> With the spreader pairs watching ahead and astern, Recon flies
+      escort and takes the beams.</li>
+    <li><b>Nest brings the drone home.</b> The pods' lower eyes see the deck and the drone's final approach.</li>
+    <li><b>Recon lightens the mast.</b> If the drone does the long-range looking, the masthead's long zoom
+      can step down, saving about 1.2&nbsp;kg aloft.</li>
+  </ol>
+</section>
+
+<section id="how" class="wrap">
+  <p class="kicker">How it's designed</p>
+  <h2>Simulation first, hardware second</h2>
+  <div class="cards three">
+    <article>
+      <h3>Nest models</h3>
+      <p>Wave-driven boat and mast motion, optics with the Johnson criteria and wave masking, ray-cast
+        occlusion by sails and hull, and a tasking sim that hands out looking groups.</p>
+    </article>
+    <article>
+      <h3>Recon sizing</h3>
+      <p>OpenMDAO and OpenAeroStruct size each airframe for each job; a 3-DOF flight sim flies it through.
+        All seven jobs size, calibrate and fly in about 35&nbsp;s on a laptop.</p>
+    </article>
+    <article>
+      <h3>Synthetic data</h3>
+      <p>MuJoCo renders every camera with metric depth, class masks and exact poses, in the format real
+        captures from the first pod will use.</p>
+    </article>
+  </div>
+  <picture class="wide-fig">
+    <source media="(prefers-color-scheme: dark)" srcset="img/synthetic-frame-dark.png">
+    <img src="img/synthetic-frame.png" alt="One synthetic frame from a lower pod camera while docking: RGB, metric depth and class mask">
+  </picture>
+</section>
+
+</main>
+
+<footer class="wrap">
+  <p>Every input is a stand-in (a reference 40&nbsp;ft sloop, typical cameras, electronics, batteries and
+    printed materials). The numbers show which way the design should move; measurements replace them as
+    hardware arrives.</p>
+  <p><a href="https://github.com/zacharyelston/Osprey">Source, models and kept runs on GitHub</a> ·
+    <a href="https://github.com/zacharyelston/Osprey/blob/main/docs/blended-wing/README.md">Flying wings</a> ·
+    <a href="https://github.com/zacharyelston/Osprey/blob/main/docs/float-launch/README.md">Float launch</a> ·
+    <a href="https://github.com/zacharyelston/Osprey/blob/main/docs/architecture.md">Architecture</a></p>
+</footer>
+
+<script src="options.js"></script>
+</body>
+</html>
