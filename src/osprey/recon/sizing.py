@@ -2,15 +2,18 @@
 
 OpenAeroStruct couples a vortex-lattice wing with a carbon-tube spar beam at
 two flight points:
-- search: level flight at the search speed, which sets the drag;
+- task: level flight at the task speed (searching, surveying or orbiting),
+  which sets the drag;
 - manoeuvre: load_factor g, which sets the spar.
 
 Around it sit the parts OpenAeroStruct doesn't know:
 - the printed shell's mass;
 - the fixed masses: body, avionics, gimbal, motor;
 - the battery;
-- a mission time model: transit out against the wind, the search track from
-  search theory, and the return to a boat that keeps sailing away.
+- a mission time model:
+  - transit out against the wind;
+  - the task's track (a search plan, survey legs or orbits);
+  - the return to the boat, wherever its boat_mode takes it.
 
 SLSQP minimizes take-off mass subject to:
 - lift = weight at both points;
@@ -38,7 +41,6 @@ from openaerostruct.meshing.mesh_generator import generate_mesh
 from openaerostruct.integration.aerostruct_groups import AerostructGeometry, AerostructPoint
 
 from osprey.motion import KN
-from osprey.recon import search
 from osprey.recon.flight import G, rho
 
 MU_AIR = 1.8e-5
@@ -62,12 +64,15 @@ def surface(p) -> dict:
 
 
 def mission_inputs(p) -> dict:
-    """What the airframe-independent part of the mission asks for."""
+    """What the airframe-independent part of the mission asks for: how far
+    away the task is, how much track it takes, the wind and the boat."""
+    from osprey.recon import flight, tasks
+
     m = p.mission
-    sw = search.sweep(p, m.search_alt_m)
-    pl = search.plan(sw, m.datum_sigma_m, m.search_pod)
-    return {"sweep": sw, "plan": pl, "wind_ms": m.wind_kn * KN, "boat_ms": m.boat_speed_kn * KN,
-            "datum_m": m.datum_range_m, "search_m": pl.track_m}
+    task = tasks.build(p, flight._wind(m))
+    return {"task": task, "wind_ms": m.wind_kn * KN, "boat_ms": m.boat_speed_kn * KN,
+            "dist_m": float(np.linalg.norm(task.where(0.0))), "task_m": task.track_m,
+            "boat_mode": getattr(m, "boat_mode", "sail")}
 
 
 def _chords(mesh):
@@ -146,7 +151,7 @@ class Performance(om.ExplicitComponent):
         p, mi = self.options["p"], self.options["mi"]
         m, pr = p.mission, p.propulsion
         v, S = i["v"], i["S"]
-        r = rho(m.search_alt_m)
+        r = rho(mi["task"].alt_m)
         q = 0.5 * r * v**2
         D = q * S * i["CD"] + q * p.body.cda_m2
         aux = p.avionics.power_w + p.camera.power_w[1]
@@ -154,14 +159,18 @@ class Performance(om.ExplicitComponent):
         o["LD"] = i["CL"] * S / (i["CD"] * S + p.body.cda_m2)
         e = i["battery_kg"] * pr.battery_wh_per_kg * 3600 * pr.battery_usable
         o["endurance"] = e / o["power"]
-        w, vb, d = mi["wind_ms"], mi["boat_ms"], mi["datum_m"]
-        t_search = mi["search_m"] * v / (v**2 - w**2)               # a closed pattern in wind
+        w, vb, d = mi["wind_ms"], mi["boat_ms"], mi["dist_m"]
+        t_task = mi["task_m"] * v / (v**2 - w**2)                    # a closed pattern in wind
         t_out = d / (v - w)                                            # worst case: into the wind
-        if getattr(m, "boat_mode", "sail") == "return":
-            t = t_search + t_out + 300.0 / (v - w)                     # the boat is back near the datum
+        mode = mi["boat_mode"]
+        if mode in ("return", "approach"):
+            # The boat closes on the task while the drone works: home is d - vb T away.
+            t = (t_task + t_out + d / (v - w)) / (1 + vb / (v - w))
+        elif mode == "hold":
+            t = t_task + t_out + d / (v - w)
         else:
             # Back to a boat that sailed on for the whole mission.
-            t = (t_search + t_out + d / (v + w)) / (1 - vb / (v + w))
+            t = (t_task + t_out + d / (v + w)) / (1 - vb / (v + w))
         t = t * self.options["time_factor"]
         o["mission_time"] = t
         o["endurance_margin"] = o["endurance"] / (t * (1 + m.reserve_frac)) - 1
@@ -180,7 +189,7 @@ def build(p, time_factor: float = 1.0) -> tuple[om.Problem, dict]:
     prob = om.Problem(reports=False)
     m = prob.model
     iv = m.add_subsystem("iv", om.IndepVarComp(), promotes=["*"])
-    alt = p.mission.search_alt_m
+    alt = mi["task"].alt_m
     iv.add_output("v", 18.0, units="m/s")
     iv.add_output("alpha_s", 4.0, units="deg")
     iv.add_output("alpha_m", 10.0, units="deg")
@@ -317,8 +326,7 @@ def optimize(p, time_factor: float = 1.0) -> dict:
         "failure": float(g("AS_point_1.wing_perf.failure").max()),
         "spar_fit_mm": float(g("spar.fit").max() * 1e3),
         "cd0": cd0_w + p.body.cda_m2 / S, "k": k,
-        "search_track_km": mi["search_m"] / 1e3, "track_spacing_m": mi["plan"].spacing_m,
-        "sweep_width_eff_m": mi["sweep"].width_eff_m,
+        "kind": mi["task"].kind, "task_track_km": mi["task_m"] / 1e3,
         "half_span_y_m": (-y).tolist(), "chords_m": c.tolist(),
     }
     d["time_factor"] = time_factor
@@ -340,14 +348,14 @@ def size_and_fly(p, iters: int = 6, tol: float = 0.03) -> tuple[dict, list[dict]
         d = optimize(p, factor)
         ac = flight.Aircraft.from_design(p, d)
         big = replace(ac, energy_j=1e12)
-        r = flight.simulate(p, big, t_max=8 * 3600.0, search_time_max=6 * 3600.0)   # search until the goal
+        r = flight.simulate(p, big, t_max=8 * 3600.0, task_time_max=6 * 3600.0)     # work the task to its goal
         used = 1e12 - float(r["energy"][-1])
         estimated = d["power_w"] * d["mission_time_s"] / factor
         new = max(used / estimated, 0.5)
         history.append({"time_factor": factor, "mass_kg": d["mass_total_kg"], "battery_kg": d["battery_kg"],
                         "flown_energy_wh": used / 3600, "estimated_energy_wh": estimated / 3600,
-                        "flown_pod": float(r["pod"][-1]), "outcome": r["outcome"],
-                        "flown_search_min": float((r["phase"] == "search").sum() * 0.5 / 60)})
+                        "flown_progress": float(r["progress"][-1]), "outcome": r["outcome"],
+                        "flown_task_min": float((r["phase"] == "task").sum() * 0.5 / 60)})
         if abs(new - factor) / factor < tol:
             break
         factor = new

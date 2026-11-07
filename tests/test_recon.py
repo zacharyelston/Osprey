@@ -22,7 +22,9 @@ def _ac(**kw):
 def test_every_mission_loads():
     for m in MISSIONS:
         p = load(m)
-        assert p.mission.name == m and p.mission.boat_mode in ("return", "sail")
+        assert p.mission.name == m and p.mission.boat_mode in ("return", "approach", "sail", "hold")
+        assert p.mission.kind in ("search", "survey", "inspect")
+    assert {load(m).mission.kind for m in MISSIONS} == {"search", "survey", "inspect"}
 
 
 def test_sweep_is_wider_higher_and_the_drone_sees_past_the_waves():
@@ -73,7 +75,7 @@ def test_unlimited_battery_finds_and_comes_home():
     p = load("sar-datum")
     r = flight.simulate(p, _ac())
     s = flight.summary(p, _ac(), r)
-    assert s["outcome"] == "recovered" and s["left_search_because"] == "pod"
+    assert s["outcome"] == "recovered" and s["left_search_because"] == "goal"
     assert s["pod"] >= p.mission.search_pod
 
 
@@ -82,7 +84,7 @@ def test_a_short_battery_calls_bingo_and_still_gets_home():
     ac = _ac(energy_j=50 * 3600.0 * 0.5)
     r = flight.simulate(p, ac)
     assert r["outcome"] == "recovered"
-    assert r["why"] in ("bingo", "pod")
+    assert r["why"] in ("bingo", "goal")
 
 
 def test_sizing_derivatives_through_the_span():
@@ -109,11 +111,56 @@ def test_sized_design_meets_its_constraints():
     assert ac.v_stall(0.0) == pytest.approx(d["v_stall_ms"], rel=0.02)
 
 
+def test_survey_images_the_site_straight_down():
+    p = load("scout-anchorage")
+    r = flight.simulate(p, _ac())
+    s = flight.summary(p, _ac(), r)
+    assert s["kind"] == "survey" and s["outcome"] == "recovered" and s["goal_met"]
+    assert s["gsd_cm"] == pytest.approx(p.mission.survey_alt_m * 1.55e-6 / 8e-3 * 100, rel=1e-6)
+    assert all(px > 10 for px in s["px_across"].values())       # every hazard class well resolved
+
+
+def test_inspection_orbits_a_moving_vessel():
+    p = load("inspect-vessel")
+    r = flight.simulate(p, _ac())
+    s = flight.summary(p, _ac(), r)
+    assert s["kind"] == "inspect" and s["goal_met"] and s["resolves"]
+    task = r["task"]
+    on = r["phase"] == "task"
+    d = np.hypot(r["x"][on] - [task.where(t)[0] for t in r["t"][on]],
+                 r["y"][on] - [task.where(t)[1] for t in r["t"][on]])
+    assert np.median(d) == pytest.approx(p.mission.standoff_m, rel=0.35)
+
+
+def test_bingo_uses_the_real_way_home():
+    """Regression: bingo once assumed wind and boat dead against the way home,
+    and turned the drone round on arrival at a vessel it was sent to inspect."""
+    p = load("inspect-vessel")
+    ac = _ac(energy_j=40 * 3600.0 * 0.8)
+    s = flight.summary(p, ac, flight.simulate(p, ac))
+    assert s["outcome"] == "recovered" and s["goal_met"]
+
+
+def test_one_bird_is_the_lightest_that_does_everything():
+    from osprey.recon import fleet
+
+    p_small, small = _kept("sar-datum")
+    _, big = _kept("sar-offshore")
+    missions = ["sar-datum", "inspect-vessel"]
+    M = fleet.capability({"small": small, "big": big}, missions)
+    best = fleet.one_bird(M, {"small": small, "big": big})
+    assert best in ("small", "big")
+    assert all(fleet.ok(s) for s in M[best].values())
+
+
+KEPT = MISSIONS
+
+
 def _kept(m="sar-offshore"):
     import json
     from pathlib import Path
 
-    d = json.loads((Path(__file__).resolve().parents[1] / "runs/2026-11-06_recon-phase1" / m / "design.json")
+    d = json.loads((Path(__file__).resolve().parents[1] / "runs/2026-11-06_recon-missions" / m / "design.json")
                    .read_text())
     return load(m), d
 
@@ -136,7 +183,7 @@ def test_bird_meshes_are_closed_and_face_outward():
 def test_tail_respects_its_chord_floor():
     from osprey.recon import geometry
 
-    for m in MISSIONS:
+    for m in KEPT:
         p, d = _kept(m)
         t = geometry.tail_size(p, d)
         assert t["ch"] >= p.geometry.tail_chord_min_m and t["cv"] >= p.geometry.tail_chord_min_m

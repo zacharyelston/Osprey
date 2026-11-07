@@ -1,8 +1,10 @@
 # Osprey
 
-**Eyes for a sailboat, designed in simulation first.** *Osprey Nest* puts camera pods on the mast that keep
-watch over the whole horizon, find a person in the water and guide the boat into a slip. *Osprey Recon*
-is a 3D-printed search drone that the boat launches when the person is beyond what the mast can see.
+**The first mate's best friend: eyes for a sailboat, designed in simulation first.** *Osprey Nest* puts
+camera pods on the mast that keep watch over the whole horizon, spot a person in the water and guide the
+boat into a slip. *Osprey Recon* is the boat's scout: a 3D-printed drone that flies out to look at
+whatever the captain needs to know about, from the anchorage ahead and the vessel on a crossing course to
+the wildlife and hazards round a remote island, and a person in the water.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/hero-dark.png">
@@ -11,8 +13,9 @@ is a 3D-printed search drone that the boat launches when the person is beyond wh
 
 <sub>Left: the four lower pod cameras during a synthetic docking run
 ([`runs/2026-11-06_gecko-docking-render`](runs/2026-11-06_gecko-docking-render/)); every frame also has
-metric depth, a class mask and the camera's exact pose. Right: the Recon drone sized for the 10 km
-offshore mission, rendered banking over the sea with the sailboat below (`osprey recon-render`).</sub>
+metric depth, a class mask and the camera's exact pose. Right: the Recon drone, the airframe that does
+all six scouting and search jobs, rendered banking over the sea with the sailboat below
+(`osprey recon-render`).</sub>
 
 > **Status: screening models, not specifications.** Every input is a REF stand-in (a reference 40 ft
 > sloop, typical cameras, electronics, batteries and printed materials), all in [`design/`](design/). The
@@ -23,9 +26,9 @@ offshore mission, rendered banking over the sea with the sailboat below (`osprey
 | | Osprey Nest | Osprey Recon |
 |---|---|---|
 | **What** | "Gecko pods" on the mast: a PTZ camera on top and one hung below, with a computer, a 6-axis IMU and PoE between them | A printed fixed-wing drone with a gimbal camera, launched from the boat and recovered to it |
-| **Job** | Horizon watch, man overboard (MOB), docking, guidance for an AI pilot | Search and rescue beyond the mast's reach |
-| **Designed with** | Seakeeping, optics, occlusion and tasking models; MuJoCo synthetic camera data | Mission profiles, search theory, OpenMDAO + OpenAeroStruct sizing, a 3-DOF flight sim |
-| **Read more** | [Nest below](#osprey-nest-pods-on-the-mast), [architecture](docs/architecture.md) | [Recon below](#osprey-recon-a-search-drone-sized-around-its-mission), [docs/recon.md](docs/recon.md), [issue #1](https://github.com/zacharyelston/Osprey/issues/1) |
+| **Job** | The watch, all the time: the horizon, traffic, man overboard (MOB), docking, guidance for an AI pilot | Going to look, on demand: the anchorage ahead, a landing site, another vessel, wildlife and hazards ashore, a person in the water |
+| **Designed with** | Seakeeping, optics, occlusion and tasking models; MuJoCo synthetic camera data | Mission profiles (search, survey, inspect), OpenMDAO + OpenAeroStruct sizing, a 3-DOF flight sim, MuJoCo renders |
+| **Read more** | [Nest below](#osprey-nest-pods-on-the-mast), [architecture](docs/architecture.md) | [Recon below](#osprey-recon-the-scout), [docs/recon.md](docs/recon.md), [issue #1](https://github.com/zacharyelston/Osprey/issues/1) |
 
 ### At a glance
 
@@ -37,12 +40,12 @@ offshore mission, rendered banking over the sea with the sailboat below (`osprey
 <td align="center" width="25%"><h3>96.5 %</h3>of the water within 3 m of the hull seen by two cameras when docking<br><sub>4.6 cm stereo depth (p95) at the hull edge</sub></td>
 <td align="center" width="25%"><h3>11.9 kg</h3>masthead-equivalent mass aloft, against a 4 kg budget<br><sub>the next design problem</sub></td>
 </tr>
-<tr><th colspan="4" align="left">Recon (phase 1, 2026-11-06)</th></tr>
+<tr><th colspan="4" align="left">Recon (kept run of 2026-11-06)</th></tr>
 <tr>
-<td align="center" width="25%"><h3>1.56 kg</h3>drone, 1.20 m span, for a man overboard 3 km astern<br><sub>printed in 6 panels on a 220 mm bed</sub></td>
-<td align="center" width="25%"><h3>18 min</h3>from launch to a 90 % chance of having found the person<br><sub>back on the boat with 18 % battery</sub></td>
-<td align="center" width="25%"><h3>2.73 kg</h3>drone, 2.03 m span, for 10 km offshore in sea state 4<br><sub>90 % at 94 min, home with 17 %</sub></td>
-<td align="center" width="25%"><h3>20 s</h3>to size, calibrate and fly all three missions on a laptop<br><sub>OpenMDAO, OpenAeroStruct, 3-DOF sim</sub></td>
+<td align="center" width="25%"><h3>1 bird, 6 jobs</h3>a 2.73 kg, 2.02 m printed drone does every job and gets home<br><sub>search, survey and inspect; 16-90 % battery left</sub></td>
+<td align="center" width="25%"><h3>1.7 cm</h3>per pixel over an anchorage 8 km ahead, imaged before arrival<br><sub>a mooring buoy is 17 px across</sub></td>
+<td align="center" width="25%"><h3>13 min</h3>to fly 5 km, identify a vessel from 200 m and come home<br><sub>37 px across the boat</sub></td>
+<td align="center" width="25%"><h3>30 s</h3>to size, calibrate and fly six jobs on a laptop<br><sub>OpenMDAO, OpenAeroStruct, 3-DOF sim</sub></td>
 </tr>
 </table>
 
@@ -180,114 +183,120 @@ underway (20 h watch, 4 h active) takes 381 Ah against a 120 Ah budget. Ways dow
   long-range search;
 - power the masthead pod from two cables.
 
-## Osprey Recon: a search drone sized around its mission
+## Osprey Recon: the scout
 
-When the mast has lost the person, or never saw them, Recon flies to the datum and searches it from up to
-120 m. From there it looks almost straight down, so wave crests hide almost nothing: the effect that
-limits the masthead to 2 km in sea state 3. Each drone is designed for a mission rather than the other
-way round.
+Recon is the boat's eyes and ears beyond the horizon. It is a printed fixed-wing drone that the crew
+launches whenever the captain needs to know something the mast can't see:
+- **What's at the anchorage** before the boat gets there: moorings, pot lines, rocks, debris, room to swing.
+- **Who's around:** an unknown vessel on a crossing course, inspected and identified from a respectful
+  standoff.
+- **What's ashore** off a remote island or park: a landing beach, wildlife, the lie of the land, hazards
+  before anyone goes in the dinghy.
+- **Where the person is** when someone goes over the side and the mast has lost them.
 
-```mermaid
-flowchart LR
-  M["<b>mission profile</b><br/>datum, drift, sea, wind,<br/>what the boat does"] --> S["<b>search theory</b><br/>swath, wave hiding,<br/>POD plan"]
-  A["<b>airframe REF</b><br/>printed shell, carbon spar,<br/>battery, gimbal"] --> O
-  S --> O["<b>OpenMDAO + OpenAeroStruct</b><br/>VLM wing + spar beam,<br/>min take-off mass"]
-  O --> F["<b>3-DOF flight sim</b><br/>wind, turns, energy,<br/>search grid, bingo"]
-  F -- "flown / estimated energy" --> O
-```
+It flies from up to 120 m. There it looks nearly straight down, so wave crests hide almost nothing: the
+effect that limits the masthead to 2 km for a person in the water.
 
-- **Search theory** turns the gimbal camera, the sea state and the target into a swath and a per-pass
-  detection probability, then plans the cheapest square and track spacing that reach 90 % POD.
-- **Sizing:** OpenMDAO with OpenAeroStruct. It couples a vortex-lattice wing to a carbon-tube spar at a
-  search point and a 3 g manoeuvre, and minimizes take-off mass. Constraints:
-  - stall speed of at most 12 m/s, for recovery on a moving boat;
-  - the printer bed;
-  - the spar fitting inside the section;
-  - a chord Reynolds-number floor;
-  - endurance for the mission plus a 20 % reserve.
-- **Flight:** a point-mass sim flies the result through the same mission:
-  - wind triangle and banked turns;
-  - an expanding square that drifts with the person;
-  - "bingo" fuel for the trip home;
-  - recovery to a boat that turns back or sails on.
+**Designed around its jobs.** Each job is a mission profile: where the task is, what the boat does
+meanwhile, the sea and the wind. A task tells the drone what to do on arrival:
+- **search:** an expanding square drifting with the datum, until the probability of detection (POD)
+  reaches the goal;
+- **survey:** lawnmower legs with the gimbal pointing straight down, until the site is imaged;
+- **inspect:** orbits round a moving vessel, zoomed in to identify it.
 
-  Its energy recalibrates the sizing until the two agree.
+OpenMDAO sizes an airframe for each job, and a 3-DOF flight sim flies it through. Then every airframe is
+flown through every job, to find the one bird a crew should actually build.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/img/recon-wings-dark.png">
-  <img src="docs/img/recon-wings.png" alt="The three missions' wings drawn to scale with their print joints and spar, and stacked bars of their take-off mass: fixed parts, battery, printed shell and spar">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/recon-jobs-dark.png">
+  <img src="docs/img/recon-jobs.png" alt="Timeline of the one airframe flying all six jobs: out, on the job and home, each finished with battery to spare">
 </picture>
-
-| Mission | Take-off mass | Span (aspect ratio) | Battery | On scene | 90 % POD | Back on board |
-|---|---|---|---|---|---|---|
-| MOB 3 km astern, sea state 3, boat turns back | 1.56 kg | 1.20 m (9.5) | 0.23 kg | 4.1 min | 18.2 min | 18.4 min, 18 % left |
-| 5 km astern, boat sails on at 6 kn | 1.89 kg | 1.36 m (10.2) | 0.52 kg | 4.0 min | 20.2 min | 51.6 min, 17 % left |
-| MOB 10 km astern, sea state 4, 20 kn | 2.73 kg | 2.03 m (15.7) | 1.28 kg | 7.3 min | 94.3 min | 96.1 min, 17 % left |
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/img/recon-pod-dark.png">
-  <img src="docs/img/recon-pod.png" alt="Probability of detection against minutes since launch for the three missions; all reach 90 percent and get home, the offshore one taking as long for the last 10 points as for the first 80">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/recon-tracks-dark.png">
+  <img src="docs/img/recon-tracks.png" alt="Three flown jobs: an expanding-square search 3 km astern, lawnmower survey legs over an anchorage 8 km ahead, and orbits round a vessel 5 km off">
 </picture>
+
+| Job ([`runs/2026-11-06_recon-missions`](runs/2026-11-06_recon-missions/)) | Kind | Its own airframe | Result | Back aboard |
+|---|---|---|---|---|
+| MOB 3 km astern, sea state 3, boat turns back | search | 1.60 kg, 1.20 m | 90 % POD at 23.5 min | 23.8 min, 17 % left |
+| 5 km astern, boat sails on at 6 kn | search | 1.87 kg, 1.36 m | 90 % POD at 20.3 min | 53.6 min, 15 % left |
+| MOB 10 km astern, sea state 4, 20 kn | search | 2.73 kg, 2.02 m | 90 % POD at 106 min | 107 min, 16 % left |
+| Anchorage 8 km ahead, 500 x 800 m bay | survey | 1.58 kg, 1.20 m | 98 % imaged at 1.7 cm per pixel; a mooring buoy 17 px across | 24.4 min, 17 % left |
+| Island shore from anchor, 900 x 1500 m | survey | 1.67 kg, 1.21 m | 98 % imaged at 2.1 cm per pixel; a person 12 px across | 29.2 min, 17 % left |
+| Vessel 5 km off on a crossing course | inspect | 1.47 kg, 1.20 m | two orbits at 200 m, 37 px across the boat | 12.9 min, 23 % left |
+
+**One bird, many jobs.** Each airframe sized for one job, flown through all six:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/recon-matrix-dark.png">
+  <img src="docs/img/recon-matrix.png" alt="Capability matrix: six airframes by six jobs; only the 2.73 kg airframe sized for the offshore search completes every job">
+</picture>
+
+The airframe sized for the hardest job, the 10 km offshore search, does every job and gets home with 16 to
+90 % of its battery left. Each lighter one fails somewhere, mostly on the long searches. The anchorage and
+vessel jobs barely use it: that headroom is time on scene, or a second sortie.
 
 ### The bird
 
 <table>
 <tr>
-<td width="55%"><img src="docs/img/bird-turntable.gif" alt="The offshore Recon drone turning on a studio stand: white printed wing on a carbon spar, orange pod with a gimbal camera underneath, twin carbon booms, orange H-tail, pusher prop"></td>
+<td width="55%"><img src="docs/img/bird-turntable.gif" alt="The Recon drone turning on a studio stand: white printed wing on a carbon spar, orange pod with a gimbal camera underneath, twin carbon booms, orange H-tail, pusher prop"></td>
 <td width="45%"><img src="docs/img/bird-exploded.png" alt="Exploded view: ten printed wing panels pulled apart along the carbon spar"><br><sub>How it prints: ten span-wise panels on a 220 x 220 x 250 mm bed, threaded on the carbon spar.</sub></td>
 </tr>
 </table>
 
-![All three mission drones side by side, to scale: 1.20 m, 1.36 m and 2.03 m span](docs/img/bird-lineup.png)
+![The lightest, a middle and the heaviest airframe side by side, to scale](docs/img/bird-lineup.png)
 
-<sub>Each mission's drone, to scale (orthographic). The wings are the sized ones. The pod, gimbal, booms,
-tail and prop are reference geometry; the tail is set by volume coefficients, with an 8 cm chord floor, and
-is not optimized yet. `uv run osprey recon-render --mission all`.</sub>
-
-<details>
-<summary>Three-view of the offshore drone</summary>
-
-![Top, front and side views of the offshore drone](docs/img/bird-threeview.png)
-
-</details>
-
-What phase 1 says:
-
-- **The fixed parts set the size.** Body, avionics, gimbal and motor weigh 1.18 kg, more than everything
-  the optimizer controls on the short missions. Their drag holds lift-to-drag at 6 to 9: a cleaner
-  fuselage and gimbal fairing is worth more than a better wing.
-- **Stall speed and Reynolds number set the wing.** Every design sits on the 12 m/s stall limit and the
-  150,000 chord-Reynolds floor, so the chord stays near 13 cm and the span grows with the battery.
-- **Long searches are a sensing problem, not an airframe problem.** Offshore, the last 10 points of POD
-  take as long as the first 80. A second drone or a thermal camera beats a bigger battery.
-- **What the boat does matters as much as the drone.** If the boat sails on, the drone spends its
-  endurance chasing it home upwind. Turning back to the datum, the usual MOB drill, is what makes the
-  offshore case work.
+<sub>The lightest, a mid-size and the do-everything airframe, to scale (orthographic). The wings are the
+sized ones. The pod, gimbal, booms, tail and prop are reference geometry; the tail is set by volume
+coefficients, with an 8 cm chord floor, and is not optimized yet. `uv run osprey recon-render --mission
+all`.</sub>
 
 <details>
-<summary>The 3 km mission, flown</summary>
+<summary>Three-view, and each job's own wing</summary>
+
+![Top, front and side views of the do-everything drone](docs/img/bird-threeview.png)
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/img/recon-track-dark.png">
-  <img src="docs/img/recon-track.png" alt="Ground track of the 3 km mission: straight out against a crosswind, an expanding-square search drifting with the person, and back to the boat, which turned back and hove to near the datum" width="60%">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/recon-wings-dark.png">
+  <img src="docs/img/recon-wings.png" alt="Each job's own wing drawn to scale with print joints and spar, and stacked bars of take-off mass">
 </picture>
 
 </details>
 
+What the models say so far:
+
+- **The fixed parts set the size.** Body, avionics, gimbal and motor weigh 1.18 kg, more than everything
+  the optimizer controls on most jobs. Their drag holds lift-to-drag at 6 to 9: a cleaner fuselage and
+  gimbal fairing is worth more than a better wing. Five of the six jobs want the smallest wing allowed.
+- **Stall speed and Reynolds number set the wing.** Every design sits on the 12 m/s stall limit and the
+  150,000 chord-Reynolds floor, so the chord stays near 13 cm and the span grows with the battery.
+- **Scouting is cheap, searching is not.** Imaging a whole bay 8 km ahead takes 11 minutes on task, and
+  identifying a passing vessel two and a half. A 10 km search takes an hour and a half. Offshore, the
+  last 10 points of POD take as long as the first 80: a second drone or a thermal camera beats a bigger
+  battery.
+- **What the boat does matters as much as the drone.** Sailing on, the drone chases the boat home; turning
+  back, or sailing for the anchorage being scouted, shortens every flight.
+
 Not modelled yet: low-Reynolds section data, tail sizing and stability (6-DOF), load in the printed shell,
-and launch and recovery on a moving deck. See [docs/recon.md](docs/recon.md) for the models and the
-roadmap: CadQuery panels for printing, AVL or VSPAERO derivatives, SU2 and surrogates.
+launch and recovery on a moving deck, thermal and night work, and the CV models that would turn the
+imagery into a chart of hazards. See [docs/recon.md](docs/recon.md) for the models and the roadmap.
 
 ## How Nest and Recon work together
 
-1. **Nest sees it happen.** The pods see a person go over the side, or a lookout calls it, and the
-   looking groups keep a track and a datum as long as the mast can hold one: about 2 km in sea state 3,
-   800 m in sea state 4.
-2. **Recon takes it from there.** The datum, its drift and its error are exactly what a Recon mission
-   profile starts from. The drone searches beyond the mast's horizon and its wave limit.
+Together they are the first mate's best friend: Nest watches everything within the horizon, all the
+time; Recon goes and looks at whatever the captain asks about beyond it.
+
+1. **Nest keeps the watch.** The pods sweep the horizon, track traffic and docking, and see a person go
+   over the side. They hold a track and a datum as long as the mast can: about 2 km for a person in the
+   water in sea state 3, 800 m in sea state 4.
+2. **Recon goes and looks.** Nest's tracks become Recon's tasks: the datum for a search, a vessel to
+   inspect, the anchorage on the chart to survey. The drone works beyond the mast's horizon and its wave
+   limit, and its imagery comes back into the same picture.
 3. **Nest brings the drone home.** The pods' lower eyes see the deck and the drone's final approach
    for recovery onto a moving, heeling boat.
-4. **Recon lightens the mast.** If the drone does the long-range searching, the masthead's long-zoom PTZ
+4. **Recon lightens the mast.** If the drone does the long-range looking, the masthead's long-zoom PTZ
    can become a mid-zoom one. In the same models that takes about 1.2 kg off the 11.9 kg masthead
    equivalent, and brings the masthead pod's peak draw from 81.4 W to 68.1 W, inside one PoE cable. The
    mass budget still needs more than that.
@@ -345,7 +354,7 @@ uv run osprey calc --scenario coastal-watch --rig gecko5    # PASS/WARN/FAIL che
 uv run osprey sim --scenario mob --rig gecko5               # looking-group timeline
 uv run osprey render --scenario docking --rig gecko5        # RGB, depth, class masks, poses
 uv run osprey sweep --workers 8                             # every scenario x rig
-uv run osprey recon --mission all                           # Recon: size, calibrate and fly each mission
+uv run osprey recon --mission all                           # Recon: size and fly each job, then the matrix
 uv run osprey recon-render --mission all                    # Recon: render each sized drone
 ```
 
@@ -363,9 +372,9 @@ Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two works
 | [`design/targets.toml`](design/targets.toml) | Target classes and Johnson criteria |
 | [`design/rigs/`](design/rigs/) | `gecko5` (pods), `mast5` (1 top + 4 round the mast), `mast5-spreaders`, `whole-boat` |
 | [`design/scenarios/`](design/scenarios/) | `coastal-watch` (sea state 4), `mob` (sea state 3), `docking` |
-| [`design/recon/`](design/recon/) | Recon: the reference printed airframe and the mission profiles |
+| [`design/recon/`](design/recon/) | Recon: the reference printed airframe and the mission profiles (search, survey, inspect) |
 | [`src/osprey/`](src/osprey/) | `frames`, `motion`, `optics`, `stabilize`, `occlusion`, `rig`, `tasking`, `calcs`, `figures`, `render/scene`, `cli` |
-| [`src/osprey/recon/`](src/osprey/recon/) | `search` (sweep width, POD), `flight` (3-DOF), `sizing` (OpenMDAO + OpenAeroStruct), `geometry` and `render` (the bird in MuJoCo), `figures` |
+| [`src/osprey/recon/`](src/osprey/recon/) | `tasks` (search, survey, inspect), `search` (sweep width, POD), `flight` (3-DOF), `sizing` (OpenMDAO + OpenAeroStruct), `fleet` (one bird, many jobs), `geometry` and `render` (the bird in MuJoCo), `figures` |
 | [`runs/`](runs/README.md) | Kept runs, never edited after they are archived |
 | [`docs/`](docs/) | [Architecture](docs/architecture.md), [Recon](docs/recon.md), [remote runs](docs/remote-simulation.md), README figures |
 
@@ -373,7 +382,8 @@ Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two works
 
 | Run | What it shows |
 |---|---|
-| [`2026-11-06_recon-phase1`](runs/2026-11-06_recon-phase1/) | Recon: each mission's sized airframe, flight report, planform, track and timeline |
+| [`2026-11-06_recon-missions`](runs/2026-11-06_recon-missions/matrix.md) | Recon: six jobs (search, survey, inspect), each one's sized airframe and flight, and the capability matrix |
+| [`2026-11-06_recon-phase1`](runs/2026-11-06_recon-phase1/) | Recon phase 1: the three search missions only |
 | [`2026-11-06_gecko-sweep`](runs/2026-11-06_gecko-sweep/summary.md) | Every scenario x rig with sector watch; `gecko5` reports in full |
 | [`2026-11-06_gecko-docking-render`](runs/2026-11-06_gecko-docking-render/) | 10 s docking render on `gecko5` with optimized aims: video, one frame of `port-down`, all labels |
 | [`2026-11-06_pods-fisheye-sweep`](runs/2026-11-06_pods-fisheye-sweep/summary.md) | The dropped design: pods with a down-looking fisheye |

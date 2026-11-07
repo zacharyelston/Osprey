@@ -1,5 +1,5 @@
 """Load a Recon mission with everything it needs: the airframe, the sea and
-atmosphere, the search camera and the target class."""
+atmosphere, the gimbal camera and the target classes."""
 
 from __future__ import annotations
 
@@ -23,6 +23,7 @@ def load(mission: str = "sar-datum") -> SimpleNamespace:
         "sea": {**sea["sea"][m["sea_state"]], "state": m["sea_state"]},
         "atmosphere": sea["atmosphere"],
         "camera": cams[af["payload"]["camera"]],
-        "target": tg["target"][m["target"]],
+        "target": tg["target"].get(m.get("target", "person_in_water")),
+        "targets": tg["target"],
         "johnson": tg["johnson"],
     })

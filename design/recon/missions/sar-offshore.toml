@@ -2,6 +2,7 @@
 # and 20 kn of wind, with a much larger datum error.
 
 [mission]
+kind = "search"
 name = "sar-offshore"
 label = "MOB 10 km astern, sea state 4, 20 kn wind"
 sea_state = "ss4"
@@ -19,6 +20,6 @@ wind_kn = 20.0
 cruise_alt_m = 120.0
 search_alt_m = 120.0             # 120 m is the usual drone ceiling
 search_pod = 0.90
-search_time_max_s = 7200.0  # a 400 m datum error takes ~100 min of search to reach 90 % (sized 2026-11-06)
+task_time_max_s = 7200.0  # a 400 m datum error takes ~100 min of search to reach 90 % (sized 2026-11-06)
 reserve_frac = 0.20
 recovery_radius_m = 30.0

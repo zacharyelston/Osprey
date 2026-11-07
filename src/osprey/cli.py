@@ -1,6 +1,6 @@
 """`uv run osprey calc | sim | render | all --scenario <name> [--rig <name>]`
 `uv run osprey sweep [--workers N]`
-`uv run osprey recon-size | recon-fly | recon --mission <name>|all` (Osprey Recon)"""
+`uv run osprey recon-size | recon-fly | recon | recon-render --mission <name>|all` (Osprey Recon)"""
 
 from __future__ import annotations
 
@@ -167,20 +167,49 @@ def cmd_sweep(args) -> int:
     return 0
 
 
+def _task_rows(s: dict) -> list[tuple[str, str]]:
+    """Report rows for what the drone did on its task, by kind."""
+    fmt = lambda x: "never" if not math.isfinite(x) else f"{x / 60:.1f} min"
+    rows = [("On scene", f"{fmt(s['on_scene_s'])} after launch"),
+            (f"{s['progress_label'].capitalize()} reached", f"{s['progress']:.0%} (goal {s['goal']:.0%}); goal at "
+             f"{fmt(s['t_goal_s'])}"),
+            ("Time on task", fmt(s["task_s"]))]
+    if s["kind"] == "search":
+        rows += [("Search plan", f"{s['track_spacing_m']:.0f} m track spacing, effective sweep width "
+                  f"{s['sweep_width_eff_m']:.0f} m, {s['passes']} pattern pass(es)")]
+    elif s["kind"] == "survey":
+        px = ", ".join(f"{k.replace('_', ' ')} {v:g} px" for k, v in s["px_across"].items())
+        rows += [("Survey", f"{s['legs']} legs, {s['swath_m']:.0f} m swath at {s['track_spacing_m']:.0f} m spacing; "
+                  f"ground sample {s['gsd_cm']:.1f} cm"),
+                 ("Pixels across each target", px)]
+    elif s["kind"] == "inspect":
+        rows += [("Inspection", f"{s['standoff_m']:.0f} m standoff ({s['slant_m']:.0f} m slant); "
+                  f"{s['focal_needed_mm']:.1f} mm focal needed of {s['focal_max_mm']:g} mm; "
+                  f"{'resolves' if s['resolves'] else 'does NOT resolve'} it")]
+    rows += [("Flight time / distance", f"{fmt(s['flight_time_s'])} / {s['distance_km']:.1f} km"),
+             ("Battery left at recovery", f"{s['energy_left_frac']:.0%}"),
+             ("Mean power, max bank", f"{s['power_mean_w']:.0f} W, {s['bank_max_deg']:.0f} deg")]
+    return rows
+
+
 def cmd_recon(args) -> int:
-    """Size the Recon airframe for a mission (OpenMDAO), then fly it (3-DOF)."""
+    """Size the Recon airframe for each mission (OpenMDAO), fly it (3-DOF),
+    and with --mission all, fly every design through every mission."""
     import warnings
 
     from osprey.recon import figures as rfig
-    from osprey.recon import flight, sizing
+    from osprey.recon import fleet, flight, sizing
     from osprey.recon.params import MISSIONS
     from osprey.recon.params import load as load_mission
 
     warnings.filterwarnings("ignore", module="openaerostruct")
     rc = 0
-    for name in (MISSIONS if args.mission == "all" else [args.mission]):
+    root = Path(args.out) if args.out else OUT / "recon"
+    names = list(MISSIONS) if args.mission == "all" else [args.mission]
+    designs = {}
+    for name in names:
         p = load_mission(name)
-        d_ = Path(args.out) / name if args.out else OUT / "recon" / name
+        d_ = root / name
         d_.mkdir(parents=True, exist_ok=True)
         design_path = Path(args.design) if args.design else d_ / "design.json"
         history = []
@@ -189,13 +218,15 @@ def cmd_recon(args) -> int:
             design_path.write_text(json.dumps(design, indent=1))
             rfig.planform(p, design, d_ / "planform.png")
         design = json.loads(design_path.read_text())
+        designs[name] = design
         lines = [f"# Recon {name}: {p.mission.label}", "",
                  f"Generated {date.today().isoformat()} at {_sha()} by `uv run osprey {args.cmd} --mission {name}`. "
                  "Screening-level models; REF inputs in `design/recon/`.", "",
                  "## Sized airframe (OpenMDAO + OpenAeroStruct, SLSQP)", "",
                  f"Optimizer converged: **{'yes' if design['converged'] else 'NO'}**", "",
                  "| Quantity | Value |", "|---|---|"]
-        rows = [("Take-off mass", f"{design['mass_total_kg']:.2f} kg (battery {design['battery_kg']:.2f}, shell "
+        rows = [("Task", f"{design['kind']}, {design['task_track_km']:.1f} km of track planned"),
+                ("Take-off mass", f"{design['mass_total_kg']:.2f} kg (battery {design['battery_kg']:.2f}, shell "
                  f"{design['skin_kg']:.2f}, spar {design['spar_kg']:.3f}, fixed {design['fixed_kg']:.2f})"),
                 ("Span / area / aspect ratio", f"{design['span_m']:.2f} m / {design['S_m2']:.3f} m² / "
                  f"{design['aspect_ratio']:.1f}"),
@@ -203,13 +234,11 @@ def cmd_recon(args) -> int:
                  f"(tip Re {design['re_tip']:,.0f})"),
                 ("Spar tube, root / tip", f"r {design['spar_radius_mm'][1]:.1f} / {design['spar_radius_mm'][0]:.1f} mm, "
                  f"wall {design['spar_wall_mm'][1]:.2f} / {design['spar_wall_mm'][0]:.2f} mm"),
-                ("Search speed, CL, L/D", f"{design['v_search_ms']:.1f} m/s, {design['CL']:.2f}, {design['LD']:.1f}"),
+                ("Task speed, CL, L/D", f"{design['v_search_ms']:.1f} m/s, {design['CL']:.2f}, {design['LD']:.1f}"),
                 ("Stall speed (sea level)", f"{design['v_stall_ms']:.1f} m/s (limit {p.limits.stall_speed_max_ms:g})"),
-                ("Search power / endurance", f"{design['power_w']:.0f} W / {design['endurance_s'] / 60:.0f} min"),
+                ("Task power / endurance", f"{design['power_w']:.0f} W / {design['endurance_s'] / 60:.0f} min"),
                 ("Mission time estimate (+{:.0%} reserve)".format(p.mission.reserve_frac),
                  f"{design['mission_time_s'] / 60:.0f} min"),
-                ("Search plan", f"{design['search_track_km']:.1f} km of track at {design['track_spacing_m']:.0f} m "
-                 f"spacing (effective sweep width {design['sweep_width_eff_m']:.0f} m)"),
                 ("Printed panels (220 x 220 x 250 mm bed)", f"{design['print_panels']}, chord fits: "
                  f"{'yes' if design['print_chord_ok'] else 'NO'}")]
         lines += [f"| {a} | {b} |" for a, b in rows] + ["", "![planform](planform.png)", ""]
@@ -217,12 +246,11 @@ def cmd_recon(args) -> int:
             lines += ["### Calibrating the mission-time model against the flight sim", "",
                       "Each round sizes the airframe, flies it with an unlimited battery, and scales the "
                       "optimizer's mission-time model by the energy the flight really used.", "",
-                      "| Round | Time factor | Mass (kg) | Battery (kg) | Flown / estimated energy (Wh) | POD flown | "
-                      "Search flown (min) |", "|---|---|---|---|---|---|---|"]
+                      "| Round | Time factor | Mass (kg) | Battery (kg) | Flown / estimated energy (Wh) | Progress flown | "
+                      "Task flown (min) |", "|---|---|---|---|---|---|---|"]
             lines += [f"| {i + 1} | {h['time_factor']:.2f} | {h['mass_kg']:.2f} | {h['battery_kg']:.2f} | "
-                      f"{h['flown_energy_wh']:.0f} / {h['estimated_energy_wh']:.0f} | {h['flown_pod']:.0%} | "
-                      f"{h['flown_search_min']:.0f} |"
-                      for i, h in enumerate(history)]
+                      f"{h['flown_energy_wh']:.0f} / {h['estimated_energy_wh']:.0f} | {h['flown_progress']:.0%} | "
+                      f"{h['flown_task_min']:.0f} |" for i, h in enumerate(history)]
             lines.append("")
         if args.cmd in ("recon-fly", "recon"):
             ac = flight.Aircraft.from_design(p, design)
@@ -231,28 +259,51 @@ def cmd_recon(args) -> int:
             rfig.track(p, r, d_ / "track.png")
             rfig.timeline(p, ac, r, d_ / "timeline.png")
             (d_ / "flight.json").write_text(json.dumps(s, indent=1, default=float))
-            fmt = lambda x: "never" if not math.isfinite(x) else f"{x / 60:.1f} min"
             lines += ["## Flown through the mission (3-DOF point mass)", "",
-                      f"Outcome: **{s['outcome']}**; left the search because: {s['left_search_because']}", "",
-                      "| Quantity | Value |", "|---|---|",
-                      f"| On scene | {fmt(s['on_scene_s'])} after launch |",
-                      f"| POD reached | {s['pod']:.0%} (plan {s['pod_planned']:.0%}); 50 % at {fmt(s['t_pod50_s'])}, "
-                      f"90 % at {fmt(s['t_pod90_s'])} |",
-                      f"| Search time | {fmt(s['search_s'])} ({s['search_passes']} pattern pass"
-                      f"{'es' if s['search_passes'] > 1 else ''}) |",
-                      f"| Flight time / distance | {fmt(s['flight_time_s'])} / {s['distance_km']:.1f} km |",
-                      f"| Battery left at recovery | {s['energy_left_frac']:.0%} |",
-                      f"| Mean power, max bank | {s['power_mean_w']:.0f} W, {s['bank_max_deg']:.0f} deg |", "",
+                      f"Outcome: **{s['outcome']}**; left the task because: {s['left_task_because']}", "",
+                      "| Quantity | Value |", "|---|---|", *[f"| {a} | {b} |" for a, b in _task_rows(s)], "",
                       "![track](track.png)", "", "![timeline](timeline.png)", ""]
-            ok = s["outcome"] == "recovered" and s["pod"] >= p.mission.search_pod - 1e-6
-            rc |= 0 if ok else 1
-            print(f"{name}: {s['outcome']}, POD {s['pod']:.0%}, battery left {s['energy_left_frac']:.0%}, "
-                  f"mass {design['mass_total_kg']:.2f} kg, span {design['span_m']:.2f} m")
+            rc |= 0 if fleet.ok(s) else 1
+            print(f"{name}: {s['outcome']}, {s['progress_label']} {s['progress']:.0%}, battery left "
+                  f"{s['energy_left_frac']:.0%}, mass {design['mass_total_kg']:.2f} kg, span {design['span_m']:.2f} m")
         else:
             print(f"{name}: sized, mass {design['mass_total_kg']:.2f} kg, span {design['span_m']:.2f} m")
         (d_ / "report.md").write_text("\n".join(lines) + "\n")
         print(f"report: {d_ / 'report.md'}")
+    if args.cmd == "recon" and len(names) > 1:
+        rc |= _recon_matrix(root, designs, names)
     return rc
+
+
+def _recon_matrix(root: Path, designs: dict, names: list[str]) -> int:
+    from osprey.recon import figures as rfig
+    from osprey.recon import fleet
+
+    M = fleet.capability(designs, names)
+    best = fleet.one_bird(M, designs)
+    order = sorted(designs, key=lambda dn: designs[dn]["mass_total_kg"])
+    head = "| Airframe sized for | Mass, span | " + " | ".join(names) + " |"
+    lines = ["# Recon: one bird, many jobs", "",
+             f"Generated {date.today().isoformat()} at {_sha()} by `uv run osprey recon --mission all`. Each row "
+             "is the airframe sized for one mission, flown through every mission in the 3-DOF sim. A cell is "
+             "✓ when it gets back aboard with the task's goal met; the number is the battery left (or how far it "
+             "got).", "", head, "|" + "---|" * (len(names) + 2)]
+    for dn in order:
+        d = designs[dn]
+        cells = [(f"✓ {s['energy_left_frac']:.0%}" if fleet.ok(s) else f"✗ {s['progress']:.0%} {s['progress_label']}")
+                 for s in (M[dn][mn] for mn in names)]
+        mark = " **(lightest that does everything)**" if dn == best else ""
+        lines.append(f"| {dn}{mark} | {d['mass_total_kg']:.2f} kg, {d['span_m']:.2f} m | " + " | ".join(cells) + " |")
+    (root / "matrix.md").write_text("\n".join(lines) + "\n")
+    (root / "matrix.json").write_text(json.dumps({"order": order, "missions": names, "one_bird": best,
+                                                  "designs": {dn: {k: designs[dn][k] for k in
+                                                                   ("mass_total_kg", "span_m", "battery_kg")}
+                                                              for dn in designs},
+                                                  "cells": M}, indent=1, default=float))
+    rfig.matrix(M, designs, names, order, best, root / "matrix.png")
+    print("\n".join(lines[4:]))
+    print(f"one bird: {best}; matrix: {root / 'matrix.md'}")
+    return 0 if best else 1
 
 
 def cmd_recon_render(args) -> int:
@@ -280,7 +331,9 @@ def cmd_recon_render(args) -> int:
         lineup.append((p, d, name))
         print(f"{name}: renders in {o}")
     if len(lineup) > 1:
-        lineup.sort(key=lambda x: x[1]["span_m"])
+        lineup.sort(key=lambda x: x[1]["mass_total_kg"])
+        if len(lineup) > 3:                                   # lightest, middle and heaviest, to keep it legible
+            lineup = [lineup[0], lineup[len(lineup) // 2], lineup[-1]]
         rr.lineup(lineup, dst / "bird-lineup.png")
         print(f"lineup: {dst / 'bird-lineup.png'}")
     return 0
