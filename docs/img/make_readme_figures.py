@@ -31,12 +31,14 @@ RUNS = ROOT / "runs"
 GECKO = RUNS / "2026-11-06_gecko-sweep"
 FIRST = RUNS / "2026-11-06_first-sweep"
 RENDER = RUNS / "2026-11-06_gecko-docking-render"
-RECON = RUNS / "2026-11-06_recon-missions"
+RECON = RUNS / "2026-11-06_recon-payloads" / "gimbal"
 JOBS = [("sar-datum", "Search: MOB 3 km astern"), ("sar-convoy", "Search: 5 km astern, boat sails on"),
         ("sar-offshore", "Search: MOB 10 km, sea state 4"), ("scout-anchorage", "Survey: anchorage 8 km ahead"),
-        ("scout-island", "Survey: island shore from anchor"), ("inspect-vessel", "Inspect: vessel 5 km off")]
+        ("scout-island", "Survey: island shore from anchor"), ("inspect-vessel", "Inspect: vessel 5 km off"),
+        ("escort-flanks", "Escort: watch the beams, 45 min")]
 SHORT = {"sar-datum": "MOB 3 km", "sar-convoy": "5 km, sailing on", "sar-offshore": "MOB 10 km",
-         "scout-anchorage": "anchorage", "scout-island": "island", "inspect-vessel": "vessel"}
+         "scout-anchorage": "anchorage", "scout-island": "island", "inspect-vessel": "vessel",
+         "escort-flanks": "escort"}
 
 # Surfaces match GitHub's page backgrounds so the figures sit flush on either theme.
 # Series and status colours are the validated default data-viz palette.
@@ -441,7 +443,7 @@ def fig_recon_jobs(theme: str):
     bird = mx["one_bird"]
     cells = mx["cells"][bird]
     with plt.rc_context(FONT):
-        fig, ax = plt.subplots(figsize=(9.2, 3.9), facecolor=t["surface"])
+        fig, ax = plt.subplots(figsize=(9.2, 4.4), facecolor=t["surface"])
         _style(ax, t)
         for i, (m, label) in enumerate(JOBS):
             s = cells[m]
@@ -462,7 +464,7 @@ def fig_recon_jobs(theme: str):
             ax.spines[s_].set_visible(False)
         ax.tick_params(axis="y", length=0)
         d = mx["designs"][bird]
-        ax.set_title(f"One bird, six jobs: the {d['mass_total_kg']:.2f} kg, {d['span_m']:.2f} m airframe does them all",
+        ax.set_title(f"One bird, {len(JOBS)} jobs: the {d['mass_total_kg']:.2f} kg, {d['span_m']:.2f} m airframe does them all",
                      loc="left", fontsize=11, color=t["ink"], pad=10)
         _save(fig, "recon-jobs", theme)
 
@@ -475,7 +477,7 @@ def fig_recon_matrix(theme: str):
     names = [m for m, _ in JOBS]
     short = {m: lab.split(": ")[1] for m, lab in JOBS}
     with plt.rc_context(FONT):
-        fig, ax = plt.subplots(figsize=(9.6, 3.9), facecolor=t["surface"])
+        fig, ax = plt.subplots(figsize=(10.4, 4.4), facecolor=t["surface"])
         _style(ax, t)
         for i, dn in enumerate(order):
             for j, m in enumerate(names):
@@ -636,10 +638,105 @@ def fig_hero(theme: str):
         _save(fig, "hero", theme)
 
 
+PAYLOADS_RUN = RUNS / "2026-11-06_recon-payloads"
+
+
+def fig_pairs_layout(theme: str):
+    """Plan view of the spreader-pairs rig: each fixed camera's view, fore and
+    aft, and the beams left to Recon flying escort."""
+    from osprey.params import load as load_nest
+    from osprey.rig import stations
+
+    t = THEMES[theme]
+    p = load_nest("coastal-watch", rig="spreader-pairs")
+    occ = Occluders((p.mast.radius_m, p.mast.deck_z_m, p.mast.truck_z_m), [], p.boat)
+    with plt.rc_context(FONT):
+        fig, ax = plt.subplots(figsize=(7.4, 6.6), facecolor=t["surface"])
+        _style(ax, t)
+        R = 9.0
+        for a0, a1 in ((40, 140), (220, 320)):                  # the beams, Recon's
+            ax.add_patch(Wedge((0, 0), R, a0, a1, color=t["series"][3], alpha=0.12, lw=0))
+        ax.text(-R * 0.82, 0, "beams:\nRecon\nescort", ha="center", va="center", fontsize=9, color=t["series"][3])
+        ax.text(R * 0.82, 0, "beams:\nRecon\nescort", ha="center", va="center", fontsize=9, color=t["series"][3])
+        ax.add_patch(plt.Circle((0, 0), R * 0.98, fill=False, ls=(0, (4, 3)), color=t["series"][0], lw=1.2))
+        ax.text(0, R * 1.02, "masthead pod: all round", ha="center", va="bottom", fontsize=8.5, color=t["series"][0])
+        xs = np.linspace(p.boat.stern_x_m, p.boat.bow_x_m, 80)
+        hw = occ.half_beam(xs)
+        ax.fill(np.r_[-hw, hw[::-1]], np.r_[xs, xs[::-1]], color=t["hull"], lw=0)
+        ax.plot([-1.35, 1.35], [0, 0], color=t["mast"], lw=2)
+        ax.plot([-0.95, 0.95], [0.25, 0.25], color=t["mast"], lw=1.4)
+        for s in stations(p):
+            if not s.fixed:
+                continue
+            lo = s.id.startswith("lo")
+            col = t["series"][1] if lo else t["series"][2]
+            hf = np.degrees(s.hfov()) / 2
+            az = np.degrees(s.face_az)
+            x, y = -s.pos[1], s.pos[0]                        # starboard to the right, bow up
+            reach = R * (0.55 if lo else 0.9)
+            ax.add_patch(Wedge((x, y), reach, 90 + az - hf, 90 + az + hf, color=col, alpha=0.16, lw=0))
+            ax.plot([x], [y], marker="o", ms=4, color=col)
+        ax.plot([], [], color=t["series"][1], lw=6, alpha=0.4, label="lower spreader pair: 4 mm, 30 deg down (docking, near water)")
+        ax.plot([], [], color=t["series"][2], lw=6, alpha=0.4, label="upper spreader pair: 8 mm, level (horizon ahead and astern)")
+        leg = ax.legend(loc="lower center", bbox_to_anchor=(0.5, -0.16), fontsize=8, frameon=False)
+        for txt in leg.get_texts():
+            txt.set_color(t["ink2"])
+        ax.set_xlim(-R * 1.1, R * 1.1)
+        ax.set_ylim(-R * 1.05, R * 1.12)
+        ax.set_aspect("equal")
+        ax.set_axis_off()
+        ax.set_title("spreader-pairs: dual mounts on the spreader tips, one camera forward and one aft",
+                     loc="left", fontsize=10.5, color=t["ink"])
+        _save(fig, "pairs-layout", theme)
+
+
+def fig_recon_payloads(theme: str):
+    """The two do-everything birds, one gimbal or a PTZ eye each side, job by job: time on task."""
+    t = THEMES[theme]
+    runs = {pl: json.loads((PAYLOADS_RUN / pl / "matrix.json").read_text()) for pl in ("gimbal", "dual")}
+    jobs = [m for m, _ in JOBS]
+    label = dict(JOBS)
+    with plt.rc_context(FONT):
+        fig, ax = plt.subplots(figsize=(9.4, 4.4), facecolor=t["surface"])
+        _style(ax, t)
+        h = 0.36
+        for k, (pl, col, name) in enumerate((("gimbal", t["series"][0], "gimbal"),
+                                            ("dual", t["series"][1], "side PTZ eyes + belly fisheye"))):
+            mx = runs[pl]
+            cells = mx["cells"][mx["one_bird"]]
+            d = mx["designs"][mx["one_bird"]]
+            for i, m in enumerate(jobs):
+                s = cells[m]
+                y = i + (k - 0.5) * h
+                ax.barh(y, s["task_s"] / 60, height=h * 0.92, color=col,
+                        label=f"{name}: {d['mass_total_kg']:.2f} kg, {d['span_m']:.2f} m" if i == 0 else None)
+                note = f"{s['task_s'] / 60:.0f} min"
+                if s.get("gsd_cm"):
+                    note += f", {s['gsd_cm']:.1f} cm/px"
+                ax.text(s["task_s"] / 60 + 1, y, note, va="center", fontsize=7.5, color=t["ink2"])
+        ax.set_yticks(range(len(jobs)), [label[m] for m in jobs], fontsize=8.5, color=t["ink"])
+        ax.invert_yaxis()
+        ax.set_xlim(0, 125)
+        ax.set_xlabel("minutes on the job, for the airframe that does every job")
+        ax.grid(axis="x", color=t["grid"], lw=0.8)
+        ax.set_axisbelow(True)
+        for s_ in ("top", "right", "left"):
+            ax.spines[s_].set_visible(False)
+        ax.tick_params(axis="y", length=0)
+        leg = ax.legend(loc="lower right", fontsize=8.5, frameon=False)
+        for txt in leg.get_texts():
+            txt.set_color(t["ink2"])
+        ax.set_title("One gimbal or a PTZ eye each side: faster searches and surveys, a lighter do-everything bird",
+                     loc="left", fontsize=11, color=t["ink"], pad=10)
+        _save(fig, "recon-payloads", theme)
+
+
 def main():
     for theme in THEMES:
         fig_hero(theme)
         fig_recon_jobs(theme)
+        fig_recon_payloads(theme)
+        fig_pairs_layout(theme)
         fig_recon_matrix(theme)
         fig_recon_wings(theme)
         fig_recon_tracks(theme)

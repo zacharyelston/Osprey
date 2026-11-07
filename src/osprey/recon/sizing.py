@@ -42,6 +42,7 @@ from openaerostruct.integration.aerostruct_groups import AerostructGeometry, Aer
 
 from osprey.motion import KN
 from osprey.recon.flight import G, rho
+from osprey.recon.params import payload_kg, payload_w
 
 MU_AIR = 1.8e-5
 SKIN_WETTED = 2.04          # wetted area of a ~12 % section per unit planform area
@@ -105,7 +106,7 @@ class Mass(om.ExplicitComponent):
         S = 2 * (half if half.real >= 0 else -half)     # not abs(): it would drop the complex step
         skin = SKIN_WETTED * S * p.skin.wall_m * p.skin.density_kgm3 * (1 + p.skin.rib_fraction)
         o["S"], o["skin_kg"], o["root_chord"], o["tip_chord"] = S, skin, c[-1], c[0]
-        o["W0"] = (p.body.mass_kg + p.avionics.mass_kg + p.camera.mass_kg + p.propulsion.motor_kg
+        o["W0"] = (p.body.mass_kg + p.avionics.mass_kg + payload_kg(p) + p.propulsion.motor_kg
                    + i["battery_kg"] + skin)
 
 
@@ -154,7 +155,7 @@ class Performance(om.ExplicitComponent):
         r = rho(mi["task"].alt_m)
         q = 0.5 * r * v**2
         D = q * S * i["CD"] + q * p.body.cda_m2
-        aux = p.avionics.power_w + p.camera.power_w[1]
+        aux = p.avionics.power_w + payload_w(p)
         o["power"] = D * v / (pr.prop_efficiency * pr.motor_efficiency) + aux
         o["LD"] = i["CL"] * S / (i["CD"] * S + p.body.cda_m2)
         e = i["battery_kg"] * pr.battery_wh_per_kg * 3600 * pr.battery_usable
@@ -313,7 +314,8 @@ def optimize(p, time_factor: float = 1.0) -> dict:
         "spar_kg": float(g("wing.structural_mass")[0]),
         "skin_kg": float(g("mass.skin_kg")[0]),
         "battery_kg": float(g("battery_kg")[0]),
-        "fixed_kg": float(p.body.mass_kg + p.avionics.mass_kg + p.camera.mass_kg + p.propulsion.motor_kg),
+        "fixed_kg": float(p.body.mass_kg + p.avionics.mass_kg + payload_kg(p) + p.propulsion.motor_kg),
+        "payload": p.payload.layout,
         "v_search_ms": float(g("v")[0]),
         "CL": float(g("AS_point_0.wing_perf.CL")[0]),
         "CD_wing": float(g("AS_point_0.wing_perf.CD")[0]),

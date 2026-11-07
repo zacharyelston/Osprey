@@ -115,6 +115,35 @@ depth at the hull edge, and it couldn't join the horizon watch.
 `runs/2026-11-06_pods-fisheye-sweep` has its reports. The fisheye camera class
 and its cube-face renderer stay for deck, cabin and dockside cameras.
 
+## Spreader pairs: dual mounts fore and aft
+
+`spreader-pairs` puts a back-to-back dual mount at each spreader tip: a fixed
+4K bullet looking forward and another aft, each with its own PoE cable and
+encoder, and no pod computer or IMU. The masthead keeps its gecko pod.
+
+- **Pairs across the boat:** the two forward cameras of a level are a stereo
+  pair with the spreaders' span between them (2.7 m low, 1.9 m high), and so
+  are the two aft ones.
+  - The lower pair is opened to 4 mm and tilted 30° down, for the water round
+    the bow and the stern.
+  - The upper pair is level, for the horizon ahead and astern.
+- **No mast flex between a pair.** Both cameras sit at the same height, so
+  the mast's fore-aft bending moves them together (0 µrad in the model;
+  spreader twist is not modelled).
+- **Shutter sync still matters.** Cameras on their own clocks, about 2 ms
+  apart, lose about 370 µrad in sea state 4. Synced shutters, or one box
+  grabbing both frames, keep it under 1 µrad.
+- **What it gives up:**
+  - the beams, which go to Recon flying escort;
+  - identification at range, since the bullets are fixed 8 mm and the
+    masthead's long zoom is the only zoom left;
+  - docking coverage alongside, where the pier is.
+- **What it gains:** 7.7 kg masthead-equivalent aloft instead of 11.9, and
+  259 Ah a day instead of 381.
+
+The pair checks are in `calcs.pair_checks`. Mounts without a computer get
+one PoE port per camera (`Pod.ports`).
+
 ## The whole boat
 
 A rig is a list of stations, and stations declare the `zones` they serve:

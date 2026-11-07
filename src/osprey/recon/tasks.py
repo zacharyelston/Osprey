@@ -8,7 +8,10 @@
   pointing straight down, until the area is imaged. It reports the ground
   sample distance and how many pixels each hazard class gets.
 - inspect: look at another vessel from a standoff distance. Orbit it as it
-  moves, for a number of laps, zoomed in to identify it.
+  moves, zoomed in to identify it (the gimbal, or with payload "dual" the
+  inboard PTZ eye).
+- escort: keep the boat's beams under watch. Circle the boat as it sails, at
+  a set radius, for a set time.
 
 Each task gives the flight sim a place to fly to, a moving waypoint, a
 progress measure with a goal, and the track length the sizing loop plans for.
@@ -130,7 +133,11 @@ class SurveyTask(Task):
         h = math.radians(m.survey_heading_deg)
         self.along = np.array([math.sin(h), math.cos(h)])
         self.across = np.array([self.along[1], -self.along[0]])
+        self.eyes = 2 if getattr(p.payload, "layout", "gimbal") == "dual" else 1
         sw = search.sweep(p, self.alt_m, depression_deg=90.0)
+        if self.eyes == 2:
+            # Both PTZ eyes turned down and slightly outboard: two footprints side by side.
+            sw = replace(sw, half_width_m=2 * sw.half_width_m)
         self.sweep = replace(sw, p_pass=0.999)                       # imaged is imaged
         self.spacing = 2 * sw.half_width_m * (1 - m.sidelap)
         n = max(int(math.ceil(self.size[0] / self.spacing)) + 1, 2)
@@ -182,7 +189,8 @@ class SurveyTask(Task):
         gsd = self.alt_m * cam.pixel_um * 1e-6 / (pl.search_focal_mm * 1e-3)
         cls = {k: round(getattr(self.p.targets, k).crit_m / gsd, 1) for k in self.p.mission.look_for}
         return {"gsd_cm": gsd * 100, "swath_m": 2 * self.sweep.half_width_m, "track_spacing_m": self.spacing,
-                "legs": len(self.pattern) // 2, "px_across": cls}
+                "legs": len(self.pattern) // 2, "px_across": cls,
+                "camera": "two side PTZs, turned down" if self.eyes == 2 else "gimbal"}
 
 
 class InspectTask(Task):
@@ -232,9 +240,51 @@ class InspectTask(Task):
         f_use = min(max(f_req, cam.focal_mm[0]), cam.focal_mm[1])
         px = kind.crit_m / (slant * optics.ifov(cam.pixel_um, f_use))
         return {"standoff_m": self.r, "slant_m": slant, "focal_needed_mm": f_req, "focal_max_mm": cam.focal_mm[1],
-                "px_across_at_focal": px, "resolves": f_req <= cam.focal_mm[1]}
+                "px_across_at_focal": px, "resolves": f_req <= cam.focal_mm[1],
+                "camera": "inboard PTZ eye" if getattr(self.p.payload, "layout", "gimbal") == "dual" else "gimbal"}
+
+
+class EscortTask(InspectTask):
+    """Circle our own boat as it sails, at a set radius, for a set time: the
+    beams that fore/aft cameras on the mast leave to the bird."""
+    kind = "escort"
+    progress_label = "time on station"
+
+    def __init__(self, p, wind: np.ndarray):
+        m = p.mission
+        self.p = p
+        self.alt_m = m.escort_alt_m
+        self.goal = 1.0
+        self.v0 = np.zeros(2)
+        hb = math.radians(m.boat_heading_deg)
+        self.vel = m.boat_speed_kn * KN * np.array([math.sin(hb), math.cos(hb)])
+        self.r = m.escort_radius_m
+        self.duration = m.escort_min * 60.0
+        self.track_m = self.duration * 18.0
+        self.t_on = None
+        self.t_now = 0.0
+        self.swept, self.theta = 0.0, None
+
+    def target(self, t, pos):
+        if self.t_on is None:
+            self.t_on = t
+        self.t_now = t
+        return super().target(t, pos)
+
+    @property
+    def progress(self):
+        return 0.0 if self.t_on is None else min((self.t_now - self.t_on) / self.duration, 1.0)
+
+    def info(self):
+        kind = getattr(self.p.targets, self.p.mission.watch_for)
+        ifov = optics.ifov(self.p.camera.pixel_um, self.p.payload.search_focal_mm)
+        reach = min(optics.johnson_range_m(kind.crit_m, ifov, self.p.johnson.detect),
+                    optics.contrast_range_m(self.p.mission.visibility_km * 1e3, kind.contrast,
+                                            self.p.atmosphere.contrast_threshold))
+        return {"escort_radius_m": self.r, "escort_min": self.duration / 60, "watch_for": self.p.mission.watch_for,
+                "beam_reach_km": (self.r + reach) / 1e3}
 
 
 def build(p, wind: np.ndarray) -> Task:
     kind = getattr(p.mission, "kind", "search")
-    return {"search": SearchTask, "survey": SurveyTask, "inspect": InspectTask}[kind](p, wind)
+    return {"search": SearchTask, "survey": SurveyTask, "inspect": InspectTask, "escort": EscortTask}[kind](p, wind)

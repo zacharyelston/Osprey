@@ -28,12 +28,23 @@ def _toml(path: Path) -> dict:
 
 
 def _pod_stations(pod: dict, kit: dict) -> list[dict]:
-    """A pod's two cameras as stations: the upper one keeps the pod's id, the
-    lower one is <id>-down. A lower PTZ serves the same zones as the upper; a
-    fixed down-looking camera (a fisheye) serves the near zone only."""
+    """A pod's two cameras as stations.
+
+    Vertical kits (gecko): the upper camera keeps the pod's id and the lower
+    one is <id>-down. A lower PTZ serves the same zones as the upper; a fixed
+    down-looking camera (a fisheye) serves the near zone only.
+
+    Horizontal kits (a back-to-back dual mount): <id>-fwd faces the bow and
+    <id>-aft the stern, each along_dx_m from the mount centre."""
     x, y, z = pod["pos_m"]
     common = {"face_az_deg": pod["face_az_deg"], "on_mast": pod["on_mast"], "pod": pod["id"],
               "sector_deg": pod.get("sector_deg", 360.0)}
+    if kit.get("layout") == "horizontal":
+        dx = kit["along_dx_m"]
+        zones = pod.get("zones", ["exterior", "deck"])
+        return [{**common, "id": f"{pod['id']}-{end}", "camera": pod[end], "pos_m": [x + sign * dx, y, z],
+                 "face_az_deg": az, "zones": zones}
+                for end, sign, az in (("fwd", 1, 0.0), ("aft", -1, 180.0))]
     return [
         {"id": pod["id"], "camera": pod["up"], "pos_m": [x, y, z + kit["up_dz_m"]],
          "zones": pod.get("zones", ["exterior", "deck"]), **common},

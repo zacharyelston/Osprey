@@ -165,10 +165,22 @@ def build(p, d: dict, *, explode: float = 0.0) -> list[Part]:
     rings = [np.stack([np.full_like(a, x0 - x * L), r * np.cos(a), zc + r * np.sin(a)], 1) for x, r in zip(xs, radius)]
     v, f = loft(rings)
     parts.append(Part("pod", "pod", v, f))
-    v, f = _sphere([x0 - 0.18 * L, 0, zc - R * 0.95], g.gimbal_radius_m)
-    parts.append(Part("gimbal", "gimbal", v, f))
-    v, f = _sphere([x0 - 0.18 * L + g.gimbal_radius_m * 0.75, 0, zc - R * 0.95], g.gimbal_radius_m * 0.45)
-    parts.append(Part("lens", "lens", v, f))
+    if getattr(p.payload, "layout", "gimbal") == "dual":
+        # A PTZ eye on each side of the pod, looking out, and a belly fisheye dome.
+        xc = x0 - 0.22 * L
+        for side in (1, -1):
+            yc = side * (R * 0.85 + 0.03)
+            v, f = _sphere([xc, yc, zc - 0.2 * R], 0.034, 14)
+            parts.append(Part(f"eye_{side}", "gimbal", v, f))
+            v, f = _sphere([xc + 0.01, yc + side * 0.024, zc - 0.32 * R], 0.016, 10)
+            parts.append(Part(f"lens_{side}", "lens", v, f))
+        v, f = _sphere([x0 - 0.55 * L, 0, zc - R * 0.9], 0.02, 12)
+        parts.append(Part("belly", "lens", v, f))
+    else:
+        v, f = _sphere([x0 - 0.18 * L, 0, zc - R * 0.95], g.gimbal_radius_m)
+        parts.append(Part("gimbal", "gimbal", v, f))
+        v, f = _sphere([x0 - 0.18 * L + g.gimbal_radius_m * 0.75, 0, zc - R * 0.95], g.gimbal_radius_m * 0.45)
+        parts.append(Part("lens", "lens", v, f))
 
     # Twin booms to an H-tail, two fins; a pusher prop behind the pod.
     t = tail_size(p, d)

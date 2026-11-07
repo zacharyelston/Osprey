@@ -1,0 +1,66 @@
+# Back-to-back dual mounts on the spreader tips: at each tip a fixed camera
+# looks forward and another aft (a UniFi-style dual mount, two bullets). Across the boat the two forward cameras are
+# a stereo pair with the spreaders' full span between them, and so are the
+# two aft ones. Each pair works its own end of the boat. The beams are left
+# to Recon, flying escort.
+#
+# The masthead keeps its gecko pod: a long PTZ for the all-round view and the
+# long range, and an inverted PTZ for the look straight down.
+
+[rig]
+name = "spreader-pairs"
+watch = "sectors"
+reserve = 0
+max_group = 4
+
+[[pod]]
+id = "top"
+kit = "gecko"
+up = "ptz_long"
+down = "ptz_mid_down"
+pos_m = [0.5, 0.0, 18.75]
+face_az_deg = 0.0
+on_mast = true
+sector_deg = 360.0
+
+# Lower spreaders: the widest baseline, 2 x 1.35 m on the reference boat.
+# Wide lenses tilted 30 deg down: the water round the bow and the stern, for
+# docking and anything close. (Tilted for the horizon, they see no water
+# within about 17 m of the hull.)
+[[pod]]
+id = "lo-port"
+kit = "dualmount"
+fwd = "bullet_4k_wide"
+aft = "bullet_4k_wide"
+pos_m = [0.0, 1.35, 7.5]
+face_az_deg = 0.0
+on_mast = true
+
+[[pod]]
+id = "lo-stbd"
+kit = "dualmount"
+fwd = "bullet_4k_wide"
+aft = "bullet_4k_wide"
+pos_m = [0.0, -1.35, 7.5]
+face_az_deg = 0.0
+on_mast = true
+
+# Upper spreaders: 2 x 0.95 m, 5 m higher, level for the horizon: traffic
+# and anything in the water ahead and astern.
+[[pod]]
+id = "hi-port"
+kit = "dualmount"
+fwd = "bullet_4k"
+aft = "bullet_4k"
+pos_m = [0.0, 0.95, 12.5]
+face_az_deg = 0.0
+on_mast = true
+
+[[pod]]
+id = "hi-stbd"
+kit = "dualmount"
+fwd = "bullet_4k"
+aft = "bullet_4k"
+pos_m = [0.0, -0.95, 12.5]
+face_az_deg = 0.0
+on_mast = true

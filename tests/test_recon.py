@@ -2,6 +2,7 @@
 import math
 import warnings
 from dataclasses import replace
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -23,8 +24,8 @@ def test_every_mission_loads():
     for m in MISSIONS:
         p = load(m)
         assert p.mission.name == m and p.mission.boat_mode in ("return", "approach", "sail", "hold")
-        assert p.mission.kind in ("search", "survey", "inspect")
-    assert {load(m).mission.kind for m in MISSIONS} == {"search", "survey", "inspect"}
+        assert p.mission.kind in ("search", "survey", "inspect", "escort")
+    assert {load(m).mission.kind for m in MISSIONS} == {"search", "survey", "inspect", "escort"}
 
 
 def test_sweep_is_wider_higher_and_the_drone_sees_past_the_waves():
@@ -153,14 +154,64 @@ def test_one_bird_is_the_lightest_that_does_everything():
     assert all(fleet.ok(s) for s in M[best].values())
 
 
-KEPT = MISSIONS
+KEPT = tuple(sorted(d.name for d in (Path(__file__).resolve().parents[1] / "runs/2026-11-06_recon-payloads/gimbal").iterdir()
+                    if (d / "design.json").exists()))
+
+
+def test_side_eyes_split_the_search_and_the_belly_fills_the_gap():
+    from osprey.recon.params import payload_kg
+
+    g, d = load("sar-datum"), load("sar-datum", payload="dual")
+    sg, sd = search.sweep(g, 80.0), search.sweep(d, 80.0)
+    left, right, belly = sd.rects
+    assert left[2] > 0 > right[3]                         # one strip each side of the track
+    assert belly[2] < 0 < belly[3] and belly[3] >= left[2] - 1e-9   # the belly covers the gap between them
+    assert sd.width_eff_m > 3 * sg.width_eff_m
+    assert payload_kg(d) > payload_kg(g)                  # two PTZs and a fisheye weigh more than one gimbal
+
+
+def test_side_eyes_survey_two_strips_at_the_same_pixels():
+    from osprey.recon import tasks
+
+    g, d = load("scout-anchorage"), load("scout-anchorage", payload="dual")
+    tg, td = tasks.build(g, np.zeros(2)), tasks.build(d, np.zeros(2))
+    assert td.info()["swath_m"] == pytest.approx(2 * tg.info()["swath_m"])
+    assert td.info()["gsd_cm"] == pytest.approx(tg.info()["gsd_cm"])
+    assert len(td.pattern) < len(tg.pattern)
+
+
+def test_inboard_eye_inspects_round_the_orbit():
+    p = load("inspect-vessel", payload="dual")
+    r = flight.simulate(p, _ac())
+    s = flight.summary(p, _ac(), r)
+    assert s["camera"] == "inboard PTZ eye" and s["goal_met"] and s["resolves"]
+
+
+def test_escort_circles_the_sailing_boat_for_its_time():
+    p = load("escort-flanks")
+    r = flight.simulate(p, _ac())
+    s = flight.summary(p, _ac(), r)
+    assert s["kind"] == "escort" and s["outcome"] == "recovered" and s["goal_met"]
+    assert s["task_s"] == pytest.approx(p.mission.escort_min * 60, abs=5)
+    on = r["phase"] == "task"
+    d = np.hypot(r["x"][on] - r["boat_x"][on], r["y"][on] - r["boat_y"][on])
+    assert np.median(d) == pytest.approx(p.mission.escort_radius_m, rel=0.3)
+
+
+def test_bingo_credits_a_boat_closing_on_the_drone():
+    """Regression: bingo once ignored a boat sailing toward the site being
+    surveyed and turned the drone home 30 s into the survey."""
+    p = load("scout-anchorage", payload="dual")
+    ac = _ac(energy_j=0.17 * 200 * 3600 * 0.8)
+    s = flight.summary(p, ac, flight.simulate(p, ac))
+    assert s["left_task_because"] != "bingo" or s["progress"] > 0.5
 
 
 def _kept(m="sar-offshore"):
     import json
     from pathlib import Path
 
-    d = json.loads((Path(__file__).resolve().parents[1] / "runs/2026-11-06_recon-missions" / m / "design.json")
+    d = json.loads((Path(__file__).resolve().parents[1] / "runs/2026-11-06_recon-payloads/gimbal" / m / "design.json")
                    .read_text())
     return load(m), d
 

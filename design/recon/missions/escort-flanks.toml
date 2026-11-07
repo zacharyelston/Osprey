@@ -1,0 +1,23 @@
+# Flank watch on passage: the mast's fore and aft pairs cover ahead and
+# astern; Recon circles the boat to keep the beams under watch, out past
+# the mast's horizon, for 45 minutes while the boat sails on.
+
+[mission]
+kind = "escort"
+name = "escort-flanks"
+label = "Watch the beams for 45 min, circling the boat at 1.5 km as it sails"
+sea_state = "ss3"
+visibility_km = 12.0
+boat_speed_kn = 6.5
+boat_mode = "sail"
+boat_heading_deg = 0.0
+escort_radius_m = 1500.0
+escort_alt_m = 100.0
+escort_min = 45.0
+watch_for = "sailboat_30ft"
+wind_from_deg = 90.0
+wind_kn = 15.0
+cruise_alt_m = 100.0
+task_time_max_s = 3600.0
+reserve_frac = 0.20
+recovery_radius_m = 30.0

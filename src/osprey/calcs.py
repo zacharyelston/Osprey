@@ -372,11 +372,11 @@ def pod_checks(p, pds: list[Pod], mot: motion.Motion, res: dict) -> list[Check]:
 
     G = "Pod power"
     for pd in pds:
-        w = pd.load_w("active")
-        cls = _poe_class(w, el.poe)
-        add(Check(G, f"{pd.id}: peak draw at the PoE port", f"{w:.1f} W", cls or "71.3 W",
-                  "PASS" if cls else "FAIL",
-                  f"needs {cls}" if cls else "over 802.3bt Type 4: needs a second cable or local power"))
+        for port, w in pd.ports():
+            cls = _poe_class(w, el.poe)
+            add(Check(G, f"{port}: peak draw at the PoE port", f"{w:.1f} W", cls or "71.3 W",
+                      "PASS" if cls else "FAIL",
+                      f"needs {cls}" if cls else "over 802.3bt Type 4: needs a second cable or local power"))
     ptz = [s for pd in pds for s in pd.members if not s.fixed]
     watcher = max(ptz, key=lambda s: s.pos[2]).id if ptz else None
     draw = {mode: sum(pd.load_w(mode, {watcher}) for pd in pds) / pw.pse_efficiency
@@ -393,7 +393,12 @@ def pod_checks(p, pds: list[Pod], mot: motion.Motion, res: dict) -> list[Check]:
 
     G = "Pod network"
     rates = {pd.id: pd.pixel_rate(net.fps) for pd in pds}
-    worst = max(pds, key=lambda pd: rates[pd.id])
+    bare = [pd for pd in pds if not pd.has_computer]
+    if bare:
+        add(Check(G, f"{len(bare)} mounts without a pod computer", ", ".join(pd.id for pd in bare), "", "INFO",
+                  "each camera encodes itself: detection runs on compressed streams at the pilot computer"))
+    smart = [pd for pd in pds if pd.has_computer] or pds
+    worst = max(smart, key=lambda pd: rates[pd.id])
     px = rates[worst.id]
     raw = px * net.raw_bits_px / 1e6
     add(Check(G, f"{worst.id}: raw sensor rate vs one gigabit link", f"{raw:,.0f} Mb/s",
@@ -423,7 +428,7 @@ def pod_checks(p, pds: list[Pod], mot: motion.Motion, res: dict) -> list[Check]:
     add(Check(G, "Shutter sync error x mount rate, p95 (PTP)", f"{sync * 1e6:.2f} urad", f"{REL_ORIENT_URAD:g} urad",
               _grade(sync * 1e6, REL_ORIENT_URAD / 5, REL_ORIENT_URAD),
               f"with software timestamps ({net.sw_sync_us:g} us): {rate * net.sw_sync_us:.0f} urad"))
-    mast = [pd for pd in pds if pd.on_mast]
+    mast = [pd for pd in pds if pd.on_mast and pd.imu.rate_hz > 0]
     if len(mast) > 1:
         hi, lo = max(mast, key=lambda pd: pd.pos[2]), min(mast, key=lambda pd: pd.pos[2])
         flex = np.abs(mot.flex(hi.pos[2]) - mot.flex(lo.pos[2]))
@@ -446,10 +451,45 @@ def pod_checks(p, pds: list[Pod], mot: motion.Motion, res: dict) -> list[Check]:
         yes = optics.stereo_sigma_m(2000, base, ifov, rel_orient_urad=tot)
         add(Check(G, f"Stereo {hi.id}+{lo.id} at 2 km ({base:.1f} m baseline), no IMU / with",
                   f"+/- {no:.0f} / {yes:.0f} m", "", "INFO", "what the pod gyros buy a looking group"))
+    checks += pair_checks(p, pds, mot, res, rate)
     f = a + np.array([0.0, 0.0, motion.G])
     tilt = np.degrees(np.arccos(np.clip(f[:, 2] / np.linalg.norm(f, axis=1), -1, 1)))
     roll = np.degrees(np.abs(mot.roll))
     add(Check(G, f"Accelerometer-only tilt error at {top.id}, p95", f"{np.percentile(tilt, 95):.1f} deg",
               "", "INFO", f"specific force vs true vertical (roll p95 {np.percentile(roll, 95):.0f} deg): "
                           "accelerometers alone are not an attitude sensor aloft, the gyros are"))
+    return checks
+
+
+def pair_checks(p, pds: list[Pod], mot: motion.Motion, res: dict, rate: float) -> list[Check]:
+    """Stereo pairs across the boat: two horizontal mounts at the same height,
+    port and starboard, whose forward (or aft) cameras look the same way."""
+    net = p.electronics.network
+    checks: list[Check] = []
+    add = checks.append
+    G = "Pairs"
+    horiz = [pd for pd in pds if pd.horizontal]
+    for a in horiz:
+        for b in horiz:
+            if not (a.pos[1] > 0 > b.pos[1] and abs(a.pos[2] - b.pos[2]) < 0.05):
+                continue
+            base = abs(a.pos[1] - b.pos[1])
+            flex = float(np.percentile(np.abs(mot.flex(a.pos[2]) - mot.flex(b.pos[2])), 95)) * 1e6
+            cams = [s for s in a.members + b.members]
+            ifov = max(s.ifov() for s in cams)
+            sw = rate * net.sw_sync_us                                  # urad, frames not taken together
+            hw = rate * net.ptp_sync_us
+            name = f"{a.id.split('-')[0]} pair ({a.id}+{b.id})"
+            add(Check(G, f"{name}: baseline and mast flex between them", f"{base:.2f} m, {flex:.0f} urad", "",
+                      "INFO", "same height: the mast's fore-aft bending moves both together"))
+            r_sw = math.hypot(REL_ORIENT_URAD, sw)
+            r_hw = math.hypot(REL_ORIENT_URAD, hw)
+            for d in (30.0, 200.0, 1000.0):
+                s_sw = optics.stereo_sigma_m(d, base, ifov, rel_orient_urad=r_sw)
+                s_hw = optics.stereo_sigma_m(d, base, ifov, rel_orient_urad=r_hw)
+                add(Check(G, f"{name}: stereo range at {d:g} m, camera clocks / hardware sync",
+                          f"+/- {s_sw:.2f} / {s_hw:.2f} m", f"{0.05 * d:g} m",
+                          _grade(s_sw, 0.02 * d, 0.05 * d),
+                          f"{net.sw_sync_us / 1e3:g} ms between frames at {math.degrees(rate):.1f} deg/s costs "
+                          f"{sw:.0f} urad; hardware-synced shutters {hw:.1f} urad"))
     return checks

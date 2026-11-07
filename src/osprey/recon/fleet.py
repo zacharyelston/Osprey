@@ -16,12 +16,12 @@ def ok(s: dict) -> bool:
     return s["outcome"] == "recovered" and s["goal_met"]
 
 
-def capability(designs: dict[str, dict], missions: list[str]) -> dict[str, dict[str, dict]]:
+def capability(designs: dict[str, dict], missions: list[str], payload: str = "gimbal") -> dict[str, dict[str, dict]]:
     out = {}
     for dn, d in designs.items():
         out[dn] = {}
         for mn in missions:
-            p = load(mn)
+            p = load(mn, payload=payload)
             ac = flight.Aircraft.from_design(p, d)
             out[dn][mn] = flight.summary(p, ac, flight.simulate(p, ac))
     return out

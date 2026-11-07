@@ -111,6 +111,21 @@ class Pod:
     def electronics_kg(self) -> float:
         return self.kit.housing_kg + self.soc.mass_kg + self.imu.mass_kg
 
+    @property
+    def has_computer(self) -> bool:
+        return self.soc.tops_int8 > 0
+
+    @property
+    def horizontal(self) -> bool:
+        return getattr(self.kit, "layout", "vertical") == "horizontal"
+
+    def ports(self) -> list[tuple[str, float]]:
+        """PoE ports and their peak draw: one per pod with a computer, one per
+        camera when each camera has its own cable."""
+        if self.has_computer:
+            return [(self.id, self.load_w("active"))]
+        return [(s.id, s.cam.power_w[1] / self.kit.pd_efficiency) for s in self.members]
+
     def load_w(self, mode: str, working: set[str] = frozenset()) -> float:
         """Power the pod draws from its PoE port. mode "active": everything
         working; "watch": SOC at watch power, cameras parked unless in `working`."""

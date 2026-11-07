@@ -35,6 +35,7 @@ import numpy as np
 
 from osprey.motion import KN
 from osprey.recon import tasks
+from osprey.recon.params import payload_w
 
 G = 9.81
 PHASES = ("outbound", "task", "return", "recovered", "lost")
@@ -89,7 +90,7 @@ class Aircraft:
     def from_design(cls, p, d: dict) -> "Aircraft":
         pr = p.propulsion
         return cls(d["mass_total_kg"], d["S_m2"], d["span_m"], d["cd0"], d["k"], p.wing.cl_max,
-                   pr.prop_efficiency, pr.motor_efficiency, p.avionics.power_w + p.camera.power_w[1],
+                   pr.prop_efficiency, pr.motor_efficiency, p.avionics.power_w + payload_w(p),
                    d["battery_kg"] * pr.battery_wh_per_kg * 3600 * pr.battery_usable, pr.motor_peak_w,
                    d["v_search_ms"], math.radians(p.limits.bank_max_deg))
 
@@ -122,6 +123,15 @@ def simulate(p, ac: Aircraft, *, dt: float = 0.5, t_max: float = 3 * 3600.0,
 
     boat_mode = getattr(m, "boat_mode", "sail")
     boat_speed = m.boat_speed_kn * KN
+
+    def boat_vel(t, boat):
+        """return/approach: head for the task, then heave to there drifting with
+        the water; sail: sail on; hold: stay at anchor."""
+        if boat_mode in ("return", "approach"):
+            to = task.where(t) - boat
+            dist = np.linalg.norm(to)
+            return boat_speed * to / dist if dist > 150 else task.drift
+        return boat_v if boat_mode == "sail" else np.zeros(2)
     boat = np.zeros(2)
     pos = np.zeros(2)
     e0 = task.entry(0.0, pos)
@@ -142,13 +152,14 @@ def simulate(p, ac: Aircraft, *, dt: float = 0.5, t_max: float = 3 * 3600.0,
             target = task.target(t, pos)
             h_cmd = task.alt_m
             # Bingo: the energy to get home along the line to the boat as it is now,
-            # against that line's headwind and the boat's speed away along it, plus the reserve.
+            # against that line's headwind and the boat's own speed along it (away
+            # when it sails on, toward when it heads for the task), plus the reserve.
             to_boat = boat - pos
             home = float(np.linalg.norm(to_boat))
             uh = to_boat / max(home, 1e-6)
             head_home = -float(wind @ uh)
             v_home = range_speed(m.cruise_alt_m, head_home)
-            away = float(boat_v @ uh) if boat_mode == "sail" else 0.0
+            away = float(boat_vel(t, boat) @ uh)
             t_home = home / max(v_home - head_home - away, 1.0)
             bingo = ac.power(v_home, m.cruise_alt_m) * t_home * (1 + m.reserve_frac)
             reason = task.done() or ("time" if t - t_task0 > t_cap else "bingo" if energy <= bingo else None)
@@ -189,13 +200,7 @@ def simulate(p, ac: Aircraft, *, dt: float = 0.5, t_max: float = 3 * 3600.0,
             rec[k_].append(v_)
         pos = pos + vg * dt
         h = max(h + climb * dt, 0.0)
-        aim = task.where(t)
-        if boat_mode in ("return", "approach") and np.linalg.norm(aim - boat) > 150:
-            boat = boat + boat_speed * (aim - boat) / np.linalg.norm(aim - boat) * dt
-        elif boat_mode in ("return", "approach"):
-            boat = boat + task.drift * dt                  # hove to there, drifting with the water
-        elif boat_mode == "sail":
-            boat = boat + boat_v * dt
+        boat = boat + boat_vel(t, boat) * dt
         energy -= pw * dt
         if energy <= 0:
             phase = "lost"
