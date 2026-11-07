@@ -250,3 +250,52 @@ def test_bird_scene_compiles():
     xml = render._world("studio", a, b, render._cam("c", [2, 2, 2], [0, 0, 0]), 64, 48)
     m = mujoco.MjModel.from_xml_string(xml)
     assert m.nmesh == len(geometry.build(p, d))
+
+
+def test_blended_wing_is_trimmed_stable_and_deep_enough():
+    p = load("sar-datum", airframe="bwb")
+    d = sizing.optimize(p)
+    assert d["converged"] and d["airframe"] == "bwb"
+    assert abs(d["cm_trim"]) < 1e-3                                      # trimmed at task speed
+    assert d["static_margin"] >= p.stability.static_margin_min - 1e-4
+    assert d["root_depth_m"] >= p.volume.root_depth_min_m - 1e-4
+    assert d["print_panels"] == 0                                       # moulded, not printed
+
+
+def test_buck_halves_are_closed_and_match_the_design(tmp_path):
+    from osprey.recon import buck, geometry
+
+    p = load("sar-datum", airframe="bwb")
+    d = sizing.optimize(p)
+    info = buck.export(p, d, tmp_path)
+    assert {f.name for f in tmp_path.iterdir()} >= {"oml.stl", "buck_upper.stl", "buck_lower.stl", "sections.csv"}
+    assert info["span_mm"] == pytest.approx(d["span_m"] * 1000)
+    assert info["root_depth_mm"] == pytest.approx(d["root_depth_m"] * 1000, rel=0.02)
+    for half in ("upper", "lower"):
+        rings = geometry.bwb_surface(p, d, half=half)
+        v, f = geometry.loft(rings[: len(rings) // 2])
+        vol = np.einsum("ij,ij->i", v[f[:, 0]], np.cross(v[f[:, 1]], v[f[:, 2]])).sum() / 6
+        assert vol > 0                                                 # closed and wound outward
+
+
+def test_altitude_buys_the_wake_and_the_mast_lens_buys_the_boat():
+    from osprey.recon import awareness
+
+    rows = {r["eye"]: r for r in awareness.table("ss3", 15.0)}
+    mast = rows["Masthead long PTZ (18.9 m, 200 mm)"]
+    drone = rows["Drone gimbal at 120 m (30 mm)"]
+    assert drone["skiff_wake:detect"][0] > 2 * mast["skiff_wake:detect"][0]
+    assert mast["skiff:recognize"][0] > drone["skiff:recognize"][0]
+    assert mast["skiff_wake:detect"][1] == "waves"
+
+
+def test_crescent_curves_its_leading_edge_and_prints():
+    p = load("sar-offshore", airframe="crescent")
+    d = sizing.optimize(p)
+    assert d["converged"] and d["airframe"] == "crescent"
+    assert abs(d["cm_trim"]) < 1e-3 and d["static_margin"] >= p.stability.static_margin_min - 1e-4
+    le = np.array(d["le_x_m"])[::-1]                 # root to tip
+    steps = np.diff(le)
+    assert steps[-1] > steps[0] > -1e-6              # sweep grows toward the tips: a crescent
+    assert d["print_panels"] > 0 and d["print_chord_ok"]
+    assert d["le_z_m"][0] > d["le_z_m"][-1]          # the tips curve up

@@ -1,0 +1,52 @@
+# Airframe variant: a blended wing body. One swept, tailless lifting body
+# with a thick centre section that holds the battery and the payload, a
+# pusher prop on the centreline and elevons on the outer trailing edge; no
+# fuselage pod, booms or tail. Moulded composite skins (from a CNC or
+# printed buck), not printed panels. Overlaid on design/recon/airframe.toml
+# with `--airframe bwb`.
+#
+# Tailless means the wing must trim itself and stay stable: sweep plus
+# washout, and the centre of gravity ahead of the neutral point. The sizing
+# loop trims it (zero pitching moment at task speed) and keeps a static
+# margin, with the CG as a design variable (where the battery sits).
+
+[layout]
+kind = "bwb"
+label = "Blended wing body: moulded composite, swept and tailless, pusher, elevons"
+
+[wing]
+num_y = 13
+num_x = 3
+span_m = 1.6
+root_chord_m = 0.50
+chord_cp_init = [0.35, 0.50, 0.80, 1.00]   # tip to root, on root_chord_m
+chord_scale_bounds = [0.15, 1.3]
+sweep_deg = 22.0
+sweep_bounds_deg = [5.0, 35.0]
+twist_bounds_deg = [-8.0, 4.0]
+t_over_c_cp = [0.10, 0.12, 0.17]          # tip to root: a thick centre body
+span_bounds_m = [1.0, 3.0]
+cl_max = 0.95             # tailless, reflexed: less than a conventional wing
+cd0_extra = 0.003         # moulded finish, no panel joints
+
+[stability]
+static_margin_min = 0.06  # of the reference chord
+cg_x_bounds_m = [0.03, 0.45]   # the non-wing mass's CG, aft of the root leading edge
+probe_alpha_deg = 1.0
+
+[body]
+mass_kg = 0.25            # elevon servos, wiring, motor mount and hatch: no pod, booms or tail
+cda_m2 = 0.004            # gimbal fairing, motor and prop hub, winglet junctions
+
+[skin]
+areal_kg_m2 = 0.35        # moulded glass/carbon skin over ribs, per wetted m²
+rib_fraction = 0.25
+
+[volume]
+root_depth_min_m = 0.075  # the centre body's depth must clear the battery pack and payload
+
+[manufacture]
+method = "molded"         # no printer-bed limit on chord
+
+[geometry]
+winglet_height_frac = 0.07  # of the span, for the renders
