@@ -255,9 +255,41 @@ def cmd_recon(args) -> int:
     return rc
 
 
+def cmd_recon_render(args) -> int:
+    """Render each mission's sized drone: hero over the sea, three-view,
+    exploded print panels, a turntable GIF, and all of them side by side."""
+    from osprey.recon import render as rr
+    from osprey.recon.params import MISSIONS
+    from osprey.recon.params import load as load_mission
+
+    src = Path(args.run) if args.run else OUT / "recon"
+    dst = Path(args.out) if args.out else OUT / "recon"
+    names = MISSIONS if args.mission == "all" else [args.mission]
+    lineup = []
+    for name in names:
+        f = src / name / "design.json"
+        if not f.exists():
+            print(f"{name}: no {f}; run `osprey recon --mission {name}` first")
+            return 1
+        p, d = load_mission(name), json.loads(f.read_text())
+        o = dst / name
+        rr.hero(p, d, o / "bird-hero.png")
+        rr.threeview(p, d, o / "bird-threeview.png")
+        rr.exploded(p, d, o / "bird-exploded.png")
+        rr.turntable(p, d, o / "bird-turntable.gif")
+        lineup.append((p, d, name))
+        print(f"{name}: renders in {o}")
+    if len(lineup) > 1:
+        lineup.sort(key=lambda x: x[1]["span_m"])
+        rr.lineup(lineup, dst / "bird-lineup.png")
+        print(f"lineup: {dst / 'bird-lineup.png'}")
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="osprey", description=__doc__)
-    ap.add_argument("cmd", choices=["calc", "sim", "render", "all", "sweep", "recon-size", "recon-fly", "recon"])
+    ap.add_argument("cmd", choices=["calc", "sim", "render", "all", "sweep", "recon-size", "recon-fly", "recon",
+                                    "recon-render"])
     ap.add_argument("--scenario", default="coastal-watch", choices=SCENARIOS)
     ap.add_argument("--rig", default=None, choices=RIGS, help="override the scenario's rig")
     ap.add_argument("--out", default=None, help="output directory (absolute); default out/<scenario>/<rig>")
@@ -269,7 +301,11 @@ def main(argv=None) -> int:
     ap.add_argument("--workers", type=int, default=8, help="sweep: parallel processes")
     ap.add_argument("--mission", default="sar-datum", help="recon: a design/recon/missions name, or all")
     ap.add_argument("--design", default=None, help="recon-fly: a design.json to fly instead of sizing one")
+    ap.add_argument("--run", default=None, help="recon-render: a run directory holding <mission>/design.json "
+                                                "(default out/recon)")
     args = ap.parse_args(argv)
+    if args.cmd == "recon-render":
+        return cmd_recon_render(args)
     if args.cmd.startswith("recon"):
         return cmd_recon(args)
     if args.cmd == "sweep":

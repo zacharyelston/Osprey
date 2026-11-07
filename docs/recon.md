@@ -38,6 +38,26 @@ Each mission writes `report.md`, `design.json`, `flight.json`, `planform.png`,
 `track.png` and `timeline.png` to `out/recon/<mission>/`. All three missions
 take about 20 s on a laptop.
 
+## The bird
+
+`uv run osprey recon-render --mission all` builds each sized drone as meshes (`recon/geometry.py`) and
+renders it in MuJoCo (`recon/render.py`): a hero shot over the sea with the sailboat below, an orthographic
+three-view, an exploded view of the printed panels on the spar, a turntable GIF, and every mission's
+drone side by side to scale. Use `--run runs/2026-11-06_recon-phase1` to render the kept designs.
+
+The wing comes from the sizing: span, chords, twist, the NACA 2412 section at the design's 12 % thickness,
+3 deg dihedral, and the print joints where the bed splits it. Everything else is REF geometry from
+`[geometry]` in `design/recon/airframe.toml`:
+- the pod, gimbal ball, twin carbon booms and a pusher prop;
+- an H-tail and two fins sized by tail volume coefficients (0.40 horizontal, 0.030 vertical), with an
+  8 cm chord floor.
+
+The tail is not optimized yet; it is the first thing a stability model will change.
+
+![Offshore drone over the sea](img/bird-hero.png)
+
+![Exploded print panels](img/bird-exploded.png)
+
 ## Missions
 
 | Mission | Datum | Datum error (1 σ) | Sea, wind | Boat after launch |

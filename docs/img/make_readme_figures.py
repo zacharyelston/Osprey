@@ -581,11 +581,12 @@ def fig_hero(theme: str):
         a1.set_axis_off()
         a1.set_title("Osprey Nest: the pods' lower eyes, docking (synthetic frames)", loc="left", fontsize=11,
                      color=t["ink"])
-        a2 = fig.add_axes([0.64, 0.08, 0.35, 0.82])
-        _style(a2, t)
-        _track_axes(a2, t, "sar-datum", legend=False)
-        a2.set_anchor("W")
-        a2.set_title("Osprey Recon: a printed drone, searching", loc="left", fontsize=11, color=t["ink"])
+        # The bird over the sea with the boat below (osprey recon-render, offshore design), cropped.
+        bird = Image.open(IMG / "bird-hero.png").convert("RGB").crop((430, 200, 1290, 720))
+        a2 = fig.add_axes([0.615, 0.0, 0.385, 0.9])
+        a2.imshow(bird)
+        a2.set_axis_off()
+        a2.set_title("Osprey Recon: a printed search drone (rendered)", loc="left", fontsize=11, color=t["ink"])
         _save(fig, "hero", theme)
 
 

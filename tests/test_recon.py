@@ -107,3 +107,48 @@ def test_sized_design_meets_its_constraints():
     assert d["endurance_margin"] >= -1e-6
     ac = replace(flight.Aircraft.from_design(p, d))
     assert ac.v_stall(0.0) == pytest.approx(d["v_stall_ms"], rel=0.02)
+
+
+def _kept(m="sar-offshore"):
+    import json
+    from pathlib import Path
+
+    d = json.loads((Path(__file__).resolve().parents[1] / "runs/2026-11-06_recon-phase1" / m / "design.json")
+                   .read_text())
+    return load(m), d
+
+
+def test_bird_meshes_are_closed_and_face_outward():
+    from osprey.recon import geometry
+
+    p, d = _kept()
+    parts = geometry.build(p, d)
+    for q in parts:
+        v, f = q.verts, q.faces
+        vol = np.einsum("ij,ij->i", v[f[:, 0]], np.cross(v[f[:, 1]], v[f[:, 2]])).sum() / 6
+        assert vol > 0, q.name                                   # outward winding: renderers cull back faces
+    panels = [q for q in parts if q.name.startswith("panel_")]
+    assert len(panels) == d["print_panels"]
+    lo, hi = geometry.bounds(parts)
+    assert hi[1] - lo[1] == pytest.approx(d["span_m"], rel=0.02)
+
+
+def test_tail_respects_its_chord_floor():
+    from osprey.recon import geometry
+
+    for m in MISSIONS:
+        p, d = _kept(m)
+        t = geometry.tail_size(p, d)
+        assert t["ch"] >= p.geometry.tail_chord_min_m and t["cv"] >= p.geometry.tail_chord_min_m
+
+
+def test_bird_scene_compiles():
+    import mujoco
+
+    from osprey.recon import geometry, render
+
+    p, d = _kept("sar-datum")
+    a, b = render._drone_xml("bird", geometry.build(p, d), np.zeros(3), render._quat())
+    xml = render._world("studio", a, b, render._cam("c", [2, 2, 2], [0, 0, 0]), 64, 48)
+    m = mujoco.MjModel.from_xml_string(xml)
+    assert m.nmesh == len(geometry.build(p, d))

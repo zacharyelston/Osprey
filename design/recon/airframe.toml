@@ -73,3 +73,25 @@ bank_max_deg = 35.0
 [print]
 bed_m = [0.22, 0.22, 0.25]  # build volume x, y, z; wing panels print span-wise along z
 chord_margin_m = 0.02       # the section must fit the bed diagonal with this margin
+
+# Everything the renders need that the sizing doesn't size yet. The tail is
+# set by conventional volume coefficients, not optimized.
+[geometry]
+airfoil_camber = 0.02      # NACA 4-digit camber; thickness comes from wing.t_over_c
+airfoil_camber_pos = 0.40
+dihedral_deg = 3.0
+pod_length_m = 0.50
+pod_diameter_m = 0.11
+pod_nose_x_m = 0.30        # ahead of the spar
+gimbal_radius_m = 0.045
+boom_y_frac = 0.07         # booms at this fraction of the span either side
+boom_y_min_m = 0.12
+boom_radius_m = 0.008
+tail_arm_frac = 0.45       # spar to tail quarter-chord, as a fraction of the span
+tail_arm_min_m = 0.55
+tail_volume_h = 0.40
+tail_volume_v = 0.030
+tail_t_over_c = 0.09
+tail_chord_min_m = 0.08    # below this a printed tail flies at too low a Reynolds number
+fin_aspect = 1.4
+prop_diameter_m = 0.23

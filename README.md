@@ -6,14 +6,13 @@ is a 3D-printed search drone that the boat launches when the person is beyond wh
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/hero-dark.png">
-  <img src="docs/img/hero.png" alt="Left: four synthetic frames from the gecko pods' lower cameras while docking. Right: the ground track of the Recon drone flying out 3 km, searching an expanding square that drifts with the person, and returning to the boat.">
+  <img src="docs/img/hero.png" alt="Left: four synthetic frames from the gecko pods' lower cameras while docking. Right: a render of the Recon drone, white printed wing and orange pod, banking over the sea above the sailboat.">
 </picture>
 
 <sub>Left: the four lower pod cameras during a synthetic docking run
 ([`runs/2026-11-06_gecko-docking-render`](runs/2026-11-06_gecko-docking-render/)); every frame also has
-metric depth, a class mask and the camera's exact pose. Right: the Recon drone sized for a man overboard
-3 km astern, flown out, through an expanding-square search drifting with the person (shading: where they
-are likely to be), and back to the boat ([`runs/2026-11-06_recon-phase1`](runs/2026-11-06_recon-phase1/)).</sub>
+metric depth, a class mask and the camera's exact pose. Right: the Recon drone sized for the 10 km
+offshore mission, rendered banking over the sea with the sailboat below (`osprey recon-render`).</sub>
 
 > **Status: screening models, not specifications.** Every input is a REF stand-in (a reference 40 ft
 > sloop, typical cameras, electronics, batteries and printed materials), all in [`design/`](design/). The
@@ -230,6 +229,28 @@ flowchart LR
   <img src="docs/img/recon-pod.png" alt="Probability of detection against minutes since launch for the three missions; all reach 90 percent and get home, the offshore one taking as long for the last 10 points as for the first 80">
 </picture>
 
+### The bird
+
+<table>
+<tr>
+<td width="55%"><img src="docs/img/bird-turntable.gif" alt="The offshore Recon drone turning on a studio stand: white printed wing on a carbon spar, orange pod with a gimbal camera underneath, twin carbon booms, orange H-tail, pusher prop"></td>
+<td width="45%"><img src="docs/img/bird-exploded.png" alt="Exploded view: ten printed wing panels pulled apart along the carbon spar"><br><sub>How it prints: ten span-wise panels on a 220 x 220 x 250 mm bed, threaded on the carbon spar.</sub></td>
+</tr>
+</table>
+
+![All three mission drones side by side, to scale: 1.20 m, 1.36 m and 2.03 m span](docs/img/bird-lineup.png)
+
+<sub>Each mission's drone, to scale (orthographic). The wings are the sized ones. The pod, gimbal, booms,
+tail and prop are reference geometry; the tail is set by volume coefficients, with an 8 cm chord floor, and
+is not optimized yet. `uv run osprey recon-render --mission all`.</sub>
+
+<details>
+<summary>Three-view of the offshore drone</summary>
+
+![Top, front and side views of the offshore drone](docs/img/bird-threeview.png)
+
+</details>
+
 What phase 1 says:
 
 - **The fixed parts set the size.** Body, avionics, gimbal and motor weigh 1.18 kg, more than everything
@@ -325,6 +346,7 @@ uv run osprey sim --scenario mob --rig gecko5               # looking-group time
 uv run osprey render --scenario docking --rig gecko5        # RGB, depth, class masks, poses
 uv run osprey sweep --workers 8                             # every scenario x rig
 uv run osprey recon --mission all                           # Recon: size, calibrate and fly each mission
+uv run osprey recon-render --mission all                    # Recon: render each sized drone
 ```
 
 Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two workstations, `gpu1` and
@@ -343,7 +365,7 @@ Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two works
 | [`design/scenarios/`](design/scenarios/) | `coastal-watch` (sea state 4), `mob` (sea state 3), `docking` |
 | [`design/recon/`](design/recon/) | Recon: the reference printed airframe and the mission profiles |
 | [`src/osprey/`](src/osprey/) | `frames`, `motion`, `optics`, `stabilize`, `occlusion`, `rig`, `tasking`, `calcs`, `figures`, `render/scene`, `cli` |
-| [`src/osprey/recon/`](src/osprey/recon/) | `search` (sweep width, POD), `flight` (3-DOF), `sizing` (OpenMDAO + OpenAeroStruct), `figures` |
+| [`src/osprey/recon/`](src/osprey/recon/) | `search` (sweep width, POD), `flight` (3-DOF), `sizing` (OpenMDAO + OpenAeroStruct), `geometry` and `render` (the bird in MuJoCo), `figures` |
 | [`runs/`](runs/README.md) | Kept runs, never edited after they are archived |
 | [`docs/`](docs/) | [Architecture](docs/architecture.md), [Recon](docs/recon.md), [remote runs](docs/remote-simulation.md), README figures |
 
