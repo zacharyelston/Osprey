@@ -365,10 +365,11 @@ the water and the landing loads. `--water` sizes the bird with the float kit abo
 but each needs its prop on a 17–24 cm pylon, and take-off from the water only works in a flat calm. A
 tailsitter version of the blended wing does better. It floats upright on four strut pods, props half a
 metre up, and is wing-borne 4.3 s after throttle-up in up to sea state 3–4. It costs 0.25–0.6 kg against
-the float plane. A Cyclone (`osprey recon-cyclone`, after Nick Rehm's spinning tricopter) hovers on
-2–2.4× less power by spinning as one big rotor. It also falls like a seed with the motors off and
-hovers on one motor. But its transitions and symmetric-section wing leave it 0.12–0.16 kg heavier than
-the tailsitter. The notebook, with the WingtraRAY as prior art, is
+the float plane. A Cyclone (`osprey recon-cyclone`, after Nick Rehm's spinning tricopter) hovers only by
+spinning as one big rotor, on 2.2–2.7× less power. It flies with two arms up in dihedral and one down
+as a fin, all three tip motors pushing forward. It falls like a seed with the motors off and hovers on
+one motor. With the gimbal it comes out 0.05 kg lighter than the tailsitter; with side eyes, 0.08 kg
+heavier. It gives up hovering in winds above 7–8 m/s. The notebook, with the WingtraRAY as prior art, is
 [docs/float-launch](docs/float-launch/README.md).
 
 ### Anti-piracy awareness
@@ -515,7 +516,8 @@ Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two works
 
 | Run | What it shows |
 |---|---|
-| [`2026-11-07_recon-cyclone`](runs/2026-11-07_recon-cyclone/) | Recon as a Cyclone: spinning hover, seed fall, both ways to cruise, re-sized for all seven jobs |
+| [`2026-11-07_recon-cyclone-modes`](runs/2026-11-07_recon-cyclone-modes/) | Recon as a Cyclone that hovers only by spinning and flies with a dihedral wing: every mode's abilities, both transitions, re-sized for all seven jobs |
+| [`2026-11-07_recon-cyclone`](runs/2026-11-07_recon-cyclone/) | Superseded: the first Cyclone, with tricopter transitions and a flat Y wing |
 | [`2026-11-06_recon-wings`](runs/2026-11-06_recon-wings/) | Recon: the blended wing and crescent flying wing, each payload, seven jobs and capability matrices; awareness ranges; plugs and ladder frames for the flying wings |
 | [`2026-11-06_recon-payloads`](runs/2026-11-06_recon-payloads/) | Recon: seven jobs (search, survey, inspect, escort) for each payload (gimbal, side PTZ eyes), each one's sized airframe and flight, and both capability matrices |
 | [`2026-11-06_pairs-sweep`](runs/2026-11-06_pairs-sweep/summary.md) | Every scenario x rig, now with `spreader-pairs` (dual mounts on the spreaders) in full |

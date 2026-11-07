@@ -1,0 +1,5 @@
+local, on the commit that gives the Cyclone its flight modes (branch feat/cyclone-spin-only, from 1e47faa)
+Supersedes 2026-11-07_recon-cyclone: hovering only spinning, flight with two arms up at 30 deg dihedral and the fin down, all three motors forward, the fly-out from the spin and the forced entry back to it, and every mode's abilities.
+<payload>: uv run osprey recon-cyclone --payload all --out <this>
+  built from the twin-boom one-birds in runs/2026-11-06_recon-payloads/<payload>, compared against the tailsitter one-birds in runs/2026-11-07_recon-water/tailsitter/<payload>
+docs/img/recon-cyclone.png: copy of gimbal/cyclone.png

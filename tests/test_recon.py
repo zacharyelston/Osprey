@@ -520,12 +520,16 @@ def test_cyclone_rotor_matches_blade_elements_and_momentum_by_hand():
     # The big disc: well under the tailsitter's two props for the same weight.
     pt, _ = _tailsitter()
     assert h["p_shaft_w"] < 0.6 * ts.hover_power(pt, T)
-    # The tip motors are sized for the tricopter transition, and that is enough to hover spinning on one of them.
-    kg, peak = cy_.motors(p, d, cy, m["mass_kg"])
-    assert m["motor_kg"] == pytest.approx(kg, rel=1e-3) and peak / 3 > h["p_shaft_w"]
+    # The tip motors are rated for the spinning peak or the sea lift-off at the burst, whichever is more,
+    # and at the burst one of them can hold the spinning hover.
+    kg, rated = cy_.motors(p, d, cy, m["mass_kg"])
+    spin_peak = cy_.rotor(p, d, cy, m["mass_kg"], cy.thrust_to_weight * T)["p_shaft_w"]
+    liftoff = cy_.tri_power(p, cy, cy.tri_thrust_to_weight * T) / cy.burst_factor
+    assert rated == pytest.approx(max(spin_peak, liftoff)) and m["motor_kg"] == pytest.approx(kg, rel=1e-3)
+    assert rated * cy.burst_factor / 3 > h["p_shaft_w"]
 
 
-def test_cyclone_tricopter_and_seed_fall_formulas():
+def test_cyclone_lift_off_seed_fall_flight_mode_and_transitions():
     from osprey.recon import cyclone as cy_
 
     p, d = _kept()
@@ -540,11 +544,19 @@ def test_cyclone_tricopter_and_seed_fall_formulas():
     disc = cy_.geometry(p, d, cy)["disc_m2"]
     assert 0.5 * 1.225 * au["sink_ms"] ** 2 * disc * cy.autorotation_cd == pytest.approx(m["mass_kg"] * 9.81, rel=1e-6)
     assert au["flare_ratio"] == pytest.approx(au["spin_j"] / au["sink_j"]) and au["flared_g"] <= au["splash_g"]
-    wing = cy_.aircraft(p, d, cy, m, "wing")
-    assert wing.span_m == pytest.approx(2 * cy_.geometry(p, d, cy)["R_m"] * math.sin(math.radians(60)))
-    assert wing.cl_max == cy.cl_max and wing.mass_kg == m["mass_kg"]
-    tri = cy_.aircraft(p, d, cy, m, "tricopter")
-    v = 12.0
-    assert tri.power(v, 0.0) == pytest.approx(cy_.tri_power(p, cy, tri.W, v, 0.0, cy.tri_cda_m2) / tri.eta_motor + tri.p_aux_w)
-    assert tri.energy_j == pytest.approx(wing.energy_j)
-    assert wing.energy_j < flight.Aircraft.from_design(p, d).energy_j    # the hover and transitions come off the battery
+    # Flight mode: two arms up at the dihedral, so the projected span and the tilted lift; all three motors forward.
+    wing = cy_.aircraft(p, d, cy, m)
+    dih = math.radians(cy.dihedral_deg)
+    assert wing.span_m == pytest.approx(2 * cy_.geometry(p, d, cy)["R_m"] * math.cos(dih))
+    assert wing.cl_max == pytest.approx(cy.cl_max * math.cos(dih)) and wing.mass_kg == m["mass_kg"]
+    assert wing.eta_prop == p.propulsion.prop_efficiency and wing.p_shaft_max_w == m["motor_peak_w"]
+    assert wing.energy_j < flight.Aircraft.from_design(p, d).energy_j    # the hover comes off the battery
+    # Spin to wing: the fly-out ends level at 1.2 x stall, and starts high enough to keep the margin under it.
+    cv = cy_.conversion(p, d, cy, m)
+    assert cv["ok"] and cv["v_ms"] >= cv["v_wing_ms"] and cv["height_m"] == pytest.approx(cv["height_lost_m"] + cy.safety_height_m)
+    assert cv["v_wing_ms"] == pytest.approx(1.2 * wing.v_stall(0.0))
+    en = cy_.entry(p, d, cy, m, 15.0)
+    assert en["zoom_m"] == pytest.approx(cy.zoom_efficiency * 15.0 ** 2 / (2 * 9.81))
+    spin = cy_.rotor(p, d, cy, m["mass_kg"])["p_shaft_w"] * (cy.hover_time_s - cy.sea_liftoff_s)
+    lift = cy_.tri_power(p, cy, cy.tri_thrust_to_weight * m["mass_kg"] * 9.81) * cy.sea_liftoff_s
+    assert cy_.hover_j(p, d, cy, m) == pytest.approx((spin + lift + cv["climb_j"]) / p.propulsion.motor_efficiency)

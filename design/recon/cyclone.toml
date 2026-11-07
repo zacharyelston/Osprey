@@ -1,6 +1,8 @@
 # Recon as a Cyclone: three arms that are wings, after Nick Rehm's Cyclone-Rotor
 # tricopter. Twisting the arms about their own axes turns it from a tricopter
 # (motors up) into a rotor (motors pushing round, the whole bird spinning).
+# It only ever hovers spinning: the big disc is the efficient hover. The motors
+# push up only for a few seconds, to pull it clear of the water on a sea launch.
 # Built from the twin-boom one-bird: each arm is one of its wing halves, plus a
 # third. All values REF: stand-ins until a model is built and measured.
 
@@ -21,23 +23,40 @@ mu_max = 0.35                # advance ratio (wind / tip speed) past which the r
 autorotation_cd = 1.2        # drag coefficient on the disc, motors off, spinning down like a seed
 splash_stop_m = 0.10         # how far the hub and arms sink stopping on the water
 
-# As a tricopter: motors up, the transition between spinning and wing-borne flight.
+# As a tricopter: motors up. Only to pull clear of the water on a sea launch: floating flat,
+# the arms and tip props are in the water and it can't spin up there.
 tri_prop_diameter_m = 0.25
 tri_figure_of_merit = 0.60
-tri_thrust_to_weight = 1.3   # peak, for the transition: sizes the motors
+tri_thrust_to_weight = 1.3   # the sea lift-off: the weight, and the water's grip as it lets go
+sea_liftoff_s = 3.0          # as a tricopter, to a metre or two up, then the arms twist and it spins
+burst_factor = 1.5           # the motors carry the lift-off for those seconds at this times their rating
 tri_cda_m2 = 0.030           # hub plus three arms at odd angles to the flow, flying as a tricopter
-specific_kg_per_kw = 0.22    # motor, ESC and prop per kW of peak shaft power (the tailsitter's)
+specific_kg_per_kw = 0.22    # motor, ESC and prop per kW of rated shaft power (the tailsitter's)
 fixed_kg = 0.06              # mounts and wiring for three motors
-transition_s = 8.0           # each way, as a tricopter, between the spin and the wing
 
-# Stopped and locked as a fixed wing: one arm aft as the tail, two forward at +-60 degrees.
-# One forward arm's leading edge faces aft in the spin, so it flips 180 degrees: the
-# sections have to be symmetric.
-cl_max = 0.90                # symmetric section, against the cambered wing's 1.2
+# Spin to wing, at height: the arms are driven slowly toward the flight setting as the spin dies,
+# the bird pitches over nose-down with the motors now pushing forward, and flies out of the dive.
+climb_ms = 2.0               # spinning climb to the height the fly-out needs
+flyout_pitch_deg = -60.0     # the thrust axis at the start of the fly-out, below the horizon
+pitch_rate_dps = 40.0        # pitching up from there to level flight
+safety_height_m = 10.0       # above the water at the bottom of the fly-out
+# Wing to spin: a forced move. Pitch up hard; the zoom trades speed for height; at the top the arms
+# twist to the rotor setting and the inflow spins it up, as an autogyro. Powered from there, or not.
+zoom_efficiency = 0.8        # of the kinetic energy that comes back as height
+entry_s = 2.0                # the inflow spinning the rotor up, sinking at the autorotation rate
+
+# Flight mode: the arms twisted 90 degrees, so the old spin axis points along the flight path.
+# The three arms stand in the plane across it: two up at the dihedral as the wing, one straight
+# down as the fin. All three tip motors push forward: the tip motors' PWM is the fine control,
+# the arms' twist servos the large corrections. Spinning, the three blades all have the same
+# handedness; flying, the two wings must be mirror images. Twisting an arm about its own axis
+# can't turn one into the other, so the sections are symmetric and each servo sets its arm's
+# angle of attack.
+dihedral_deg = 30.0          # the wings, with the arms 120 degrees apart and the fin straight down
+cl_max = 0.90                # symmetric section, against the cambered wing's 1.2 (each wing's own)
 cd_symmetric_extra = 0.004   # profile drag over the cambered section at the cruise lift
-k_factor = 1.10              # induced drag over a straight wing of the same span: sweep and the hub
-prop_offaxis_deg = 30.0      # the forward arms' tip props, square to their arms, point 30 deg off the nose
+k_factor = 1.05              # induced drag over a flat wing of the projected span: the fin and the hub
 
-# Each sortie's time off the wing, as the tailsitter's: spinning, less the two transitions.
+# Each sortie's time off the wing, as the tailsitter's: all spinning, less the sea lift-off.
 hover_time_s = 45.0
 exposure_ms = 1.0            # the camera's, for the smear while spinning

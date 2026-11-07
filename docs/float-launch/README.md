@@ -215,52 +215,86 @@ What it says:
 ## The Cyclone: spinning instead of standing
 
 A fourth way, after Nick Rehm's Cyclone-Rotor tricopter (shown at Flite Fest 2023): three arms that are
-wings, with a motor at each tip
+wings, with a motor at each tip. The arms twist about their own axes, and the motors twist with them
 ([`src/osprey/recon/cyclone.py`](../../src/osprey/recon/cyclone.py),
-[`design/recon/cyclone.toml`](../../design/recon/cyclone.toml)).
-- **As a tricopter**, the arms are twisted so the tip motors push up.
-- **Spinning**, the arms are twisted the other way: the motors push round, the whole bird spins, and its
-  three wings are the rotor blades. Rehm measured about a third of the tricopter's power in the hover.
-- **For Recon**, each arm is one of the twin-boom one-bird's wing halves, a third arm replaces the booms
-  and tail, and three tip motors replace the pusher. It cruises **stopped and locked as a fixed wing**:
-  one arm aft as the tail and two forward at ±60°. One forward arm flies backwards in the spin, so it
-  flips over to cruise, and the sections have to be symmetric (less lift, more drag). The other way to
-  cruise, as a tricopter, is flown too.
+[`design/recon/cyclone.toml`](../../design/recon/cyclone.toml)). For Recon, each arm is one of the
+twin-boom one-bird's wing halves, a third arm replaces the booms and tail, and three tip motors replace the
+pusher.
 
-![The Cyclone, gimbal: hover power against the tailsitter, cruise power against airspeed, and the planform](../img/recon-cyclone.png)
+![The Cyclone, gimbal: hover power against the tailsitter, cruise power against airspeed, and its two shapes](../img/recon-cyclone.png)
 
-Re-sized to do all seven jobs ([`runs/2026-11-07_recon-cyclone`](../../runs/2026-11-07_recon-cyclone/)).
-Recovery is a vertical spin, so the 12 m/s stall limit for a catch doesn't bind; the search-speed margin
-does, and the re-size tries faster searches and wider chords before adding battery:
+**The modes:**
+- **Spinning is the only way it hovers.** The tip motors push round, the whole bird spins and its arms are
+  the blades. Spread over the whole disc, it is the efficient hover. PWM on the tip motors, varied once
+  per turn, steers it.
+- **Flight:** the arms twisted 90°, so the old spin axis points along the flight path. Two arms stand up
+  at 30° dihedral as the wing, the third points straight down as the fin, and all three tip motors push
+  forward. The motors' PWM gives the fine control, and the arms' twist servos the large corrections.
+- **Motors off:** it comes down like a sycamore seed, or with forward speed as an autogyro.
+- **Sea lift-off:** floating flat, the arms and props are in the water and it can't spin up there. So for
+  a few seconds it lifts as a tricopter, motors up, then twists into the spin. That is the only time the
+  motors carry its weight.
+
+**The transitions:**
+- **Spin to wing, at height:** climb spinning, drive the arms slowly toward the flight setting as the spin
+  dies, pitch over nose-down with the motors now pushing forward, and fly out of the dive.
+- **Wing to spin, a forced move:** pitch up hard. The zoom trades speed for height, and at the top the
+  inflow spins the rotor up, as an autogyro. Powered from there, or not.
+
+**The sections have to be symmetric.** Spinning, the three blades all have the same handedness. Flying,
+the two wings must be mirror images, and twisting an arm about its own axis can't turn one into the other.
+A symmetric section at a small angle of attack lifts either way, set by each arm's servo. It costs lift
+(CL max 0.9 against 1.2) and a little drag.
+
+Re-sized to do all seven jobs ([`runs/2026-11-07_recon-cyclone-modes`](../../runs/2026-11-07_recon-cyclone-modes/)).
+Recovery is a vertical spin, so the 12 m/s stall limit for a catch doesn't apply. The search-speed margin
+over the banked stall does, and the re-size tries faster searches and wider chords before adding battery:
 
 | | Gimbal | A PTZ eye each side |
 |---|---|---|
-| Do-everything Cyclone | **3.12 kg**, 2.18 m rotor, searching at 19.5 m/s | **2.34 kg**, 1.70 m rotor, chord ×1.39 |
+| Do-everything Cyclone | **2.91 kg**, 2.18 m rotor, searching at 19.5 m/s | **2.30 kg**, 1.70 m rotor, chord ×1.57 |
 | Against: tailsitter / float plane / plain twin-boom | 2.96 / 3.01 / 2.73 kg | 2.22 / 2.33 / 2.13 kg |
-| Hover power, spinning (tailsitter's props) | **174 W** at 215 rpm (410 W) | **131 W** at 233 rpm (265 W) |
-| Hover energy per sortie: 29 s spinning, 2 × 8 s as a tricopter (tailsitter) | 4.1 Wh (6.0 Wh) | 2.8 Wh (3.9 Wh) |
-| Hovers on one of its three motors | yes: 232 W against 174 W | yes: 151 W against 131 W |
-| Motors off: sinks like a seed at | 3.3 m/s; the spin holds 6× the sink's energy, enough to flare | 3.7 m/s; 4× |
-| Wind it can hover in (tailsitter) | 8.6 m/s (11.9) | 7.3 m/s (11.9) |
-| Cruising as a tricopter instead | 3 of 7 jobs, at 430–510 W | 2 of 7, at 320–390 W |
+| Motors, rated (tailsitter) | three, 419 W, 0.15 kg (828 W, 0.22 kg) | three, 293 W, 0.12 kg (537 W, 0.16 kg) |
+
+What each mode can do:
+
+| | Gimbal | A PTZ eye each side |
+|---|---|---|
+| **Spinning:** hover power (tailsitter's props) | **153 W** at 200 rpm (410 W) | **122 W** at 217 rpm (265 W) |
+| Hover on the whole battery | 70 min | 39 min |
+| Climb, on the rating / at the burst | 6.2 / 10.1 m/s | 5.3 / 8.9 m/s |
+| Wind it can hold station in (tailsitter) | 8.0 m/s (11.9) | 6.8 m/s (11.9) |
+| Hover on one motor | at the burst, yes | at the burst, yes |
+| **Motors off:** sinks like a seed at | 3.2 m/s; the spin holds 5.5× the sink's energy, enough to flare | 3.7 m/s; 3.6× |
+| **Flight:** stall (twin-boom) | 14.1 m/s (11.7) | 12.1 m/s (12.0) |
+| Best lift-to-drag (twin-boom) | 8.2 (12.2) | 7.8 (9.8) |
+| Top speed, on the rating / at the burst | 29 / 33 m/s | 25 / 29 m/s |
+| Endurance, range on its battery (twin-boom) | 1.8 h, 108 km (2.8 h, 142 km) | 1.0 h, 54 km (1.2 h, 64 km) |
+| **Sea lift-off,** as a tricopter | 1.3 × weight at the burst, for 3 s | the same |
+| **Spin to wing:** climb spinning to | 21 m (10 s); the fly-out loses 11 m in 1.8 s | 20 m; 10 m |
+| **Wing to spin:** zoom, entry, net | +12, −6, **+5 m** | +9, −7, +1 m |
+| **Each sortie off the wing,** 45 s (tailsitter) | 3.0 Wh (6.0 Wh) | 2.4 Wh (3.9 Wh) |
 
 What it says:
-- **The spinning hover is as good as Rehm found:** 2–2.4× less power than the tailsitter's props for the
-  same weight, because the lift is spread over the whole 2 m disc instead of two 30 cm props.
-- **But the transitions eat most of it.** Getting from the spin to the wing and back goes through the
-  tricopter, at 300–470 W. The hover energy saved per sortie is 1.1–1.9 Wh, under a percent of the battery.
-- **And cruise costs more.** Symmetric sections, a stall at 12–14 m/s and the props pointing 30° off the
-  nose take 20–50% more power than the twin-boom on the same jobs. The do-everything Cyclone ends up
-  0.12–0.16 kg heavier than the tailsitter.
-- **Cruising as a tricopter is out:** three to six times the twin-boom's power, and most jobs don't get
-  home.
-- **What it buys is safety.** With every motor off it comes down at parachute speed with nothing to
-  deploy, and it has the spin to flare. It hovers on one motor. The tailsitter can do neither.
-- **What it gives up:** hovering in wind (the retreating arm stalls past about 8 m/s), a camera that can
-  see while spinning (it turns 90 px in a 1 ms exposure), and a 2 m disc to keep clear of the rigging.
+- **The gimbal Cyclone comes out lighter than the tailsitter:** 2.91 kg against 2.96. The side-eye one is
+  0.08 kg heavier (2.30 against 2.22) and level with its float plane.
+- **Hovering only by spinning halves the hover energy.** 2.2–2.7× less power than the tailsitter's props,
+  and with no tricopter hover in the transitions, 2.4–3.0 Wh a sortie against 3.9–6.0.
+- **Flight mode's props all push forward.** The flat Y tried before lost 13% of its thrust with two props
+  30° off the nose, and needed a flip to cruise. This one doesn't, and the as-built bird does all seven jobs
+  without re-sizing. It is re-sized only because it would fly its search too close to its stall (1.03×
+  over the banked stall against the 1.25× rule).
+- **The cost is the wing:** symmetric sections, 30° of dihedral and the fin's drag. Best lift-to-drag is
+  8 against the twin-boom's 10–12.
+- **What it buys is safety and hover:** a seed fall at parachute speed with every motor off, the spin to
+  flare with, a hover on one motor, and an hour of hovering on the gimbal bird's battery. The tailsitter
+  can't do the first three.
+- **What it gives up:** hovering in wind above 7–8 m/s (the retreating arm stalls), a camera that can see
+  while spinning (it turns 80–90 px in a 1 ms exposure), and a 2 m disc to keep clear of the rigging.
 
-The Cyclone is worth keeping as the safety option, most of all if the transition can be made quicker
-than the 8 s each way assumed here. The tailsitter stays the lighter build.
+The Cyclone, hovering only by spinning, is now a real contender with the tailsitter: lighter with the
+gimbal, safer with the motors off, worse in a wind. Next: managing the modes, deciding when to spin, fly,
+autogyro or flare, and what the bird must check before each change.
 
 ## Not worked out yet
 
@@ -281,8 +315,8 @@ than the 8 s each way assumed here. The tailsitter stays the lighter build.
 - **Landing on the deck** of a pitching boat isn't modelled yet; the Nest motion model can supply the deck
   motion.
 - **The struts' and pods' mass and drag** are REF, and don't change with strut length.
-- **The Cyclone is first-order.** Uniform-lift blade elements and momentum theory for the spin, a fixed
-  8 s as a tricopter for each transition, symmetric-section penalties and the autorotation drag
-  coefficient are all REF. It isn't floated (flat on the water, its tip props need pylons), and its
-  stability and control in each mode, a de-spun camera mount and the arms' loads in the spin aren't
-  modelled.
+- **The Cyclone is first-order.** Uniform-lift blade elements and momentum theory for the spin, the
+  symmetric-section penalties, the motors' burst factor and the autorotation drag coefficient are REF.
+  The fly-out starts with the spin already dead, and the entry back to the spin is a fixed time. It isn't
+  floated (flat on the water, its tip props need pylons). Stability and control in each mode, the PWM and
+  servo authority, a de-spun camera mount and the arms' loads in the spin aren't modelled.

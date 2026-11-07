@@ -143,10 +143,10 @@ def matrix(M: dict, designs: dict, missions: list[str], order: list[str], best: 
 
 
 def cyclone(a: dict, title: str, path):
-    """The Cyclone: hover power against the tailsitter's, cruise power against airspeed, and the planform."""
+    """The Cyclone: hover power against the tailsitter's, cruise power against airspeed, and its two shapes."""
     g, h, ts, cv = a["geometry"], a["hover"], a["tailsitter"], a["curves"]
-    fig, (ax, bx, cx) = plt.subplots(1, 3, figsize=(14, 4.4), gridspec_kw={"width_ratios": [1, 1.5, 1.1]})
-    bars = [("tailsitter\n(two props)", ts["hover_w"], "#95a5a6"), ("Cyclone\nas a tricopter", a["tri_hover_w"], "#DD8452"),
+    fig, (ax, bx, cx) = plt.subplots(1, 3, figsize=(15, 4.4), gridspec_kw={"width_ratios": [1, 1.4, 1.6]})
+    bars = [("tailsitter\n(two props)", ts["hover_w"], "#95a5a6"), ("Cyclone, tricopter\n(sea lift-off only)", a["liftoff_w"], "#DD8452"),
             ("Cyclone\nspinning", h["p_shaft_w"], "#4C72B0")]
     ax.bar([b[0] for b in bars], [b[1] for b in bars], color=[b[2] for b in bars])
     for i, (_, w, _) in enumerate(bars):
@@ -154,33 +154,41 @@ def cyclone(a: dict, title: str, path):
     ax.set_ylabel("hover shaft power (W)")
     ax.set_title("Hovering", fontsize=10)
     v = cv["v"]
-    for key, label, col in (("base", "twin-boom one-bird", "#95a5a6"), ("wing", "Cyclone, stopped as a wing", "#4C72B0"),
-                            ("tricopter", "Cyclone, as a tricopter", "#DD8452")):
+    for key, label, col in (("base", "twin-boom one-bird", "#95a5a6"), ("wing", "Cyclone in flight mode", "#4C72B0")):
         bx.plot(v, cv[key], color=col, lw=2, label=label)
     bx.axvline(cv["base_v_search"], color="#95a5a6", ls=":", lw=1)
     bx.axvline(cv["v_search"], color="#4C72B0", ls=":", lw=1)
     bx.set_xlabel("airspeed (m/s)")
     bx.set_ylabel("electric power (W)")
-    bx.set_ylim(0, 700)
+    bx.set_ylim(0, 450)
     bx.legend(fontsize=8, frameon=False)
     bx.set_title("Cruising (search speeds dotted)", fontsize=10)
     R, r0, c = g["R_m"], g["r0_m"], g["chord_m"] * a["resized"]["chord_scale"]
+    dih = a["cyclone"]["dihedral_deg"]
+    off = 2.5 * R
+    # Spinning, from above: three blades in the disc, the tip motors pushing round.
     cx.add_patch(plt.Circle((0, 0), R, fill=False, ls="--", color="#7f8c8d"))
-    for k, ang in enumerate((60, 180, 300)):
-        t = math.radians(ang)
-        u, n = np.array([math.cos(t), math.sin(t)]), np.array([-math.sin(t), math.cos(t)])
+    for ang in (90, 210, 330):
+        t_ = math.radians(ang)
+        u, n = np.array([math.cos(t_), math.sin(t_)]), np.array([-math.sin(t_), math.cos(t_)])
         quad = np.array([r0 * u - c / 2 * n, R * u - c / 2 * n, R * u + c / 2 * n, r0 * u + c / 2 * n])
         cx.fill(quad[:, 0], quad[:, 1], color="#cfd8e3", ec="#34495e", lw=1.2)
-        cx.plot(*(R * u), "o", color="#c0392b", ms=7)
+        cx.plot(*(R * u + c / 2 * n), "o", color="#c0392b", ms=6)
     cx.add_patch(plt.Circle((0, 0), r0, color="#e67e22"))
-    cx.annotate("", xy=(0.75 * R * math.cos(1.2), 0.75 * R * math.sin(1.2)),
-                xytext=(0.75 * R * math.cos(0.5), 0.75 * R * math.sin(0.5)),
+    cx.annotate("", xy=(0.7 * R * math.cos(2.2), 0.7 * R * math.sin(2.2)), xytext=(0.7 * R * math.cos(1.4), 0.7 * R * math.sin(1.4)),
                 arrowprops=dict(arrowstyle="->", color="#4C72B0", connectionstyle="arc3,rad=0.3"))
-    cx.annotate("nose", xy=(R * 1.02, 0), fontsize=8, va="center")
-    cx.annotate("tail when stopped", xy=(-R, -0.12 * R), fontsize=8, ha="left")
+    cx.text(0, -1.25 * R, "spinning, from above", ha="center", fontsize=8)
+    # Flying, from the front: two arms up at the dihedral, the fin down, the tip props facing us.
+    for ang in (dih, 180 - dih, 270):
+        t_ = math.radians(ang)
+        cx.plot([off + r0 * math.cos(t_), off + R * math.cos(t_)], [r0 * math.sin(t_), R * math.sin(t_)],
+                color="#34495e", lw=3, solid_capstyle="round")
+        cx.add_patch(plt.Circle((off + R * math.cos(t_), R * math.sin(t_)), 0.12 * R, fill=False, color="#c0392b", lw=1.5))
+    cx.add_patch(plt.Circle((off, 0), r0, color="#e67e22"))
+    cx.text(off, -1.25 * R, f"flying, from the front: {dih:g}° dihedral, fin down", ha="center", fontsize=8)
     cx.set_aspect("equal")
-    cx.set_xlim(-1.15 * R, 1.3 * R)
-    cx.set_ylim(-1.1 * R, 1.1 * R)
+    cx.set_xlim(-1.2 * R, off + 1.2 * R)
+    cx.set_ylim(-1.4 * R, 1.15 * R)
     cx.set_axis_off()
     cx.set_title(f"{2 * R:.2f} m rotor, three {g['arm_m']:.2f} m arms, tip motors", fontsize=10)
     fig.suptitle(title, fontsize=11)
