@@ -1,0 +1,24 @@
+# The harder case: a man overboard noticed about 10 km back, in sea state 4
+# and 20 kn of wind, with a much larger datum error.
+
+[mission]
+name = "sar-offshore"
+label = "MOB 10 km astern, sea state 4, 20 kn wind"
+sea_state = "ss4"
+visibility_km = 10.0
+target = "person_in_water"
+boat_speed_kn = 6.5
+boat_mode = "return"        # after launch: "return" to the datum and heave to, or "sail" on
+boat_heading_deg = 30.0
+datum_range_m = 10000.0
+datum_bearing_deg = 210.0
+datum_sigma_m = 400.0
+drift_ms = [0.35, 0.20]
+wind_from_deg = 60.0
+wind_kn = 20.0
+cruise_alt_m = 120.0
+search_alt_m = 120.0             # 120 m is the usual drone ceiling
+search_pod = 0.90
+search_time_max_s = 7200.0  # a 400 m datum error takes ~100 min of search to reach 90 % (sized 2026-11-06)
+reserve_frac = 0.20
+recovery_radius_m = 30.0

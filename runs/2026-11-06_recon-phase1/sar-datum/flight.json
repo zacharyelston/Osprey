@@ -1,0 +1,19 @@
+{
+ "outcome": "recovered",
+ "left_search_because": "pod",
+ "flight_time_s": 1105.5,
+ "on_scene_s": 243.5,
+ "search_s": 848.0,
+ "pod": 0.9000020372350088,
+ "pod_planned": 0.9003976992151181,
+ "t_pod50_s": 311.5,
+ "t_pod90_s": 1091.0,
+ "distance_km": 15.74474771006251,
+ "energy_left_frac": 0.17894440101014314,
+ "bank_max_deg": 35.0,
+ "power_mean_w": 96.22073977228258,
+ "sweep_width_eff_m": 98.64631183239649,
+ "track_spacing_m": 32.34305305980212,
+ "search_half_size_m": 330.0,
+ "search_passes": 1
+}

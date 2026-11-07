@@ -31,6 +31,9 @@ RUNS = ROOT / "runs"
 GECKO = RUNS / "2026-11-06_gecko-sweep"
 FIRST = RUNS / "2026-11-06_first-sweep"
 RENDER = RUNS / "2026-11-06_gecko-docking-render"
+RECON = RUNS / "2026-11-06_recon-phase1"
+MISSIONS = {"sar-datum": "3 km astern, boat turns back", "sar-convoy": "5 km astern, boat sails on",
+            "sar-offshore": "10 km astern, sea state 4"}
 
 # Surfaces match GitHub's page backgrounds so the figures sit flush on either theme.
 # Series and status colours are the validated default data-viz palette.
@@ -403,8 +406,196 @@ def fig_synthetic(theme: str):
         _save(fig, "synthetic-frame", theme)
 
 
+# --------------------------------------------------------------------------- Recon
+
+_FLOWN: dict[str, tuple] = {}
+
+
+def _recon(mission: str) -> tuple:
+    """The kept design and flight summary for a mission, and the flight itself,
+    re-flown from the kept design (the sim is deterministic)."""
+    if mission not in _FLOWN:
+        from osprey.recon import flight
+        from osprey.recon.params import load as load_mission
+
+        p = load_mission(mission)
+        d = json.loads((RECON / mission / "design.json").read_text())
+        f = json.loads((RECON / mission / "flight.json").read_text())
+        ac = flight.Aircraft.from_design(p, d)
+        _FLOWN[mission] = (p, d, f, ac, flight.simulate(p, ac))
+    return _FLOWN[mission]
+
+
+def fig_recon_wings(theme: str):
+    """Each mission's wing to scale, and what its take-off mass is made of."""
+    t = THEMES[theme]
+    parts = [("fixed: body, avionics, gimbal, motor", "fixed_kg", t["muted"]), ("battery", "battery_kg", t["series"][1]),
+             ("printed shell", "skin_kg", t["series"][0]), ("carbon spar", "spar_kg", t["series"][4])]
+    with plt.rc_context(FONT):
+        fig, (ax, bx) = plt.subplots(1, 2, figsize=(9.6, 4.2), facecolor=t["surface"],
+                                     gridspec_kw={"width_ratios": [2.3, 1]})
+        for a in (ax, bx):
+            _style(a, t)
+        for i, m in enumerate(MISSIONS):
+            p, d, f, *_ = _recon(m)
+            y = np.array(d["half_span_y_m"])
+            c = np.array(d["chords_m"])
+            yc = -i * 0.55
+            fo = p.wing.fem_origin
+            for side in (-1, 1):
+                ax.fill(np.r_[side * y, side * y[::-1]], np.r_[yc + fo * c, (yc + fo * c - c)[::-1]],
+                        color=t["series"][0], alpha=0.25, ec=t["series"][0], lw=1.2)
+                ax.plot(side * y, np.full_like(y, yc), color=t["series"][4], lw=1.6)
+            bed = p.print.bed_m[2]
+            for k in range(1, int(np.ceil(d["span_m"] / 2 / bed))):
+                for side in (-1, 1):
+                    ax.plot([side * k * bed] * 2, [yc + fo * c[0] + 0.02, yc + fo * c[0] - c[0] - 0.02],
+                            color=t["ink2"], lw=0.8, ls=(0, (2, 2)))
+            ax.text(-1.2, yc + 0.17, f"{MISSIONS[m]}", fontsize=9, color=t["ink"], ha="left")
+            ax.text(1.2, yc + 0.17, f"{d['span_m']:.2f} m span, AR {d['aspect_ratio']:.1f}, "
+                    f"{d['print_panels']} printed panels", fontsize=8.5, color=t["ink2"], ha="right")
+            bottom = 0.0
+            for name, key, col in parts:
+                bx.bar(i, d[key], bottom=bottom, color=col, width=0.62, edgecolor=t["surface"], lw=0.8)
+                bottom += d[key]
+            bx.text(i, bottom + 0.05, f"{bottom:.2f} kg", ha="center", fontsize=8.5, color=t["ink"])
+        ax.set_xlim(-1.25, 1.25)
+        ax.set_ylim(-1.45, 0.35)
+        ax.set_aspect("equal")
+        ax.set_yticks([])
+        ax.set_xlabel("span (m), drawn to scale; spar in pink, print joints dotted")
+        for s_ in ("top", "right", "left"):
+            ax.spines[s_].set_visible(False)
+        ax.set_title("Three missions, three wings", loc="left", fontsize=11, color=t["ink"], pad=10)
+        bx.set_xticks(range(len(MISSIONS)), ["3 km", "5 km\nsail on", "10 km"], fontsize=8.5, color=t["ink2"])
+        bx.set_ylabel("take-off mass (kg)")
+        bx.set_ylim(0, 3.2)
+        bx.grid(axis="y", color=t["grid"], lw=0.8)
+        bx.set_axisbelow(True)
+        for s_ in ("top", "right"):
+            bx.spines[s_].set_visible(False)
+        handles = [Rectangle((0, 0), 1, 1, color=c_) for _, _, c_ in parts]
+        leg = bx.legend(handles, [n for n, _, _ in parts], loc="upper left", fontsize=7.5, frameon=False)
+        for txt in leg.get_texts():
+            txt.set_color(t["ink2"])
+        bx.set_title("Mass", loc="left", fontsize=11, color=t["ink"], pad=10)
+        fig.tight_layout()
+        _save(fig, "recon-wings", theme)
+
+
+def fig_recon_pod(theme: str):
+    """Probability of detection against time since launch, for each mission."""
+    t = THEMES[theme]
+    with plt.rc_context(FONT):
+        fig, ax = plt.subplots(figsize=(8.6, 3.9), facecolor=t["surface"])
+        _style(ax, t)
+        for i, m in enumerate(MISSIONS):
+            p, d, f, ac, r = _recon(m)
+            tm = r["t"] / 60
+            ax.plot(tm, 100 * r["pod"], color=t["series"][i], lw=2, label=MISSIONS[m])
+            on = f["on_scene_s"] / 60
+            ax.plot([on], [0], marker="v", color=t["series"][i], ms=7)
+            ax.plot([tm[-1]], [100 * r["pod"][-1]], marker="o", color=t["series"][i], ms=5)
+            ax.text(tm[-1], 92.5 + 2.6 * i, f"home at {tm[-1]:.0f} min, {f['energy_left_frac']:.0%} battery",
+                    fontsize=8, color=t["series"][i], ha="center", va="bottom")
+        ax.axhline(90, color=t["ink2"], lw=1, ls=(0, (4, 3)))
+        ax.text(124, 86.5, "goal: 90 %", fontsize=8.5, color=t["ink2"], ha="right")
+        _, _, f, _, r = _recon("sar-offshore")
+        t80 = r["t"][np.argmax(r["pod"] >= 0.8)] / 60
+        t90 = f["t_pod90_s"] / 60
+        ax.axvspan(t80, t90, color=t["series"][2], alpha=0.10, lw=0)
+        ax.text((t80 + t90) / 2, 40, "offshore: the last 10 points\ntake as long as the first 80", ha="center",
+                fontsize=8.5, color=t["ink2"])
+        ax.set_xlim(0, 125)
+        ax.set_ylim(0, 102)
+        ax.set_xlabel("minutes since launch (triangle: on scene, dot: back on the boat)")
+        ax.set_ylabel("probability of detection (%)")
+        ax.grid(color=t["grid"], lw=0.8)
+        ax.set_axisbelow(True)
+        for s_ in ("top", "right"):
+            ax.spines[s_].set_visible(False)
+        leg = ax.legend(loc="lower right", fontsize=8.5, frameon=False)
+        for txt in leg.get_texts():
+            txt.set_color(t["ink2"])
+        ax.set_title("Each flown mission reaches 90 % and gets home with the reserve", loc="left", fontsize=11,
+                     color=t["ink"], pad=10)
+        _save(fig, "recon-pod", theme)
+
+
+def _track_axes(ax, t, mission: str, *, legend: bool = True):
+    from matplotlib.colors import LinearSegmentedColormap
+
+    p, d, f, ac, r = _recon(mission)
+    g = r["grid"]
+    off = g.datum + g.drift * r["t"][-1]
+    rem = g.prior                                         # where the person might be, before the search
+    cmap = LinearSegmentedColormap.from_list("p", [t["surface"], t["series"][3]])
+    ax.pcolormesh(g.x + off[0], g.y + off[1], rem, cmap=cmap, shading="auto", vmin=0, vmax=rem.max())
+    cols = {"outbound": t["series"][0], "search": t["series"][1], "return": t["series"][2]}
+    for name, col in cols.items():
+        sel = r["phase"] == name
+        ax.plot(np.where(sel, r["x"], np.nan), np.where(sel, r["y"], np.nan), color=col, lw=1.3, label=name)
+    ax.plot(r["boat_x"], r["boat_y"], color=t["ink"], lw=2.2, label="boat")
+    ax.plot([0], [0], marker="^", color=t["ink"], ms=8)
+    dd = r["datum0"][None, :] + r["drift"][None, :] * r["t"][:, None]
+    ax.plot(dd[:, 0], dd[:, 1], color=t["series"][3], lw=1, ls=(0, (3, 2)), label="person, drifting")
+    ax.set_aspect("equal")
+    ax.set_xlabel("east (m)")
+    ax.set_ylabel("north (m)")
+    for s_ in ("top", "right"):
+        ax.spines[s_].set_visible(False)
+    if legend:
+        leg = ax.legend(loc="upper left", fontsize=8, frameon=False)
+        for txt in leg.get_texts():
+            txt.set_color(t["ink2"])
+    return p, f
+
+
+def fig_recon_track(theme: str):
+    t = THEMES[theme]
+    with plt.rc_context(FONT):
+        fig, ax = plt.subplots(figsize=(5.2, 6.4), facecolor=t["surface"])
+        _style(ax, t)
+        p, f = _track_axes(ax, t, "sar-datum")
+        w = np.array(p.mission.wind_kn)
+        ax.text(0.98, 0.02, f"wind {p.mission.wind_kn:g} kn from {p.mission.wind_from_deg:g} deg\n"
+                f"on scene {f['on_scene_s'] / 60:.1f} min, 90 % at {f['t_pod90_s'] / 60:.1f} min",
+                transform=ax.transAxes, ha="right", va="bottom", fontsize=8.5, color=t["ink2"])
+        ax.set_title("MOB 3 km astern, flown", loc="left", fontsize=11, color=t["ink"], pad=10)
+        _save(fig, "recon-track", theme)
+
+
+def fig_hero(theme: str):
+    """Both halves of Osprey side by side: the mast pods docking, the drone searching."""
+    t = THEMES[theme]
+    sheet = Image.open(IMG / "gecko-docking-sheet.png").convert("RGB")
+    tw, th = sheet.size[0] // 4, sheet.size[1] // 3            # 4 x 3 contact sheet of 480 x 270 tiles
+    tiles = Image.new("RGB", (2 * tw, 2 * th))
+    # The four lower eyes on the dock: top-down, fwd-down / port-down, stbd-down.
+    for k, (r, c) in enumerate([(0, 1), (0, 3), (1, 1), (1, 3)]):
+        tiles.paste(sheet.crop((c * tw, r * th, (c + 1) * tw, (r + 1) * th)), ((k % 2) * tw, (k // 2) * th))
+    with plt.rc_context(FONT):
+        fig = plt.figure(figsize=(12, 4.6), facecolor=t["surface"])
+        a1 = fig.add_axes([0.0, 0.0, 0.6, 0.9])
+        a1.imshow(tiles)
+        a1.set_axis_off()
+        a1.set_title("Osprey Nest: the pods' lower eyes, docking (synthetic frames)", loc="left", fontsize=11,
+                     color=t["ink"])
+        # The bird over the sea with the boat below (osprey recon-render, offshore design), cropped.
+        bird = Image.open(IMG / "bird-hero.png").convert("RGB").crop((430, 200, 1290, 720))
+        a2 = fig.add_axes([0.615, 0.0, 0.385, 0.9])
+        a2.imshow(bird)
+        a2.set_axis_off()
+        a2.set_title("Osprey Recon: a printed search drone (rendered)", loc="left", fontsize=11, color=t["ink"])
+        _save(fig, "hero", theme)
+
+
 def main():
     for theme in THEMES:
+        fig_hero(theme)
+        fig_recon_wings(theme)
+        fig_recon_pod(theme)
+        fig_recon_track(theme)
         fig_nest_layout(theme)
         fig_pod(theme)
         fig_rig_compare(theme)
