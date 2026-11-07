@@ -48,15 +48,28 @@ MU_AIR = 1.8e-5
 SKIN_WETTED = 2.04          # wetted area of a ~12 % section per unit planform area
 
 
+def bwb(p) -> bool:
+    return getattr(p.layout, "kind", "twinboom") == "bwb"
+
+
 def surface(p) -> dict:
     w, sp = p.wing, p.spar
     mesh = generate_mesh({"num_y": w.num_y, "num_x": w.num_x, "wing_type": "rect", "symmetry": True,
                           "span": w.span_m, "root_chord": w.root_chord_m})
+    if bwb(p):
+        # Swept, tailless, a thick centre body: chord, twist and thickness vary tip to root.
+        return {**_surface_common(p, mesh), "sweep": w.sweep_deg, "chord_cp": np.array(w.chord_cp_init, float),
+                "twist_cp": np.zeros(len(w.chord_cp_init)), "t_over_c_cp": np.array(w.t_over_c_cp, float)}
+    return {**_surface_common(p, mesh), "chord_cp": np.ones(2), "twist_cp": np.zeros(2),
+            "t_over_c_cp": np.array([w.t_over_c])}
+
+
+def _surface_common(p, mesh) -> dict:
+    w, sp = p.wing, p.spar
     return {
         "name": "wing", "symmetry": True, "S_ref_type": "projected", "fem_model_type": "tube", "mesh": mesh,
-        "span": w.span_m, "chord_cp": np.ones(2), "twist_cp": np.zeros(2),
-        "radius_cp": np.full(2, sp.radius_m), "thickness_cp": np.full(2, sp.wall_m),
-        "t_over_c_cp": np.array([w.t_over_c]), "c_max_t": 0.30,
+        "span": w.span_m,
+        "radius_cp": np.full(2, sp.radius_m), "thickness_cp": np.full(2, sp.wall_m), "c_max_t": 0.30,
         "CL0": 0.0, "CD0": w.cd0_extra, "k_lam": w.k_lam, "with_viscous": True, "with_wave": False,
         "E": sp.E_pa, "G": sp.G_pa, "yield": sp.yield_pa / sp.safety_factor, "mrho": sp.density_kgm3,
         "fem_origin": w.fem_origin, "wing_weight_ratio": 1.0, "struct_weight_relief": True,
@@ -104,7 +117,8 @@ class Mass(om.ExplicitComponent):
         c, y = _chords(i["mesh"])
         half = np.sum((c[1:] + c[:-1]) / 2 * np.diff(y))
         S = 2 * (half if half.real >= 0 else -half)     # not abs(): it would drop the complex step
-        skin = SKIN_WETTED * S * p.skin.wall_m * p.skin.density_kgm3 * (1 + p.skin.rib_fraction)
+        areal = getattr(p.skin, "areal_kg_m2", None) or p.skin.wall_m * p.skin.density_kgm3
+        skin = SKIN_WETTED * S * areal * (1 + p.skin.rib_fraction)
         o["S"], o["skin_kg"], o["root_chord"], o["tip_chord"] = S, skin, c[-1], c[0]
         o["W0"] = (p.body.mass_kg + p.avionics.mass_kg + payload_kg(p) + p.propulsion.motor_kg
                    + i["battery_kg"] + skin)
@@ -200,7 +214,10 @@ def build(p, time_factor: float = 1.0) -> tuple[om.Problem, dict]:
     iv.add_output("speed_of_sound", 340.0, units="m/s")
     iv.add_output("n_s", 1.0)
     iv.add_output("n_m", lim.load_factor)
-    iv.add_output("empty_cg", np.zeros(3), units="m")
+    cg0 = np.zeros(3)
+    if bwb(p):
+        cg0[0] = sum(p.stability.cg_x_bounds_m) / 2                # start the CG mid-window
+    iv.add_output("empty_cg", cg0, units="m")
     iv.add_output("battery_kg", p.propulsion.battery_kg, units="kg")
     m.add_subsystem("flow", om.ExecComp(["re = rho * v / mu", "Mach = v / a"], re={"units": "1/m"},
                                         rho={"units": "kg/m**3"}, v={"units": "m/s"}, a={"units": "m/s"},
@@ -209,7 +226,15 @@ def build(p, time_factor: float = 1.0) -> tuple[om.Problem, dict]:
     m.add_subsystem("wing", AerostructGeometry(surface=surf))
     m.add_subsystem("mass", Mass(p=p, shape=shape), promotes_inputs=["battery_kg"], promotes_outputs=["W0"])
     m.connect("wing.mesh", "mass.mesh")
-    for k, (a, n) in enumerate((("alpha_s", "n_s"), ("alpha_m", "n_m"))):
+    points = [("alpha_s", "n_s"), ("alpha_m", "n_m")]
+    if bwb(p):
+        # A probe point a degree above the task point, for the static margin.
+        m.add_subsystem("probe", om.ExecComp("alpha_p = alpha_s + d", alpha_p={"units": "deg"},
+                                             alpha_s={"units": "deg"}, d={"val": p.stability.probe_alpha_deg,
+                                                                          "units": "deg"}),
+                        promotes_inputs=["alpha_s"], promotes_outputs=["alpha_p"])
+        points.append(("alpha_p", "n_s"))
+    for k, (a, n) in enumerate(points):
         pt = f"AS_point_{k}"
         m.add_subsystem(pt, AerostructPoint(surfaces=[surf]), promotes_inputs=[
             "v", ("alpha", a), ("Mach_number", "Mach"), "re", "rho", "CT", "R", "W0", "speed_of_sound",
@@ -243,7 +268,25 @@ def build(p, time_factor: float = 1.0) -> tuple[om.Problem, dict]:
 
     m.add_design_var("wing.geometry.span", *w.span_bounds_m, units="m")
     m.add_design_var("wing.geometry.chord_cp", *w.chord_scale_bounds)
-    m.add_design_var("wing.twist_cp", -5.0, 8.0, units="deg")
+    if bwb(p):
+        st = p.stability
+        m.add_design_var("wing.twist_cp", *w.twist_bounds_deg, units="deg")
+        m.add_design_var("wing.sweep", *w.sweep_bounds_deg, units="deg", ref=20.0)
+        m.add_design_var("empty_cg", lower=st.cg_x_bounds_m[0], upper=st.cg_x_bounds_m[1], indices=[0], units="m",
+                         ref=0.2)
+        m.add_constraint("AS_point_0.CM", indices=[1], equals=0.0, ref=0.05)            # trimmed
+        m.add_subsystem("margin", om.ExecComp("sm = -(cm_p - cm_s) / (cl_p - cl_s)"))
+        m.connect("AS_point_0.CM", "margin.cm_s", src_indices=[1])
+        m.connect("AS_point_2.CM", "margin.cm_p", src_indices=[1])
+        m.connect("AS_point_0.wing_perf.CL", "margin.cl_s")
+        m.connect("AS_point_2.wing_perf.CL", "margin.cl_p")
+        m.add_constraint("margin.sm", lower=st.static_margin_min, ref=0.1)
+        m.add_subsystem("depth", om.ExecComp("d = c * tc", d={"units": "m"}, c={"units": "m"},
+                                             tc={"val": w.t_over_c_cp[-1]}))
+        m.connect("mass.root_chord", "depth.c")
+        m.add_constraint("depth.d", lower=p.volume.root_depth_min_m, units="m", ref=0.1)
+    else:
+        m.add_design_var("wing.twist_cp", -5.0, 8.0, units="deg")
     m.add_design_var("wing.tube_group.radius_cp", *sp.radius_bounds_m, units="m", ref=0.01)
     m.add_design_var("wing.thickness_cp", *sp.wall_bounds_m, units="m", ref=0.001)
     m.add_design_var("battery_kg", *p.propulsion.battery_bounds_kg, units="kg")
@@ -255,8 +298,9 @@ def build(p, time_factor: float = 1.0) -> tuple[om.Problem, dict]:
     m.add_constraint("AS_point_1.wing_perf.failure", upper=0.0)
     m.add_constraint("AS_point_1.wing_perf.thickness_intersects", upper=0.0)
     m.add_constraint("spar.fit", upper=0.0, ref=0.01)
-    diag = math.hypot(p.print.bed_m[0], p.print.bed_m[1]) - p.print.chord_margin_m
-    m.add_constraint("mass.root_chord", upper=diag, units="m")
+    if getattr(getattr(p, "manufacture", None), "method", "printed") == "printed":
+        diag = math.hypot(p.print.bed_m[0], p.print.bed_m[1]) - p.print.chord_margin_m
+        m.add_constraint("mass.root_chord", upper=diag, units="m")
     m.add_constraint("perf.endurance_margin", lower=0.0)
     m.add_constraint("re_tip.re", lower=w.re_min, ref=1e5)
     m.add_subsystem("taper", om.ExecComp("gap = root - tip", gap={"units": "m"}, root={"units": "m"},
@@ -330,11 +374,18 @@ def optimize(p, time_factor: float = 1.0) -> dict:
         "cd0": cd0_w + p.body.cda_m2 / S, "k": k,
         "kind": mi["task"].kind, "task_track_km": mi["task_m"] / 1e3,
         "half_span_y_m": (-y).tolist(), "chords_m": c.tolist(),
+        "le_x_m": mesh.reshape(prob.get_val("wing.mesh").shape)[0, :, 0].tolist(),
+        "airframe": getattr(p.layout, "kind", "twinboom"),
     }
+    if bwb(p):
+        d.update(sweep_deg=float(g("wing.sweep", "deg")[0]), cg_x_m=float(g("empty_cg", "m")[0]),
+                 static_margin=float(g("margin.sm")[0]), cm_trim=float(g("AS_point_0.CM")[1]),
+                 t_over_c_cp=list(p.wing.t_over_c_cp), root_depth_m=float(g("depth.d")[0]))
     d["time_factor"] = time_factor
     bed = p.print.bed_m
-    d["print_panels"] = 2 * math.ceil(b / 2 / bed[2])
-    d["print_chord_ok"] = d["root_chord_m"] <= math.hypot(bed[0], bed[1]) - p.print.chord_margin_m + 1e-6
+    molded = getattr(getattr(p, "manufacture", None), "method", "printed") == "molded"
+    d["print_panels"] = 0 if molded else 2 * math.ceil(b / 2 / bed[2])
+    d["print_chord_ok"] = molded or d["root_chord_m"] <= math.hypot(bed[0], bed[1]) - p.print.chord_margin_m + 1e-6
     return d
 
 

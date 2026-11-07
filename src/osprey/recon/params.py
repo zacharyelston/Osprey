@@ -10,6 +10,7 @@ from osprey.params import DESIGN, _toml, ns
 RECON = DESIGN / "recon"
 MISSIONS = tuple(sorted(f.stem for f in (RECON / "missions").glob("*.toml")))
 PAYLOADS = ("gimbal",) + tuple(sorted(f.stem for f in (RECON / "payloads").glob("*.toml")))
+AIRFRAMES = ("twinboom",) + tuple(sorted(f.stem for f in (RECON / "airframes").glob("*.toml")))
 
 
 def _merge(a: dict, b: dict) -> dict:
@@ -19,11 +20,15 @@ def _merge(a: dict, b: dict) -> dict:
     return out
 
 
-def load(mission: str = "sar-datum", payload: str = "gimbal") -> SimpleNamespace:
-    """A mission, with the airframe carrying the gimbal (the default) or a
-    payload variant from design/recon/payloads."""
+def load(mission: str = "sar-datum", payload: str = "gimbal", airframe: str = "twinboom") -> SimpleNamespace:
+    """A mission, with the twin-boom airframe (the default) or a variant from
+    design/recon/airframes, carrying the gimbal (the default) or a payload
+    variant from design/recon/payloads."""
     m = _toml(RECON / "missions" / f"{mission}.toml")["mission"]
     af = _toml(RECON / "airframe.toml")
+    af["layout"].setdefault("kind", "twinboom")
+    if airframe != "twinboom":
+        af = _merge(af, _toml(RECON / "airframes" / f"{airframe}.toml"))
     if payload != "gimbal":
         af = _merge(af, _toml(RECON / "payloads" / f"{payload}.toml"))
     af["payload"].setdefault("layout", "gimbal")
