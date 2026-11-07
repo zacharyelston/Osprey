@@ -1,5 +1,5 @@
 """Renders of the Recon drone ("the bird") in MuJoCo, from a sized design:
-- hero: banking over the sea, with the sailboat below;
+- hero: out ahead of the sailboat, seen from further ahead looking back at it;
 - three-view: orthographic top, front and side;
 - exploded: the printed wing panels pulled apart along the carbon spar;
 - lineup: every mission's drone side by side, to scale.
@@ -101,6 +101,9 @@ def _world(kind: str, assets: str, bodies: str, cams: str, W: int, H: int, extra
 </mujoco>"""
 
 
+BOAT_YAW_DEG = 20.0                                          # the boat's heading in the hero scene, CCW from +x
+
+
 def _boat_xml() -> tuple[str, str]:
     """The reference sailboat from the Nest scene, sails down, for scale below the drone."""
     from osprey.params import load
@@ -109,7 +112,7 @@ def _boat_xml() -> tuple[str, str]:
     p = load("docking")
     b, m = p.boat, p.mast
     asset = scene._hull_mesh(b)
-    body = (f'<body name="boat" pos="0 0 0" euler="0 0 20">'
+    body = (f'<body name="boat" pos="0 0 0" euler="0 0 {BOAT_YAW_DEG:g}">'
             f'<geom type="mesh" mesh="hull" rgba="0.95 0.95 0.93 1" contype="0" conaffinity="0"/>'
             f'<geom type="box" pos="-1.6 0 {b.freeboard_m + 0.3}" size="1.8 1.1 0.3" rgba="0.95 0.95 0.93 1" '
             f'contype="0" conaffinity="0"/>'
@@ -139,17 +142,20 @@ def _shoot(xml: str, cams: list[str], W: int, H: int) -> dict[str, np.ndarray]:
 
 
 def hero(p, d: dict, path: Path, W: int = 1600, H: int = 900):
+    """Out ahead of the boat on its way to a job. The camera is further ahead
+    still, above and to one side, looking back over the bird at the boat."""
     parts = geometry.build(p, d)
-    pos = np.array([-55.0, 14.0, 45.0])                      # boat at the origin, ahead and below
-    a, b = _drone_xml("bird", parts, pos, _quat(roll_deg=20, pitch_deg=-2, yaw_deg=-12))
+    R = frames.rot_z(math.radians(BOAT_YAW_DEG))              # boat axes: x the bow, y port
+    pos = R @ np.array([40.0, 10.0, 30.0])                   # ahead of the bow, a little to port
+    a, b = _drone_xml("bird", parts, pos, _quat(roll_deg=-15, pitch_deg=-2, yaw_deg=BOAT_YAW_DEG + 10))
     ba, bb = _boat_xml()
     s = max(d["span_m"], 1.3)
-    eye = pos + np.array([-1.25, 1.0, 0.85]) * s
+    eye = pos + R @ np.array([0.75, -0.55, 0.75]) * s
     to_drone, to_boat = pos - eye, -eye
-    az = math.atan2(*(0.55 * to_drone[1::-1] / np.linalg.norm(to_drone[:2])
-                      + 0.45 * to_boat[1::-1] / np.linalg.norm(to_boat[:2])))
-    el = 0.5 * (math.atan2(to_drone[2], np.linalg.norm(to_drone[:2]))
-                + math.atan2(to_boat[2], np.linalg.norm(to_boat[:2])))
+    az = math.atan2(*(0.4 * to_drone[1::-1] / np.linalg.norm(to_drone[:2])
+                      + 0.6 * to_boat[1::-1] / np.linalg.norm(to_boat[:2])))
+    el = (0.4 * math.atan2(to_drone[2], np.linalg.norm(to_drone[:2]))
+          + 0.6 * math.atan2(to_boat[2], np.linalg.norm(to_boat[:2])) + math.radians(8))
     cam = _cam("hero", eye, eye + frames.direction(az, el), fovy=48)
     img = _shoot(_world("sea", a + ba, bb + b, cam, W, H), ["hero"], W, H)["hero"]
     _save(img, path)

@@ -12,13 +12,13 @@ one-page tour where you pick a mast rig or build a bird and see what the models 
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/hero-dark.png">
-  <img src="docs/img/hero.png" alt="Left: four synthetic frames from the gecko pods' lower cameras while docking. Right: a render of the Recon drone, white printed wing and orange pod, banking over the sea above the sailboat.">
+  <img src="docs/img/hero.png" alt="Left: four synthetic frames from the gecko pods' lower cameras while docking. Right: a render of the Recon drone, white printed wing and orange pod, flying out ahead of the sailboat, seen from further ahead with the boat behind it.">
 </picture>
 
 <sub>Left: the four lower pod cameras during a synthetic docking run
 ([`runs/2026-11-06_gecko-docking-render`](runs/2026-11-06_gecko-docking-render/)); every frame also has
 metric depth, a class mask and the camera's exact pose. Right: the Recon drone, the airframe that does
-all seven scouting, search and escort jobs, rendered banking over the sea with the sailboat below
+all seven scouting, search and escort jobs, rendered out ahead of the sailboat and looking back at it
 (`osprey recon-render`).</sub>
 
 > **Status: screening models, not specifications.** Every input is a REF stand-in (a reference 40 ft

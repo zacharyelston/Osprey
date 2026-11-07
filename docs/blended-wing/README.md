@@ -8,7 +8,7 @@ the design should move, not what to build.
 <table>
 <tr>
 <td width="50%"><img src="../img/bird-crescent-turntable.gif" alt="The crescent flying wing turning: curved swept wing with upswept tips, orange nose pod, pusher prop"></td>
-<td width="50%"><img src="../img/bird-bwb-hero.png" alt="The blended wing body banking over the sea above the sailboat"></td>
+<td width="50%"><img src="../img/bird-bwb-hero.png" alt="The blended wing body flying out ahead of the sailboat, seen from further ahead with the boat behind it"></td>
 </tr>
 </table>
 
