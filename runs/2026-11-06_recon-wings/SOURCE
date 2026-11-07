@@ -1,0 +1,2 @@
+d81f91c gpu1:~/osprey-sim/run-1E9v7b (osprey recon --mission all --airframe {bwb,crescent} --payload {gimbal,dual}, four in parallel; osprey recon-awareness)
+Bucks under bwb/*/<mission>/buck: uv run osprey recon-buck --run <this>/bwb/<payload> on d81f91c, locally

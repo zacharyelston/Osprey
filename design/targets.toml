@@ -38,6 +38,27 @@ crit_m = 12.0
 height_m = 25.0
 contrast = 0.40
 
+# Anti-piracy awareness (REF). A fast open skiff, 7-9 m long, low freeboard,
+# with people standing in it; its crit_m is the hull-and-crew height seen
+# from the side. A person standing aboard is what "identify" needs (who, how
+# many, what they carry). A fast skiff's wake is a long white streak, far
+# easier to see from altitude than the boat itself, and lies flat on the
+# water, where waves hide it from a low eye.
+[target.skiff]
+crit_m = 1.5
+height_m = 1.8
+contrast = 0.35
+
+[target.person_aboard]
+crit_m = 0.5
+height_m = 2.0
+contrast = 0.30
+
+[target.skiff_wake]
+crit_m = 4.0
+height_m = 0.3
+contrast = 0.50
+
 # Johnson criteria, cycles across the critical dimension for 50 % probability.
 [johnson]
 detect = 1.0

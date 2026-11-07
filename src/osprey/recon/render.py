@@ -168,7 +168,10 @@ def threeview(p, d: dict, path: Path, W: int = 1800, H: int = 640):
             + _cam("side", c + [0, 5, 0], c, ortho=1.12 * max(Ht, L * r)))
     imgs = _shoot(_world("studio", a, b, cams, w3, H, floor_on=False), ["top", "front", "side"], w3, H)
     _save(np.concatenate([imgs["top"], imgs["front"], imgs["side"]], 1), path,
-          labels=[(14, f"top: {d['span_m']:.2f} m span"), (w3 + 14, "front: 3 deg dihedral, gimbal, pusher prop"),
+          labels=[(14, f"top: {d['span_m']:.2f} m span"),
+                  (w3 + 14, {"bwb": "front: winglets, payload, pusher prop",
+                             "crescent": "front: upswept tips, nose pod, pusher prop"}.get(
+                      d.get("airframe"), "front: 3 deg dihedral, gimbal, pusher prop")),
                   (2 * w3 + 14, f"side: {L:.2f} m long")])
 
 
@@ -178,6 +181,17 @@ def exploded(p, d: dict, path: Path, W: int = 1600, H: int = 900):
     span = d["span_m"]
     cam = _cam("x", np.array([1.1, 0.9, 0.75]) * span, [0.0, 0.0, 0.0], fovy=40)
     _save(_shoot(_world("studio", a, b, cam, W, H), ["x"], W, H)["x"], path)
+
+
+def underside(p, d: dict, path: Path, W: int = 1400, H: int = 800):
+    """A close look up at the pod from below and ahead: the gimbal, or the
+    fore/aft pair and the belly fisheye."""
+    parts = geometry.build(p, d)
+    a, b = _drone_xml("bird", parts, np.zeros(3), _quat())
+    g = p.geometry
+    target = np.array([g.pod_nose_x_m - 0.35 * g.pod_length_m, 0.0, -0.06])
+    cam = _cam("u", target + np.array([0.55, -0.45, -0.32]), target, fovy=34)
+    _save(_shoot(_world("studio", a, b, cam, W, H, floor_on=False), ["u"], W, H)["u"], path)
 
 
 def turntable(p, d: dict, path: Path, W: int = 900, H: int = 520, frames_n: int = 48):

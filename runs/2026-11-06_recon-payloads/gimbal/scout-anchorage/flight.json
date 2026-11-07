@@ -1,0 +1,28 @@
+{
+ "kind": "survey",
+ "progress_label": "area imaged",
+ "outcome": "recovered",
+ "left_task_because": "goal",
+ "goal": 0.98,
+ "progress": 0.9808179142651499,
+ "goal_met": true,
+ "flight_time_s": 1462.0,
+ "on_scene_s": 424.5,
+ "task_s": 637.5,
+ "t_half_s": 765.5,
+ "t_goal_s": 1061.5,
+ "distance_km": 20.91320415233879,
+ "energy_left_frac": 0.17487241195142506,
+ "bank_max_deg": 35.0,
+ "power_mean_w": 75.97155166032077,
+ "gsd_cm": 1.7437500000000001,
+ "swath_m": 70.72650000000002,
+ "track_spacing_m": 53.04487500000001,
+ "legs": 11,
+ "px_across": {
+  "lobster_buoy": 17.2,
+  "debris_log": 22.9,
+  "kayak": 51.6
+ },
+ "camera": "gimbal"
+}

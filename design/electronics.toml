@@ -26,6 +26,18 @@ pd_efficiency = 0.90
 up_dz_m = 0.18
 down_dz_m = -0.18
 
+# A back-to-back dual mount (two fixed cameras, one facing forward and one
+# aft) on a spreader tip, on a short conduit. No pod computer and no IMU:
+# each camera encodes its own video and has its own PoE cable.
+[kit.dualmount]
+layout = "horizontal"
+soc = "none"
+imu = "none"
+housing_kg = 0.35          # the mount, conduit and spreader clamp
+housing_radius_m = 0.07
+pd_efficiency = 1.0
+along_dx_m = 0.16          # each camera's optical centre ahead of / behind the mount centre
+
 [kit.lean]
 soc = "rk3588"
 imu = "mems_industrial"
@@ -41,6 +53,13 @@ tops_int8 = 50.0           # 100 with structured sparsity
 power_w = [10.0, 25.0]     # [watch, working]
 encode_mpx_s = 750.0       # H.265, 3 x 4K30
 mass_kg = 0.30             # module, carrier and heat spreader
+
+[soc.none]
+label = "none: the cameras encode their own video"
+tops_int8 = 0.0
+power_w = [0.0, 0.0]
+encode_mpx_s = 1e12
+mass_kg = 0.0
 
 [soc.rk3588]
 label = "RK3588 class with NPU"
@@ -58,6 +77,14 @@ gyro_bias_deg_h = 3.0      # in-run bias instability
 rate_hz = 1000.0
 mass_kg = 0.02
 power_w = 0.3
+
+[imu.none]
+label = "none"
+gyro_arw_deg_rt_h = 1e6
+gyro_bias_deg_h = 1e6
+rate_hz = 0.0
+mass_kg = 0.0
+power_w = 0.0
 
 [network]
 link_mbps = 1000.0         # per pod, one cable down the mast

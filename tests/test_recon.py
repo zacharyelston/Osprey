@@ -2,6 +2,7 @@
 import math
 import warnings
 from dataclasses import replace
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -23,8 +24,8 @@ def test_every_mission_loads():
     for m in MISSIONS:
         p = load(m)
         assert p.mission.name == m and p.mission.boat_mode in ("return", "approach", "sail", "hold")
-        assert p.mission.kind in ("search", "survey", "inspect")
-    assert {load(m).mission.kind for m in MISSIONS} == {"search", "survey", "inspect"}
+        assert p.mission.kind in ("search", "survey", "inspect", "escort")
+    assert {load(m).mission.kind for m in MISSIONS} == {"search", "survey", "inspect", "escort"}
 
 
 def test_sweep_is_wider_higher_and_the_drone_sees_past_the_waves():
@@ -153,14 +154,64 @@ def test_one_bird_is_the_lightest_that_does_everything():
     assert all(fleet.ok(s) for s in M[best].values())
 
 
-KEPT = MISSIONS
+KEPT = tuple(sorted(d.name for d in (Path(__file__).resolve().parents[1] / "runs/2026-11-06_recon-payloads/gimbal").iterdir()
+                    if (d / "design.json").exists()))
+
+
+def test_side_eyes_split_the_search_and_the_belly_fills_the_gap():
+    from osprey.recon.params import payload_kg
+
+    g, d = load("sar-datum"), load("sar-datum", payload="dual")
+    sg, sd = search.sweep(g, 80.0), search.sweep(d, 80.0)
+    left, right, belly = sd.rects
+    assert left[2] > 0 > right[3]                         # one strip each side of the track
+    assert belly[2] < 0 < belly[3] and belly[3] >= left[2] - 1e-9   # the belly covers the gap between them
+    assert sd.width_eff_m > 3 * sg.width_eff_m
+    assert payload_kg(d) > payload_kg(g)                  # two PTZs and a fisheye weigh more than one gimbal
+
+
+def test_side_eyes_survey_two_strips_at_the_same_pixels():
+    from osprey.recon import tasks
+
+    g, d = load("scout-anchorage"), load("scout-anchorage", payload="dual")
+    tg, td = tasks.build(g, np.zeros(2)), tasks.build(d, np.zeros(2))
+    assert td.info()["swath_m"] == pytest.approx(2 * tg.info()["swath_m"])
+    assert td.info()["gsd_cm"] == pytest.approx(tg.info()["gsd_cm"])
+    assert len(td.pattern) < len(tg.pattern)
+
+
+def test_inboard_eye_inspects_round_the_orbit():
+    p = load("inspect-vessel", payload="dual")
+    r = flight.simulate(p, _ac())
+    s = flight.summary(p, _ac(), r)
+    assert s["camera"] == "inboard PTZ eye" and s["goal_met"] and s["resolves"]
+
+
+def test_escort_circles_the_sailing_boat_for_its_time():
+    p = load("escort-flanks")
+    r = flight.simulate(p, _ac())
+    s = flight.summary(p, _ac(), r)
+    assert s["kind"] == "escort" and s["outcome"] == "recovered" and s["goal_met"]
+    assert s["task_s"] == pytest.approx(p.mission.escort_min * 60, abs=5)
+    on = r["phase"] == "task"
+    d = np.hypot(r["x"][on] - r["boat_x"][on], r["y"][on] - r["boat_y"][on])
+    assert np.median(d) == pytest.approx(p.mission.escort_radius_m, rel=0.3)
+
+
+def test_bingo_credits_a_boat_closing_on_the_drone():
+    """Regression: bingo once ignored a boat sailing toward the site being
+    surveyed and turned the drone home 30 s into the survey."""
+    p = load("scout-anchorage", payload="dual")
+    ac = _ac(energy_j=0.17 * 200 * 3600 * 0.8)
+    s = flight.summary(p, ac, flight.simulate(p, ac))
+    assert s["left_task_because"] != "bingo" or s["progress"] > 0.5
 
 
 def _kept(m="sar-offshore"):
     import json
     from pathlib import Path
 
-    d = json.loads((Path(__file__).resolve().parents[1] / "runs/2026-11-06_recon-missions" / m / "design.json")
+    d = json.loads((Path(__file__).resolve().parents[1] / "runs/2026-11-06_recon-payloads/gimbal" / m / "design.json")
                    .read_text())
     return load(m), d
 
@@ -199,3 +250,52 @@ def test_bird_scene_compiles():
     xml = render._world("studio", a, b, render._cam("c", [2, 2, 2], [0, 0, 0]), 64, 48)
     m = mujoco.MjModel.from_xml_string(xml)
     assert m.nmesh == len(geometry.build(p, d))
+
+
+def test_blended_wing_is_trimmed_stable_and_deep_enough():
+    p = load("sar-datum", airframe="bwb")
+    d = sizing.optimize(p)
+    assert d["converged"] and d["airframe"] == "bwb"
+    assert abs(d["cm_trim"]) < 1e-3                                      # trimmed at task speed
+    assert d["static_margin"] >= p.stability.static_margin_min - 1e-4
+    assert d["root_depth_m"] >= p.volume.root_depth_min_m - 1e-4
+    assert d["print_panels"] == 0                                       # moulded, not printed
+
+
+def test_buck_halves_are_closed_and_match_the_design(tmp_path):
+    from osprey.recon import buck, geometry
+
+    p = load("sar-datum", airframe="bwb")
+    d = sizing.optimize(p)
+    info = buck.export(p, d, tmp_path)
+    assert {f.name for f in tmp_path.iterdir()} >= {"oml.stl", "buck_upper.stl", "buck_lower.stl", "sections.csv"}
+    assert info["span_mm"] == pytest.approx(d["span_m"] * 1000)
+    assert info["root_depth_mm"] == pytest.approx(d["root_depth_m"] * 1000, rel=0.02)
+    for half in ("upper", "lower"):
+        rings = geometry.bwb_surface(p, d, half=half)
+        v, f = geometry.loft(rings[: len(rings) // 2])
+        vol = np.einsum("ij,ij->i", v[f[:, 0]], np.cross(v[f[:, 1]], v[f[:, 2]])).sum() / 6
+        assert vol > 0                                                 # closed and wound outward
+
+
+def test_altitude_buys_the_wake_and_the_mast_lens_buys_the_boat():
+    from osprey.recon import awareness
+
+    rows = {r["eye"]: r for r in awareness.table("ss3", 15.0)}
+    mast = rows["Masthead long PTZ (18.9 m, 200 mm)"]
+    drone = rows["Drone gimbal at 120 m (30 mm)"]
+    assert drone["skiff_wake:detect"][0] > 2 * mast["skiff_wake:detect"][0]
+    assert mast["skiff:recognize"][0] > drone["skiff:recognize"][0]
+    assert mast["skiff_wake:detect"][1] == "waves"
+
+
+def test_crescent_curves_its_leading_edge_and_prints():
+    p = load("sar-offshore", airframe="crescent")
+    d = sizing.optimize(p)
+    assert d["converged"] and d["airframe"] == "crescent"
+    assert abs(d["cm_trim"]) < 1e-3 and d["static_margin"] >= p.stability.static_margin_min - 1e-4
+    le = np.array(d["le_x_m"])[::-1]                 # root to tip
+    steps = np.diff(le)
+    assert steps[-1] > steps[0] > -1e-6              # sweep grows toward the tips: a crescent
+    assert d["print_panels"] > 0 and d["print_chord_ok"]
+    assert d["le_z_m"][0] > d["le_z_m"][-1]          # the tips curve up

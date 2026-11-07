@@ -1,0 +1,522 @@
+[
+ {
+  "group": "Motion",
+  "name": "Roll about the 15 deg heel, rms / max",
+  "value": "4.4 / 17.4 deg",
+  "limit": "",
+  "status": "INFO",
+  "note": "ss4, Hs 1.9 m, Tp 7.0 s, waves 60 deg off the bow"
+ },
+ {
+  "group": "Motion",
+  "name": "Pitch rms / max",
+  "value": "1.4 / 5.1 deg",
+  "limit": "",
+  "status": "INFO",
+  "note": ""
+ },
+ {
+  "group": "Motion",
+  "name": "Angular rate at the mounts, p95 / max",
+  "value": "10.5 / 20.2 deg/s",
+  "limit": "",
+  "status": "INFO",
+  "note": "the same for every camera on a rigid hull"
+ },
+ {
+  "group": "Motion",
+  "name": "Acceleration at top (18.9 m), p95",
+  "value": "0.54 g",
+  "limit": "0.5 g",
+  "status": "WARN",
+  "note": "sets the mount, connector and gimbal-motor ratings"
+ },
+ {
+  "group": "Motion",
+  "name": "Speed of top through the air, p95",
+  "value": "3.5 m/s",
+  "limit": "",
+  "status": "INFO",
+  "note": "parallax for near targets; adds to apparent wind on the housing"
+ },
+ {
+  "group": "Stabilization",
+  "name": "top: blur p95 at 200 mm, 1 ms",
+  "value": "0.03 px",
+  "limit": "1 px",
+  "status": "PASS",
+  "note": "worst of 8 horizon bearings"
+ },
+ {
+  "group": "Stabilization",
+  "name": "top: pointing jitter rms vs half-FOV at max zoom",
+  "value": "18 urad",
+  "limit": "6399 urad",
+  "status": "PASS",
+  "note": "inner stage saturated 0% of the time"
+ },
+ {
+  "group": "Stabilization",
+  "name": "top-down: blur p95 at 120 mm, 1 ms",
+  "value": "1.01 px",
+  "limit": "1 px",
+  "status": "WARN",
+  "note": "worst of 8 horizon bearings"
+ },
+ {
+  "group": "Stabilization",
+  "name": "top-down: pointing jitter rms vs half-FOV at max zoom",
+  "value": "4987 urad",
+  "limit": "7732 urad",
+  "status": "WARN",
+  "note": "no fast stage"
+ },
+ {
+  "group": "Stabilization",
+  "name": "lo-port-fwd: blur p95 at 4 mm, 1 ms",
+  "value": "0.36 px",
+  "limit": "1 px",
+  "status": "PASS",
+  "note": "worst of 8 horizon bearings"
+ },
+ {
+  "group": "Stabilization",
+  "name": "lo-port-fwd: pointing jitter rms vs half-FOV at max zoom",
+  "value": "101334 urad",
+  "limit": "254998 urad",
+  "status": "PASS",
+  "note": "no fast stage"
+ },
+ {
+  "group": "Stabilization",
+  "name": "lo-port-aft: blur p95 at 4 mm, 1 ms",
+  "value": "0.36 px",
+  "limit": "1 px",
+  "status": "PASS",
+  "note": "worst of 8 horizon bearings"
+ },
+ {
+  "group": "Stabilization",
+  "name": "lo-port-aft: pointing jitter rms vs half-FOV at max zoom",
+  "value": "101334 urad",
+  "limit": "254998 urad",
+  "status": "PASS",
+  "note": "no fast stage"
+ },
+ {
+  "group": "Stabilization",
+  "name": "lo-stbd-fwd: blur p95 at 4 mm, 1 ms",
+  "value": "0.36 px",
+  "limit": "1 px",
+  "status": "PASS",
+  "note": "worst of 8 horizon bearings"
+ },
+ {
+  "group": "Stabilization",
+  "name": "lo-stbd-fwd: pointing jitter rms vs half-FOV at max zoom",
+  "value": "101334 urad",
+  "limit": "254998 urad",
+  "status": "PASS",
+  "note": "no fast stage"
+ },
+ {
+  "group": "Stabilization",
+  "name": "lo-stbd-aft: blur p95 at 4 mm, 1 ms",
+  "value": "0.36 px",
+  "limit": "1 px",
+  "status": "PASS",
+  "note": "worst of 8 horizon bearings"
+ },
+ {
+  "group": "Stabilization",
+  "name": "lo-stbd-aft: pointing jitter rms vs half-FOV at max zoom",
+  "value": "101334 urad",
+  "limit": "254998 urad",
+  "status": "PASS",
+  "note": "no fast stage"
+ },
+ {
+  "group": "Stabilization",
+  "name": "hi-port-fwd: blur p95 at 8 mm, 1 ms",
+  "value": "0.72 px",
+  "limit": "1 px",
+  "status": "PASS",
+  "note": "worst of 8 horizon bearings"
+ },
+ {
+  "group": "Stabilization",
+  "name": "hi-port-fwd: pointing jitter rms vs half-FOV at max zoom",
+  "value": "101334 urad",
+  "limit": "149173 urad",
+  "status": "WARN",
+  "note": "no fast stage"
+ },
+ {
+  "group": "Stabilization",
+  "name": "hi-port-aft: blur p95 at 8 mm, 1 ms",
+  "value": "0.72 px",
+  "limit": "1 px",
+  "status": "PASS",
+  "note": "worst of 8 horizon bearings"
+ },
+ {
+  "group": "Stabilization",
+  "name": "hi-port-aft: pointing jitter rms vs half-FOV at max zoom",
+  "value": "101334 urad",
+  "limit": "149173 urad",
+  "status": "WARN",
+  "note": "no fast stage"
+ },
+ {
+  "group": "Stabilization",
+  "name": "hi-stbd-fwd: blur p95 at 8 mm, 1 ms",
+  "value": "0.72 px",
+  "limit": "1 px",
+  "status": "PASS",
+  "note": "worst of 8 horizon bearings"
+ },
+ {
+  "group": "Stabilization",
+  "name": "hi-stbd-fwd: pointing jitter rms vs half-FOV at max zoom",
+  "value": "101334 urad",
+  "limit": "149173 urad",
+  "status": "WARN",
+  "note": "no fast stage"
+ },
+ {
+  "group": "Stabilization",
+  "name": "hi-stbd-aft: blur p95 at 8 mm, 1 ms",
+  "value": "0.72 px",
+  "limit": "1 px",
+  "status": "PASS",
+  "note": "worst of 8 horizon bearings"
+ },
+ {
+  "group": "Stabilization",
+  "name": "hi-stbd-aft: pointing jitter rms vs half-FOV at max zoom",
+  "value": "101334 urad",
+  "limit": "149173 urad",
+  "status": "WARN",
+  "note": "no fast stage"
+ },
+ {
+  "group": "Reach",
+  "name": "Detect person in water",
+  "value": "793 m (top, waves)",
+  "limit": ">= 1,000 m",
+  "status": "WARN",
+  "note": "same camera at deck height (2.5 m): 100 m"
+ },
+ {
+  "group": "Reach",
+  "name": "Detect lobster buoy",
+  "value": "1,180 m (top, waves)",
+  "limit": ">= 500 m",
+  "status": "PASS",
+  "note": "same camera at deck height (2.5 m): 143 m"
+ },
+ {
+  "group": "Reach",
+  "name": "Detect sailboat 30ft",
+  "value": "11,487 m (top, atmosphere)",
+  "limit": ">= 8,000 m",
+  "status": "PASS",
+  "note": "same camera at deck height (2.5 m): 11,487 m"
+ },
+ {
+  "group": "Reach",
+  "name": "Detect ship",
+  "value": "11,487 m (top, atmosphere)",
+  "limit": ">= 15,000 m",
+  "status": "WARN",
+  "note": "same camera at deck height (2.5 m): 11,487 m"
+ },
+ {
+  "group": "Ranging",
+  "name": "Horizon-dip range, top, at 1 km",
+  "value": "+/- 25 m (2.5%)",
+  "limit": "",
+  "status": "INFO",
+  "note": "refraction bias 3 m for dk = 0.04"
+ },
+ {
+  "group": "Ranging",
+  "name": "Horizon-dip range, top, at 2 km",
+  "value": "+/- 51 m (2.5%)",
+  "limit": "",
+  "status": "INFO",
+  "note": "refraction bias 10 m for dk = 0.04"
+ },
+ {
+  "group": "Ranging",
+  "name": "Horizon-dip range, top, at 5 km",
+  "value": "+/- 138 m (2.8%)",
+  "limit": "",
+  "status": "INFO",
+  "note": "refraction bias 54 m for dk = 0.04"
+ },
+ {
+  "group": "Ranging",
+  "name": "Group stereo top+lo-port-fwd, 11.4 m vertical baseline, at 2 km",
+  "value": "+/- 76 m (3.8%)",
+  "limit": "",
+  "status": "INFO",
+  "note": "relative orientation 50 urad from the shared horizon; a flexing rig without it: mrad"
+ },
+ {
+  "group": "Coverage",
+  "name": "Horizon seen by at least one camera (main+jib, heel 15 deg)",
+  "value": "100.0%",
+  "limit": ">= 98%",
+  "status": "PASS",
+  "note": ""
+ },
+ {
+  "group": "Coverage",
+  "name": "Horizon seen without top",
+  "value": "100.0%",
+  "limit": "",
+  "status": "INFO",
+  "note": "what is left when the masthead PTZ is busy in a group"
+ },
+ {
+  "group": "Coverage",
+  "name": "Horizon seen by two or more cameras",
+  "value": "100.0%",
+  "limit": "",
+  "status": "INFO",
+  "note": "where a looking group of 2+ is possible"
+ },
+ {
+  "group": "Mass aloft",
+  "name": "Mass on the mast / masthead equivalent",
+  "value": "10.3 / 7.7 kg",
+  "limit": "4 kg eq",
+  "status": "WARN",
+  "note": "equivalent = same heeling moment at the truck; cameras and pod electronics, no brackets or cable"
+ },
+ {
+  "group": "Mass aloft",
+  "name": "Of which pod SOCs, IMUs and housings (masthead equivalent)",
+  "value": "1.7 kg",
+  "limit": "",
+  "status": "INFO",
+  "note": "0.92 kg a pod"
+ },
+ {
+  "group": "Pod power",
+  "name": "top: peak draw at the PoE port",
+  "value": "81.4 W",
+  "limit": "71.3 W",
+  "status": "FAIL",
+  "note": "over 802.3bt Type 4: needs a second cable or local power"
+ },
+ {
+  "group": "Pod power",
+  "name": "lo-port-fwd: peak draw at the PoE port",
+  "value": "8.0 W",
+  "limit": "802.3af",
+  "status": "PASS",
+  "note": "needs 802.3af"
+ },
+ {
+  "group": "Pod power",
+  "name": "lo-port-aft: peak draw at the PoE port",
+  "value": "8.0 W",
+  "limit": "802.3af",
+  "status": "PASS",
+  "note": "needs 802.3af"
+ },
+ {
+  "group": "Pod power",
+  "name": "lo-stbd-fwd: peak draw at the PoE port",
+  "value": "8.0 W",
+  "limit": "802.3af",
+  "status": "PASS",
+  "note": "needs 802.3af"
+ },
+ {
+  "group": "Pod power",
+  "name": "lo-stbd-aft: peak draw at the PoE port",
+  "value": "8.0 W",
+  "limit": "802.3af",
+  "status": "PASS",
+  "note": "needs 802.3af"
+ },
+ {
+  "group": "Pod power",
+  "name": "hi-port-fwd: peak draw at the PoE port",
+  "value": "8.0 W",
+  "limit": "802.3af",
+  "status": "PASS",
+  "note": "needs 802.3af"
+ },
+ {
+  "group": "Pod power",
+  "name": "hi-port-aft: peak draw at the PoE port",
+  "value": "8.0 W",
+  "limit": "802.3af",
+  "status": "PASS",
+  "note": "needs 802.3af"
+ },
+ {
+  "group": "Pod power",
+  "name": "hi-stbd-fwd: peak draw at the PoE port",
+  "value": "8.0 W",
+  "limit": "802.3af",
+  "status": "PASS",
+  "note": "needs 802.3af"
+ },
+ {
+  "group": "Pod power",
+  "name": "hi-stbd-aft: peak draw at the PoE port",
+  "value": "8.0 W",
+  "limit": "802.3af",
+  "status": "PASS",
+  "note": "needs 802.3af"
+ },
+ {
+  "group": "Pod power",
+  "name": "Whole system from the house bank, watch / active",
+  "value": "10.3 / 13.1 A",
+  "limit": "",
+  "status": "INFO",
+  "note": "130 / 165 W at 12.6 V; watch = top working, other PTZs parked"
+ },
+ {
+  "group": "Pod power",
+  "name": "Energy per day underway",
+  "value": "259 Ah",
+  "limit": "120 Ah",
+  "status": "FAIL",
+  "note": "20 h watch, 4 h active"
+ },
+ {
+  "group": "Pod network",
+  "name": "4 mounts without a pod computer",
+  "value": "lo-port, lo-stbd, hi-port, hi-stbd",
+  "limit": "",
+  "status": "INFO",
+  "note": "each camera encodes itself: detection runs on compressed streams at the pilot computer"
+ },
+ {
+  "group": "Pod network",
+  "name": "top: raw sensor rate vs one gigabit link",
+  "value": "5,972 Mb/s",
+  "limit": "1,000 Mb/s",
+  "status": "INFO",
+  "note": "6.0x the link: frames must be encoded, and searched, on the pod"
+ },
+ {
+  "group": "Pod network",
+  "name": "top: encoded streams on its link",
+  "value": "40 Mb/s",
+  "limit": "700 Mb/s",
+  "status": "PASS",
+  "note": "H.265 at 0.08 bit/px, 30 fps"
+ },
+ {
+  "group": "Pod network",
+  "name": "All pods on the switch uplink to the pilot",
+  "value": "199 Mb/s",
+  "limit": "700 Mb/s",
+  "status": "PASS",
+  "note": ""
+ },
+ {
+  "group": "Pod network",
+  "name": "top: SOC encoder load",
+  "value": "498 Mpx/s",
+  "limit": "750 Mpx/s",
+  "status": "PASS",
+  "note": "Jetson Orin NX 16 GB class (dense INT8)"
+ },
+ {
+  "group": "Pod network",
+  "name": "top: detection on full-resolution frames",
+  "value": "3.3 TOPS",
+  "limit": "20.0 TOPS",
+  "status": "PASS",
+  "note": "10 fps, 20 GOP/Mpx, 40% of the NPU"
+ },
+ {
+  "group": "Pod timing",
+  "name": "Shutter sync error x mount rate, p95 (PTP)",
+  "value": "0.18 urad",
+  "limit": "50 urad",
+  "status": "PASS",
+  "note": "with software timestamps (2000 us): 367 urad"
+ },
+ {
+  "group": "Pairs",
+  "name": "lo pair (lo-port+lo-stbd): baseline and mast flex between them",
+  "value": "2.70 m, 0 urad",
+  "limit": "",
+  "status": "INFO",
+  "note": "same height: the mast's fore-aft bending moves both together"
+ },
+ {
+  "group": "Pairs",
+  "name": "lo pair (lo-port+lo-stbd): stereo range at 30 m, camera clocks / hardware sync",
+  "value": "+/- 0.14 / 0.07 m",
+  "limit": "1.5 m",
+  "status": "PASS",
+  "note": "2 ms between frames at 10.5 deg/s costs 367 urad; hardware-synced shutters 0.2 urad"
+ },
+ {
+  "group": "Pairs",
+  "name": "lo pair (lo-port+lo-stbd): stereo range at 200 m, camera clocks / hardware sync",
+  "value": "+/- 6.32 / 3.23 m",
+  "limit": "10 m",
+  "status": "WARN",
+  "note": "2 ms between frames at 10.5 deg/s costs 367 urad; hardware-synced shutters 0.2 urad"
+ },
+ {
+  "group": "Pairs",
+  "name": "lo pair (lo-port+lo-stbd): stereo range at 1000 m, camera clocks / hardware sync",
+  "value": "+/- 158.09 / 80.72 m",
+  "limit": "50 m",
+  "status": "FAIL",
+  "note": "2 ms between frames at 10.5 deg/s costs 367 urad; hardware-synced shutters 0.2 urad"
+ },
+ {
+  "group": "Pairs",
+  "name": "hi pair (hi-port+hi-stbd): baseline and mast flex between them",
+  "value": "1.90 m, 0 urad",
+  "limit": "",
+  "status": "INFO",
+  "note": "same height: the mast's fore-aft bending moves both together"
+ },
+ {
+  "group": "Pairs",
+  "name": "hi pair (hi-port+hi-stbd): stereo range at 30 m, camera clocks / hardware sync",
+  "value": "+/- 0.18 / 0.06 m",
+  "limit": "1.5 m",
+  "status": "PASS",
+  "note": "2 ms between frames at 10.5 deg/s costs 367 urad; hardware-synced shutters 0.2 urad"
+ },
+ {
+  "group": "Pairs",
+  "name": "hi pair (hi-port+hi-stbd): stereo range at 200 m, camera clocks / hardware sync",
+  "value": "+/- 8.11 / 2.47 m",
+  "limit": "10 m",
+  "status": "WARN",
+  "note": "2 ms between frames at 10.5 deg/s costs 367 urad; hardware-synced shutters 0.2 urad"
+ },
+ {
+  "group": "Pairs",
+  "name": "hi pair (hi-port+hi-stbd): stereo range at 1000 m, camera clocks / hardware sync",
+  "value": "+/- 202.78 / 61.72 m",
+  "limit": "50 m",
+  "status": "FAIL",
+  "note": "2 ms between frames at 10.5 deg/s costs 367 urad; hardware-synced shutters 0.2 urad"
+ },
+ {
+  "group": "Pod timing",
+  "name": "Accelerometer-only tilt error at top, p95",
+  "value": "27.7 deg",
+  "limit": "",
+  "status": "INFO",
+  "note": "specific force vs true vertical (roll p95 22 deg): accelerometers alone are not an attitude sensor aloft, the gyros are"
+ }
+]

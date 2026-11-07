@@ -180,12 +180,15 @@ def _task_rows(s: dict) -> list[tuple[str, str]]:
     elif s["kind"] == "survey":
         px = ", ".join(f"{k.replace('_', ' ')} {v:g} px" for k, v in s["px_across"].items())
         rows += [("Survey", f"{s['legs']} legs, {s['swath_m']:.0f} m swath at {s['track_spacing_m']:.0f} m spacing; "
-                  f"ground sample {s['gsd_cm']:.1f} cm"),
+                  f"ground sample {s['gsd_cm']:.1f} cm ({s['camera']})"),
                  ("Pixels across each target", px)]
     elif s["kind"] == "inspect":
-        rows += [("Inspection", f"{s['standoff_m']:.0f} m standoff ({s['slant_m']:.0f} m slant); "
-                  f"{s['focal_needed_mm']:.1f} mm focal needed of {s['focal_max_mm']:g} mm; "
-                  f"{'resolves' if s['resolves'] else 'does NOT resolve'} it")]
+        how = f"{s['focal_needed_mm']:.1f} mm focal needed of {s['focal_max_mm']:g} mm ({s['camera']})"
+        rows += [("Inspection", f"{s['standoff_m']:.0f} m standoff ({s['slant_m']:.0f} m slant); {how}; "
+                  f"{s['px_across_at_focal']:.0f} px across; {'resolves' if s['resolves'] else 'does NOT resolve'} it")]
+    elif s["kind"] == "escort":
+        rows += [("Escort", f"{s['escort_min']:.0f} min circling the boat at {s['escort_radius_m'] / 1e3:.1f} km; "
+                  f"watches the beams out to {s['beam_reach_km']:.1f} km for a {s['watch_for'].replace('_', ' ')}")]
     rows += [("Flight time / distance", f"{fmt(s['flight_time_s'])} / {s['distance_km']:.1f} km"),
              ("Battery left at recovery", f"{s['energy_left_frac']:.0%}"),
              ("Mean power, max bank", f"{s['power_mean_w']:.0f} W, {s['bank_max_deg']:.0f} deg")]
@@ -204,11 +207,12 @@ def cmd_recon(args) -> int:
 
     warnings.filterwarnings("ignore", module="openaerostruct")
     rc = 0
-    root = Path(args.out) if args.out else OUT / "recon"
+    tag = ("" if args.airframe == "twinboom" else f"-{args.airframe}") + ("" if args.payload == "gimbal" else f"-{args.payload}")
+    root = Path(args.out) if args.out else OUT / f"recon{tag}"
     names = list(MISSIONS) if args.mission == "all" else [args.mission]
     designs = {}
     for name in names:
-        p = load_mission(name)
+        p = load_mission(name, payload=args.payload, airframe=args.airframe)
         d_ = root / name
         d_.mkdir(parents=True, exist_ok=True)
         design_path = Path(args.design) if args.design else d_ / "design.json"
@@ -271,19 +275,20 @@ def cmd_recon(args) -> int:
         (d_ / "report.md").write_text("\n".join(lines) + "\n")
         print(f"report: {d_ / 'report.md'}")
     if args.cmd == "recon" and len(names) > 1:
-        rc |= _recon_matrix(root, designs, names)
+        rc |= _recon_matrix(root, designs, names, args.payload, args.airframe)
     return rc
 
 
-def _recon_matrix(root: Path, designs: dict, names: list[str]) -> int:
+def _recon_matrix(root: Path, designs: dict, names: list[str], payload: str = "gimbal",
+                  airframe: str = "twinboom") -> int:
     from osprey.recon import figures as rfig
     from osprey.recon import fleet
 
-    M = fleet.capability(designs, names)
+    M = fleet.capability(designs, names, payload, airframe)
     best = fleet.one_bird(M, designs)
     order = sorted(designs, key=lambda dn: designs[dn]["mass_total_kg"])
     head = "| Airframe sized for | Mass, span | " + " | ".join(names) + " |"
-    lines = ["# Recon: one bird, many jobs", "",
+    lines = [f"# Recon: one bird, many jobs ({airframe} airframe, {payload} payload)", "",
              f"Generated {date.today().isoformat()} at {_sha()} by `uv run osprey recon --mission all`. Each row "
              "is the airframe sized for one mission, flown through every mission in the 3-DOF sim. A cell is "
              "✓ when it gets back aboard with the task's goal met; the number is the battery left (or how far it "
@@ -295,7 +300,9 @@ def _recon_matrix(root: Path, designs: dict, names: list[str]) -> int:
         mark = " **(lightest that does everything)**" if dn == best else ""
         lines.append(f"| {dn}{mark} | {d['mass_total_kg']:.2f} kg, {d['span_m']:.2f} m | " + " | ".join(cells) + " |")
     (root / "matrix.md").write_text("\n".join(lines) + "\n")
-    (root / "matrix.json").write_text(json.dumps({"order": order, "missions": names, "one_bird": best,
+    (root / "matrix.json").write_text(json.dumps({"airframe": airframe, "payload": payload, "order": order,
+                                                  "missions": names,
+                                                  "one_bird": best,
                                                   "designs": {dn: {k: designs[dn][k] for k in
                                                                    ("mass_total_kg", "span_m", "battery_kg")}
                                                               for dn in designs},
@@ -313,8 +320,9 @@ def cmd_recon_render(args) -> int:
     from osprey.recon.params import MISSIONS
     from osprey.recon.params import load as load_mission
 
-    src = Path(args.run) if args.run else OUT / "recon"
-    dst = Path(args.out) if args.out else OUT / "recon"
+    tag = ("" if args.airframe == "twinboom" else f"-{args.airframe}") + ("" if args.payload == "gimbal" else f"-{args.payload}")
+    src = Path(args.run) if args.run else OUT / f"recon{tag}"
+    dst = Path(args.out) if args.out else OUT / f"recon{tag}"
     names = MISSIONS if args.mission == "all" else [args.mission]
     lineup = []
     for name in names:
@@ -322,11 +330,12 @@ def cmd_recon_render(args) -> int:
         if not f.exists():
             print(f"{name}: no {f}; run `osprey recon --mission {name}` first")
             return 1
-        p, d = load_mission(name), json.loads(f.read_text())
+        p, d = load_mission(name, payload=args.payload, airframe=args.airframe), json.loads(f.read_text())
         o = dst / name
         rr.hero(p, d, o / "bird-hero.png")
         rr.threeview(p, d, o / "bird-threeview.png")
         rr.exploded(p, d, o / "bird-exploded.png")
+        rr.underside(p, d, o / "bird-underside.png")
         rr.turntable(p, d, o / "bird-turntable.gif")
         lineup.append((p, d, name))
         print(f"{name}: renders in {o}")
@@ -339,10 +348,55 @@ def cmd_recon_render(args) -> int:
     return 0
 
 
+def cmd_recon_awareness(args) -> int:
+    """How far each eye detects, recognizes and identifies a fast skiff, and the warning it buys."""
+    from osprey.recon import awareness
+
+    d_ = Path(args.out) if args.out else OUT / "recon"
+    d_.mkdir(parents=True, exist_ok=True)
+    cols = [("skiff_wake", "detect", "Wake detected"), ("skiff", "detect", "Skiff detected"),
+            ("skiff", "recognize", "Skiff recognized"), ("person_aboard", "identify", "Person aboard identified")]
+    lines = ["# Anti-piracy awareness: a fast skiff closing at 30 kn", "",
+             f"Generated {date.today().isoformat()} at {_sha()} by `uv run osprey recon-awareness`. Range, the limit "
+             "that binds there, and minutes of warning. REF inputs in `design/`.", ""]
+    for ss, vis in (("ss3", 15.0), ("ss4", 10.0)):
+        lines += [f"## Sea state {ss[2:]}, visibility {vis:g} km", "",
+                  "| Eye | " + " | ".join(c for *_, c in cols) + " |", "|---|" + "---|" * len(cols)]
+        for r in awareness.table(ss, vis):
+            cells = [f"{r[f'{a}:{b}'][0] / 1e3:.1f} km ({r[f'{a}:{b}'][1]}), {r[f'{a}:{b}'][2]:.0f} min"
+                     for a, b, _ in cols]
+            lines.append(f"| {r['eye']} | " + " | ".join(cells) + " |")
+        lines.append("")
+    (d_ / "awareness.md").write_text("\n".join(lines))
+    print("\n".join(lines))
+    return 0
+
+
+def cmd_recon_buck(args) -> int:
+    """Export a sized blended wing's outer mould line and buck halves."""
+    from osprey.recon import buck
+    from osprey.recon.params import MISSIONS
+    from osprey.recon.params import load as load_mission
+
+    tag = ("" if args.airframe == "twinboom" else f"-{args.airframe}") + ("" if args.payload == "gimbal" else f"-{args.payload}")
+    src = Path(args.run) if args.run else OUT / f"recon{tag}"
+    for name in (MISSIONS if args.mission == "all" else [args.mission]):
+        p = load_mission(name, payload=args.payload, airframe=args.airframe)
+        d = json.loads((src / name / "design.json").read_text())
+        if d.get("airframe") not in ("bwb", "crescent"):
+            print(f"{name}: not a flying wing (--airframe bwb or crescent); its wing prints in panels instead")
+            return 1
+        dst = (Path(args.out) if args.out else src) / name / "buck"
+        info = buck.export(p, d, dst)
+        print(f"{name}: span {info['span_mm']:.0f} mm, upper stock " + " x ".join(f"{v:.0f}" for v in info["stock_upper_mm"])
+              + f" mm, skin {info['skin_kg']:.2f} kg -> {dst}")
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="osprey", description=__doc__)
     ap.add_argument("cmd", choices=["calc", "sim", "render", "all", "sweep", "recon-size", "recon-fly", "recon",
-                                    "recon-render"])
+                                    "recon-render", "recon-buck", "recon-awareness"])
     ap.add_argument("--scenario", default="coastal-watch", choices=SCENARIOS)
     ap.add_argument("--rig", default=None, choices=RIGS, help="override the scenario's rig")
     ap.add_argument("--out", default=None, help="output directory (absolute); default out/<scenario>/<rig>")
@@ -354,11 +408,17 @@ def main(argv=None) -> int:
     ap.add_argument("--workers", type=int, default=8, help="sweep: parallel processes")
     ap.add_argument("--mission", default="sar-datum", help="recon: a design/recon/missions name, or all")
     ap.add_argument("--design", default=None, help="recon-fly: a design.json to fly instead of sizing one")
+    ap.add_argument("--payload", default="gimbal", help="recon: gimbal, or a design/recon/payloads variant (dual)")
+    ap.add_argument("--airframe", default="twinboom", help="recon: twinboom, or a design/recon/airframes variant (bwb)")
     ap.add_argument("--run", default=None, help="recon-render: a run directory holding <mission>/design.json "
                                                 "(default out/recon)")
     args = ap.parse_args(argv)
     if args.cmd == "recon-render":
         return cmd_recon_render(args)
+    if args.cmd == "recon-buck":
+        return cmd_recon_buck(args)
+    if args.cmd == "recon-awareness":
+        return cmd_recon_awareness(args)
     if args.cmd.startswith("recon"):
         return cmd_recon(args)
     if args.cmd == "sweep":
