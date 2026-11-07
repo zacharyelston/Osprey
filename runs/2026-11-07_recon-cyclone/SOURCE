@@ -1,0 +1,4 @@
+local, on the commit that adds src/osprey/recon/cyclone.py (branch feat/recon-cyclone, from 6c8c9d7)
+<payload>: uv run osprey recon-cyclone --payload all --out <this>
+  built from the twin-boom one-birds in runs/2026-11-06_recon-payloads/<payload>, compared against the tailsitter one-birds in runs/2026-11-07_recon-water/tailsitter/<payload>
+docs/img/recon-cyclone.png: copy of gimbal/cyclone.png

@@ -140,3 +140,50 @@ def matrix(M: dict, designs: dict, missions: list[str], order: list[str], best: 
     fig.tight_layout()
     fig.savefig(path, dpi=130)
     plt.close(fig)
+
+
+def cyclone(a: dict, title: str, path):
+    """The Cyclone: hover power against the tailsitter's, cruise power against airspeed, and the planform."""
+    g, h, ts, cv = a["geometry"], a["hover"], a["tailsitter"], a["curves"]
+    fig, (ax, bx, cx) = plt.subplots(1, 3, figsize=(14, 4.4), gridspec_kw={"width_ratios": [1, 1.5, 1.1]})
+    bars = [("tailsitter\n(two props)", ts["hover_w"], "#95a5a6"), ("Cyclone\nas a tricopter", a["tri_hover_w"], "#DD8452"),
+            ("Cyclone\nspinning", h["p_shaft_w"], "#4C72B0")]
+    ax.bar([b[0] for b in bars], [b[1] for b in bars], color=[b[2] for b in bars])
+    for i, (_, w, _) in enumerate(bars):
+        ax.text(i, w, f"{w:.0f} W", ha="center", va="bottom", fontsize=9)
+    ax.set_ylabel("hover shaft power (W)")
+    ax.set_title("Hovering", fontsize=10)
+    v = cv["v"]
+    for key, label, col in (("base", "twin-boom one-bird", "#95a5a6"), ("wing", "Cyclone, stopped as a wing", "#4C72B0"),
+                            ("tricopter", "Cyclone, as a tricopter", "#DD8452")):
+        bx.plot(v, cv[key], color=col, lw=2, label=label)
+    bx.axvline(cv["base_v_search"], color="#95a5a6", ls=":", lw=1)
+    bx.axvline(cv["v_search"], color="#4C72B0", ls=":", lw=1)
+    bx.set_xlabel("airspeed (m/s)")
+    bx.set_ylabel("electric power (W)")
+    bx.set_ylim(0, 700)
+    bx.legend(fontsize=8, frameon=False)
+    bx.set_title("Cruising (search speeds dotted)", fontsize=10)
+    R, r0, c = g["R_m"], g["r0_m"], g["chord_m"] * a["resized"]["chord_scale"]
+    cx.add_patch(plt.Circle((0, 0), R, fill=False, ls="--", color="#7f8c8d"))
+    for k, ang in enumerate((60, 180, 300)):
+        t = math.radians(ang)
+        u, n = np.array([math.cos(t), math.sin(t)]), np.array([-math.sin(t), math.cos(t)])
+        quad = np.array([r0 * u - c / 2 * n, R * u - c / 2 * n, R * u + c / 2 * n, r0 * u + c / 2 * n])
+        cx.fill(quad[:, 0], quad[:, 1], color="#cfd8e3", ec="#34495e", lw=1.2)
+        cx.plot(*(R * u), "o", color="#c0392b", ms=7)
+    cx.add_patch(plt.Circle((0, 0), r0, color="#e67e22"))
+    cx.annotate("", xy=(0.75 * R * math.cos(1.2), 0.75 * R * math.sin(1.2)),
+                xytext=(0.75 * R * math.cos(0.5), 0.75 * R * math.sin(0.5)),
+                arrowprops=dict(arrowstyle="->", color="#4C72B0", connectionstyle="arc3,rad=0.3"))
+    cx.annotate("nose", xy=(R * 1.02, 0), fontsize=8, va="center")
+    cx.annotate("tail when stopped", xy=(-R, -0.12 * R), fontsize=8, ha="left")
+    cx.set_aspect("equal")
+    cx.set_xlim(-1.15 * R, 1.3 * R)
+    cx.set_ylim(-1.1 * R, 1.1 * R)
+    cx.set_axis_off()
+    cx.set_title(f"{2 * R:.2f} m rotor, three {g['arm_m']:.2f} m arms, tip motors", fontsize=10)
+    fig.suptitle(title, fontsize=11)
+    fig.tight_layout()
+    fig.savefig(path, dpi=130)
+    plt.close(fig)

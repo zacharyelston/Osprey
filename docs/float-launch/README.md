@@ -212,6 +212,56 @@ What it says:
 - **The struts set the sea state.** A wider stance is cheap on paper, but it's a big cross of carbon to
   stow on a boat.
 
+## The Cyclone: spinning instead of standing
+
+A fourth way, after Nick Rehm's Cyclone-Rotor tricopter (shown at Flite Fest 2023): three arms that are
+wings, with a motor at each tip
+([`src/osprey/recon/cyclone.py`](../../src/osprey/recon/cyclone.py),
+[`design/recon/cyclone.toml`](../../design/recon/cyclone.toml)).
+- **As a tricopter**, the arms are twisted so the tip motors push up.
+- **Spinning**, the arms are twisted the other way: the motors push round, the whole bird spins, and its
+  three wings are the rotor blades. Rehm measured about a third of the tricopter's power in the hover.
+- **For Recon**, each arm is one of the twin-boom one-bird's wing halves, a third arm replaces the booms
+  and tail, and three tip motors replace the pusher. It cruises **stopped and locked as a fixed wing**:
+  one arm aft as the tail and two forward at ±60°. One forward arm flies backwards in the spin, so it
+  flips over to cruise, and the sections have to be symmetric (less lift, more drag). The other way to
+  cruise, as a tricopter, is flown too.
+
+![The Cyclone, gimbal: hover power against the tailsitter, cruise power against airspeed, and the planform](../img/recon-cyclone.png)
+
+Re-sized to do all seven jobs ([`runs/2026-11-07_recon-cyclone`](../../runs/2026-11-07_recon-cyclone/)).
+Recovery is a vertical spin, so the 12 m/s stall limit for a catch doesn't bind; the search-speed margin
+does, and the re-size tries faster searches and wider chords before adding battery:
+
+| | Gimbal | A PTZ eye each side |
+|---|---|---|
+| Do-everything Cyclone | **3.12 kg**, 2.18 m rotor, searching at 19.5 m/s | **2.34 kg**, 1.70 m rotor, chord ×1.39 |
+| Against: tailsitter / float plane / plain twin-boom | 2.96 / 3.01 / 2.73 kg | 2.22 / 2.33 / 2.13 kg |
+| Hover power, spinning (tailsitter's props) | **174 W** at 215 rpm (410 W) | **131 W** at 233 rpm (265 W) |
+| Hover energy per sortie: 29 s spinning, 2 × 8 s as a tricopter (tailsitter) | 4.1 Wh (6.0 Wh) | 2.8 Wh (3.9 Wh) |
+| Hovers on one of its three motors | yes: 232 W against 174 W | yes: 151 W against 131 W |
+| Motors off: sinks like a seed at | 3.3 m/s; the spin holds 6× the sink's energy, enough to flare | 3.7 m/s; 4× |
+| Wind it can hover in (tailsitter) | 8.6 m/s (11.9) | 7.3 m/s (11.9) |
+| Cruising as a tricopter instead | 3 of 7 jobs, at 430–510 W | 2 of 7, at 320–390 W |
+
+What it says:
+- **The spinning hover is as good as Rehm found:** 2–2.4× less power than the tailsitter's props for the
+  same weight, because the lift is spread over the whole 2 m disc instead of two 30 cm props.
+- **But the transitions eat most of it.** Getting from the spin to the wing and back goes through the
+  tricopter, at 300–470 W. The hover energy saved per sortie is 1.1–1.9 Wh, under a percent of the battery.
+- **And cruise costs more.** Symmetric sections, a stall at 12–14 m/s and the props pointing 30° off the
+  nose take 20–50% more power than the twin-boom on the same jobs. The do-everything Cyclone ends up
+  0.12–0.16 kg heavier than the tailsitter.
+- **Cruising as a tricopter is out:** three to six times the twin-boom's power, and most jobs don't get
+  home.
+- **What it buys is safety.** With every motor off it comes down at parachute speed with nothing to
+  deploy, and it has the spin to flare. It hovers on one motor. The tailsitter can do neither.
+- **What it gives up:** hovering in wind (the retreating arm stalls past about 8 m/s), a camera that can
+  see while spinning (it turns 90 px in a 1 ms exposure), and a 2 m disc to keep clear of the rigging.
+
+The Cyclone is worth keeping as the safety option, most of all if the transition can be made quicker
+than the 8 s each way assumed here. The tailsitter stays the lighter build.
+
 ## Not worked out yet
 
 - **The hydrodynamics are REF.** The hump and planing resistance, the hump speed, the take-off attitude
@@ -231,3 +281,8 @@ What it says:
 - **Landing on the deck** of a pitching boat isn't modelled yet; the Nest motion model can supply the deck
   motion.
 - **The struts' and pods' mass and drag** are REF, and don't change with strut length.
+- **The Cyclone is first-order.** Uniform-lift blade elements and momentum theory for the spin, a fixed
+  8 s as a tricopter for each transition, symmetric-section penalties and the autorotation drag
+  coefficient are all REF. It isn't floated (flat on the water, its tip props need pylons), and its
+  stability and control in each mode, a de-spun camera mount and the arms' loads in the spin aren't
+  modelled.
