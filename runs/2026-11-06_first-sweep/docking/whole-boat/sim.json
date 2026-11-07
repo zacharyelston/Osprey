@@ -1,0 +1,44 @@
+{
+ "summary": {
+  "tasks": {},
+  "stations": {
+   "top": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   },
+   "fwd": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   },
+   "port": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   },
+   "stbd": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   },
+   "aft": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   },
+   "bow": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   },
+   "stern": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   }
+  },
+  "always_watch": true
+ },
+ "tasks": {}
+}

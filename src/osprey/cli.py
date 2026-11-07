@@ -10,7 +10,10 @@ import sys
 from datetime import date
 from pathlib import Path
 
+from types import SimpleNamespace
+
 from osprey import calcs, figures, motion, tasking
+from osprey.rig import stations
 from osprey.params import OUT, RIGS, ROOT, SCENARIOS, load
 
 COLS = ("status", "group", "check", "value", "limit", "note")
@@ -77,21 +80,27 @@ def cmd_sim(p, args) -> int:
     out = tasking.Sim(p).run()
     s = tasking.summary(out)
     d = _outdir(args)
-    title = f"Looking groups: {args.scenario} on {args.rig_name} (reserve {p.rig.reserve}, max group {p.rig.max_group})"
+    policy = (f"watch by sectors" if getattr(p.rig, "watch", "reserve") == "sectors"
+              else f"reserve {p.rig.reserve}")
+    title = f"Looking groups: {args.scenario} on {args.rig_name} ({policy}, max group {p.rig.max_group})"
     figures.gantt(out, d / "groups.png", title)
     rows = []
     for tid, v in s["tasks"].items():
         m = out["task_meta"][tid]
         rows.append(f"| {tid} | {m['cls'].replace('_', ' ')} | {m['need']} | {m['priority']} | {v['met_frac']:.0%} | "
                     f"{v['group_median']:.0f} / {v['group_max']} | {v['px_median']:.0f} | "
-                    f"{v['sigma_frac_median']:.1%} |")
+                    f"{v['sigma_frac_median']:.1%} | {v['starved_frac']:.0%} |")
     srows = [f"| {sid} | {v['tasked']:.0%} | {v['slew']:.0%} | {v['watch']:.0%} |" for sid, v in s["stations"].items()]
     md = [f"# {title}", "",
           f"Generated {date.today().isoformat()} at {_sha()} by `uv run osprey sim --scenario {args.scenario} "
           f"--rig {args.rig_name}`.", "",
-          f"A camera always on watch: **{'yes' if s['always_watch'] else 'NO'}**", "",
-          "| Task | Class | Need | Priority | Need met | Group median / max | px median | Range σ/R median |",
-          "|---|---|---|---|---|---|---|---|", *rows, "",
+          f"A camera always on watch: **{'yes' if s['always_watch'] else 'NO'}**. "
+          f"Whole horizon swept: **{s['watch_full_frac']:.0%}** of the time (worst moment "
+          f"{s['watch_min_frac']:.0%}); worst-bearing revisit {s['revisit_median_s']:.0f} s median, "
+          f"{s['revisit_p95_s']:.0f} s p95. Pairs in groups: {s['pairs_in_pod']} within a pod, "
+          f"{s['pairs_across']} across pods (pair-ticks).", "",
+          "| Task | Class | Need | Priority | Need met | Group median / max | px median | Range σ/R median | Starved |",
+          "|---|---|---|---|---|---|---|---|---|", *rows, "",
           "| Station | Tasked | Slewing | Watch |", "|---|---|---|---|", *srows, "", "![groups](groups.png)", ""]
     (d / "sim.md").write_text("\n".join(md))
     (d / "sim.json").write_text(json.dumps({"summary": s, "tasks": out["tasks"]}, indent=1, default=float))
@@ -104,6 +113,9 @@ def cmd_render(p, args) -> int:
     from osprey.render import scene
 
     d = _outdir(args) / "render"
+    if args.aims == "optimized":
+        aims, focals = calcs.optimize_aims(p, [s for s in stations(p) if {"exterior", "near"} & set(s.zones)])
+        p.render.aim, p.render.focal_mm = SimpleNamespace(**aims), SimpleNamespace(**focals)
     info = scene.render(p, d, seconds=args.seconds, fps=args.fps, scale=args.scale)
     print(f"rendered {info['frames']} frames x {len(info['cameras'])} cameras ({info['backend']}) -> {d}")
     return 0
@@ -133,7 +145,8 @@ def cmd_sweep(args) -> int:
     with ProcessPoolExecutor(max_workers=args.workers) as ex:
         for argv, rc, _ in ex.map(_job, jobs):
             print(f"rc={rc}  {' '.join(argv[:5])}", flush=True)
-    rows = ["| Scenario | Rig | FAIL / WARN / PASS | Always a camera on watch | Task needs met |", "|---|---|---|---|---|"]
+    rows = ["| Scenario | Rig | FAIL / WARN / PASS | Always a camera on watch | Whole horizon swept | Task needs met |",
+            "|---|---|---|---|---|---|"]
     for sc in SCENARIOS:
         for rig in rigs:
             d = root / sc / rig
@@ -142,7 +155,8 @@ def cmd_sweep(args) -> int:
             sim = json.loads((d / "sim.json").read_text())["summary"]
             met = ", ".join(f"{t} {v['met_frac']:.0%}" for t, v in sim["tasks"].items())
             rows.append(f"| {sc} | {rig} | {n['FAIL']} / {n['WARN']} / {n['PASS']} | "
-                        f"{'yes' if sim['always_watch'] else 'NO'} | {met} |")
+                        f"{'yes' if sim['always_watch'] else 'NO'} | {sim['watch_full_frac']:.0%} "
+                        f"({sim['revisit_median_s']:.0f} s revisit) | {met} |")
     md = [f"# Osprey sweep", "", f"Generated {date.today().isoformat()} at {_sha()} by `uv run osprey sweep "
           f"--workers {args.workers}`.", "", *rows, ""]
     (root / "summary.md").write_text("\n".join(md))
@@ -160,6 +174,8 @@ def main(argv=None) -> int:
     ap.add_argument("--seconds", type=float, default=6.0, help="render: clip length")
     ap.add_argument("--fps", type=float, default=5.0, help="render: frames per second")
     ap.add_argument("--scale", type=float, default=0.25, help="render: fraction of each camera's native resolution")
+    ap.add_argument("--aims", choices=["scenario", "optimized"], default="scenario",
+                    help="render: PTZ aims from the scenario file, or optimized for two-view docking coverage")
     ap.add_argument("--workers", type=int, default=8, help="sweep: parallel processes")
     args = ap.parse_args(argv)
     if args.cmd == "sweep":

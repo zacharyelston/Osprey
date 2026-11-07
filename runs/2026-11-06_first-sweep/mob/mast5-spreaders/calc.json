@@ -1,0 +1,194 @@
+[
+ {
+  "group": "Motion",
+  "name": "Roll about the 8 deg heel, rms / max",
+  "value": "1.6 / 4.3 deg",
+  "limit": "",
+  "status": "INFO",
+  "note": "ss3, Hs 0.9 m, Tp 5.0 s, waves 120 deg off the bow"
+ },
+ {
+  "group": "Motion",
+  "name": "Pitch rms / max",
+  "value": "1.0 / 2.9 deg",
+  "limit": "",
+  "status": "INFO",
+  "note": ""
+ },
+ {
+  "group": "Motion",
+  "name": "Angular rate at the mounts, p95 / max",
+  "value": "5.7 / 9.4 deg/s",
+  "limit": "",
+  "status": "INFO",
+  "note": "the same for every camera on a rigid hull"
+ },
+ {
+  "group": "Motion",
+  "name": "Acceleration at top (18.9 m), p95",
+  "value": "0.43 g",
+  "limit": "0.5 g",
+  "status": "PASS",
+  "note": "sets the mount, connector and gimbal-motor ratings"
+ },
+ {
+  "group": "Motion",
+  "name": "Speed of top through the air, p95",
+  "value": "1.9 m/s",
+  "limit": "",
+  "status": "INFO",
+  "note": "parallax for near targets; adds to apparent wind on the housing"
+ },
+ {
+  "group": "Stabilization",
+  "name": "top: blur p95 at 200 mm, 1 ms",
+  "value": "0.01 px",
+  "limit": "1 px",
+  "status": "PASS",
+  "note": "worst of 8 horizon bearings"
+ },
+ {
+  "group": "Stabilization",
+  "name": "top: pointing jitter rms vs half-FOV at max zoom",
+  "value": "16 urad",
+  "limit": "6399 urad",
+  "status": "PASS",
+  "note": "inner stage saturated 0% of the time"
+ },
+ {
+  "group": "Stabilization",
+  "name": "fwd: blur p95 at 120 mm, 1 ms",
+  "value": "0.82 px",
+  "limit": "1 px",
+  "status": "PASS",
+  "note": "worst of 8 horizon bearings"
+ },
+ {
+  "group": "Stabilization",
+  "name": "fwd: pointing jitter rms vs half-FOV at max zoom",
+  "value": "2563 urad",
+  "limit": "7732 urad",
+  "status": "PASS",
+  "note": "no fast stage"
+ },
+ {
+  "group": "Stabilization",
+  "name": "port: blur p95 at 120 mm, 1 ms",
+  "value": "0.82 px",
+  "limit": "1 px",
+  "status": "PASS",
+  "note": "worst of 8 horizon bearings"
+ },
+ {
+  "group": "Stabilization",
+  "name": "port: pointing jitter rms vs half-FOV at max zoom",
+  "value": "2563 urad",
+  "limit": "7732 urad",
+  "status": "PASS",
+  "note": "no fast stage"
+ },
+ {
+  "group": "Stabilization",
+  "name": "stbd: blur p95 at 120 mm, 1 ms",
+  "value": "0.82 px",
+  "limit": "1 px",
+  "status": "PASS",
+  "note": "worst of 8 horizon bearings"
+ },
+ {
+  "group": "Stabilization",
+  "name": "stbd: pointing jitter rms vs half-FOV at max zoom",
+  "value": "2563 urad",
+  "limit": "7732 urad",
+  "status": "PASS",
+  "note": "no fast stage"
+ },
+ {
+  "group": "Stabilization",
+  "name": "aft: blur p95 at 120 mm, 1 ms",
+  "value": "0.82 px",
+  "limit": "1 px",
+  "status": "PASS",
+  "note": "worst of 8 horizon bearings"
+ },
+ {
+  "group": "Stabilization",
+  "name": "aft: pointing jitter rms vs half-FOV at max zoom",
+  "value": "2563 urad",
+  "limit": "7732 urad",
+  "status": "PASS",
+  "note": "no fast stage"
+ },
+ {
+  "group": "Reach",
+  "name": "Detect person in water",
+  "value": "2,041 m (top, waves)",
+  "limit": ">= 1,000 m",
+  "status": "PASS",
+  "note": "same camera at deck height (2.5 m): 249 m"
+ },
+ {
+  "group": "Ranging",
+  "name": "Horizon-dip range, top, at 1 km",
+  "value": "+/- 12 m (1.2%)",
+  "limit": "",
+  "status": "INFO",
+  "note": "refraction bias 3 m for dk = 0.04"
+ },
+ {
+  "group": "Ranging",
+  "name": "Horizon-dip range, top, at 2 km",
+  "value": "+/- 24 m (1.2%)",
+  "limit": "",
+  "status": "INFO",
+  "note": "refraction bias 10 m for dk = 0.04"
+ },
+ {
+  "group": "Ranging",
+  "name": "Horizon-dip range, top, at 5 km",
+  "value": "+/- 66 m (1.3%)",
+  "limit": "",
+  "status": "INFO",
+  "note": "refraction bias 54 m for dk = 0.04"
+ },
+ {
+  "group": "Ranging",
+  "name": "Group stereo top+aft, 16.2 m vertical baseline, at 2 km",
+  "value": "+/- 12 m (0.6%)",
+  "limit": "",
+  "status": "INFO",
+  "note": "relative orientation 50 urad from the shared horizon; a flexing rig without it: mrad"
+ },
+ {
+  "group": "Coverage",
+  "name": "Horizon seen by at least one camera (main, heel 8 deg)",
+  "value": "100.0%",
+  "limit": ">= 95%",
+  "status": "PASS",
+  "note": ""
+ },
+ {
+  "group": "Coverage",
+  "name": "Horizon seen without top",
+  "value": "100.0%",
+  "limit": "",
+  "status": "INFO",
+  "note": "what is left when the masthead PTZ is busy in a group"
+ },
+ {
+  "group": "Coverage",
+  "name": "Horizon seen by two or more cameras",
+  "value": "100.0%",
+  "limit": "",
+  "status": "INFO",
+  "note": "where a looking group of 2+ is possible"
+ },
+ {
+  "group": "Mass aloft",
+  "name": "Camera mass on the mast / masthead equivalent",
+  "value": "7.2 / 5.1 kg",
+  "limit": "4 kg eq",
+  "status": "WARN",
+  "note": "equivalent = same heeling moment at the truck; cameras only, no brackets or cable"
+ }
+]

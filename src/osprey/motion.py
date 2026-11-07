@@ -61,6 +61,13 @@ class Motion:
     def R(self, heading_deg: float = 0.0) -> np.ndarray:
         return frames.attitude(self.roll, self.pitch, frames.heading_to_yaw(heading_deg) + self.yaw)
 
+    def flex(self, z: float) -> np.ndarray:
+        """Fore-aft tilt (rad) of the mast at height z from its bending mode,
+        scaled by the square of the height up the mast."""
+        if z <= self.deck_z:
+            return np.zeros_like(self.rig_tip)
+        return self.rig_tip * ((z - self.deck_z) / (self.truck_z - self.deck_z)) ** 2
+
     def mount(self, pos_body, on_mast: bool = True, heading_deg: float = 0.0):
         """World position (N, 3), velocity, acceleration and body-frame angular
         rate (N, 3) of a point fixed to the hull, or to the mast (on_mast adds
@@ -68,8 +75,7 @@ class Motion:
         R = self.R(heading_deg)
         r = np.asarray(pos_body, float)
         if on_mast and r[2] > self.deck_z:
-            frac = ((r[2] - self.deck_z) / (self.truck_z - self.deck_z)) ** 2
-            R = R @ frames.rot_y(self.rig_tip * frac)
+            R = R @ frames.rot_y(self.flex(r[2]))
         p = R @ r + np.stack([np.zeros_like(self.heave), np.zeros_like(self.heave), self.heave], -1)
         v = np.gradient(p, self.dt, axis=0)
         a = np.gradient(v, self.dt, axis=0)

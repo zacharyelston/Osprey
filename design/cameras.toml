@@ -4,6 +4,12 @@
 # stabilization: outer_hz is the 2-axis gimbal loop bandwidth (0 = none),
 # inner_hz the fast small-angle stage (sensor shift or steering mirror, 0 = none)
 # with +/- inner_stroke_deg of travel, floor_urad the residual noise floor.
+#
+# power_w is [parked, working]: working means slewing, zooming and the
+# stabilizer fighting the sea. Housing heaters and wipers are not included.
+#
+# projection = "equidistant" marks a fisheye (r = f * theta, fov_deg across
+# the image circle); everything else is a pinhole.
 
 [camera.ptz_long]
 label = "Long-zoom PTZ, gyro-stabilized (1/1.8 in 4K, 6.5-200 mm)"
@@ -16,6 +22,7 @@ slew_dps = 120.0
 zoom_s = 3.0
 exposure_ms = 1.0
 mass_kg = 2.4
+power_w = [8.0, 30.0]
 stabilization = { outer_hz = 4.0, inner_hz = 60.0, inner_stroke_deg = 1.5, floor_urad = 15.0 }
 
 [camera.ptz_mid]
@@ -29,6 +36,7 @@ slew_dps = 90.0
 zoom_s = 2.5
 exposure_ms = 1.0
 mass_kg = 1.2
+power_w = [5.0, 18.0]
 stabilization = { outer_hz = 3.0, inner_hz = 0.0, inner_stroke_deg = 0.0, floor_urad = 60.0 }
 
 [camera.fixed_wide]
@@ -43,6 +51,7 @@ slew_dps = 0.0
 zoom_s = 0.0
 exposure_ms = 2.0
 mass_kg = 0.4
+power_w = [4.0, 5.0]
 stabilization = { outer_hz = 0.0, inner_hz = 0.0, inner_stroke_deg = 0.0, floor_urad = 0.0 }
 
 [camera.dome_interior]
@@ -57,4 +66,40 @@ slew_dps = 0.0
 zoom_s = 0.0
 exposure_ms = 8.0
 mass_kg = 0.3
+power_w = [3.0, 4.0]
 stabilization = { outer_hz = 0.0, inner_hz = 0.0, inner_stroke_deg = 0.0, floor_urad = 0.0 }
+
+# Pod underside: looks straight down at the deck and the water around the hull.
+# The 190 deg image circle fits the sensor's short side.
+[camera.fisheye_down]
+label = "Down-looking fisheye, 190 deg circle (1/2.3 in 12 MP, 1.42 mm)"
+width_px = 4056
+height_px = 3040
+pixel_um = 1.55
+focal_mm = [1.42, 1.42]
+projection = "equidistant"
+fov_deg = 190.0
+tilt_deg = [-90.0, -90.0]
+fixed = true
+slew_dps = 0.0
+zoom_s = 0.0
+exposure_ms = 2.0
+mass_kg = 0.12
+power_w = [2.5, 3.0]
+stabilization = { outer_hz = 0.0, inner_hz = 0.0, inner_stroke_deg = 0.0, floor_urad = 0.0 }
+
+# The lower eye of a gecko pod: a mid-zoom PTZ hung upside down under the pod.
+# It sees from straight down to just above the horizon; the pod above hides the rest.
+[camera.ptz_mid_down]
+label = "Mid-zoom PTZ, inverted under a pod (1/2.8 in 4K, 4.8-120 mm)"
+width_px = 3840
+height_px = 2160
+pixel_um = 1.45
+focal_mm = [4.8, 120.0]
+tilt_deg = [-90.0, 10.0]
+slew_dps = 90.0
+zoom_s = 2.5
+exposure_ms = 1.0
+mass_kg = 1.2
+power_w = [5.0, 18.0]
+stabilization = { outer_hz = 3.0, inner_hz = 0.0, inner_stroke_deg = 0.0, floor_urad = 60.0 }

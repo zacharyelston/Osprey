@@ -36,8 +36,8 @@ Instead the work is split:
   up the residual on the long lens.
 - **Software:** solves each frame's pose from things in the image. At sea the
   horizon gives roll and pitch. In harbour the deck, a rigid body of known
-  shape, gives the full 6-DoF masthead pose relative to the hull, the way
-  hydra-vision's Pointer engine registers against a fiducial map.
+  shape, gives the full 6-DoF masthead pose relative to the hull, by
+  registering against it like a fiducial map.
 
 The pose chain is world, then hull (deck GNSS and IMU), then masthead (deck
 registration), then each camera.
@@ -60,6 +60,60 @@ Any 1 to 4 cameras form a **looking group** on one target, while the rig's
 `tasking.Sim` assigns groups every tick, in priority order. It prefers cameras
 the lower-priority tasks need least and charges slew and zoom time on every
 reassignment.
+
+## Gecko pods: two eyes, one cable
+
+`gecko5` turns each station into a pod.
+- **Top:** a PTZ, as before.
+- **Bottom:** a second PTZ, hung upside down.
+- **Between them:**
+  - a SOC that encodes both streams and runs detection on full-resolution
+    frames before compression;
+  - a 6-axis IMU that timestamps every frame's attitude;
+  - a PoE PD on a single gigabit cable down the mast.
+
+The pod body splits the sphere. The upper eye can't see under the pod and the
+lower eye can't see over it, so the pair covers everything from straight down
+to 30 deg up. The two eyes point independently. In docking, the lower eyes
+take the water round the hull and the upper eyes stay on the horizon
+(`calcs.optimize_aims` sends any PTZ that adds nothing to docking back to
+watch). The pods use the mast5-spreaders positions. Their electronics, kits
+and power and network budgets are in `design/electronics.toml`.
+
+**Watch by sectors.**
+- **Sectors:** every pod faces outward from the mast, and its eyes sweep
+  their own sector of horizon (120 deg for the lower pods, all round for the
+  masthead). Each sector overlaps its neighbours'.
+- **The rule:** with `watch = "sectors"`, a looking group may take any eye,
+  as long as every bearing a camera can see is still swept by at least one
+  watcher. This replaces the fixed reserve camera.
+- **Pairs:** a pod's two eyes can be slaved to one target, or each can pair
+  with a neighbour on the mast.
+  - Pairs within a pod share a rigid body: no mast flex between them
+    (20 urad), but only a 0.36 m baseline.
+  - Pairs across pods have metres of baseline, and need the pod gyros to
+    hold 50 urad.
+
+What the pod electronics are for:
+- **Gyros, not just accelerometers.** Aloft, the mast's own acceleration
+  swamps gravity's direction: accelerometers alone get tilt wrong by about
+  28 deg (p95) at the masthead in sea state 4.
+- **Mast flex.** The mast's 2.4 Hz bending moves the masthead pod against the
+  gooseneck pod by about 850 urad (p95). That is far beyond the 50 urad a
+  stereo pair needs, and too fast for 5 Hz horizon fixes to follow. Each pod's
+  gyro measures its own flex between fixes, bringing it back to about 57 urad.
+- **PTP time.** Hardware-timestamped PTP holds shutter sync to about 1 us,
+  i.e. under 1 urad of pointing at the mount's angular rate. Software
+  timestamps would cost about 370 urad.
+- **Compute on the pod.** Two 4K30 sensors make 6 Gb/s raw, six times one
+  gigabit link. Frames must be encoded on the pod, and small far targets are
+  best found before compression smears them.
+
+An earlier version put a fixed 190 deg fisheye under each pod. It gave 97 %
+two-view docking coverage with no aiming, but its 1.1 mrad pixels gave 14 cm
+depth at the hull edge, and it couldn't join the horizon watch.
+`runs/2026-11-06_pods-fisheye-sweep` has its reports. The fisheye camera class
+and its cube-face renderer stay for deck, cabin and dockside cameras.
 
 ## The whole boat
 

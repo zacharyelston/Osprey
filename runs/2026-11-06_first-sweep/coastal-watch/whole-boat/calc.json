@@ -1,0 +1,250 @@
+[
+ {
+  "group": "Motion",
+  "name": "Roll about the 15 deg heel, rms / max",
+  "value": "4.4 / 17.4 deg",
+  "limit": "",
+  "status": "INFO",
+  "note": "ss4, Hs 1.9 m, Tp 7.0 s, waves 60 deg off the bow"
+ },
+ {
+  "group": "Motion",
+  "name": "Pitch rms / max",
+  "value": "1.4 / 5.1 deg",
+  "limit": "",
+  "status": "INFO",
+  "note": ""
+ },
+ {
+  "group": "Motion",
+  "name": "Angular rate at the mounts, p95 / max",
+  "value": "10.5 / 20.2 deg/s",
+  "limit": "",
+  "status": "INFO",
+  "note": "the same for every camera on a rigid hull"
+ },
+ {
+  "group": "Motion",
+  "name": "Acceleration at top (18.9 m), p95",
+  "value": "0.54 g",
+  "limit": "0.5 g",
+  "status": "WARN",
+  "note": "sets the mount, connector and gimbal-motor ratings"
+ },
+ {
+  "group": "Motion",
+  "name": "Speed of top through the air, p95",
+  "value": "3.5 m/s",
+  "limit": "",
+  "status": "INFO",
+  "note": "parallax for near targets; adds to apparent wind on the housing"
+ },
+ {
+  "group": "Stabilization",
+  "name": "top: blur p95 at 200 mm, 1 ms",
+  "value": "0.03 px",
+  "limit": "1 px",
+  "status": "PASS",
+  "note": "worst of 8 horizon bearings"
+ },
+ {
+  "group": "Stabilization",
+  "name": "top: pointing jitter rms vs half-FOV at max zoom",
+  "value": "18 urad",
+  "limit": "6399 urad",
+  "status": "PASS",
+  "note": "inner stage saturated 0% of the time"
+ },
+ {
+  "group": "Stabilization",
+  "name": "fwd: blur p95 at 120 mm, 1 ms",
+  "value": "1.01 px",
+  "limit": "1 px",
+  "status": "WARN",
+  "note": "worst of 8 horizon bearings"
+ },
+ {
+  "group": "Stabilization",
+  "name": "fwd: pointing jitter rms vs half-FOV at max zoom",
+  "value": "4987 urad",
+  "limit": "7732 urad",
+  "status": "WARN",
+  "note": "no fast stage"
+ },
+ {
+  "group": "Stabilization",
+  "name": "port: blur p95 at 120 mm, 1 ms",
+  "value": "1.01 px",
+  "limit": "1 px",
+  "status": "WARN",
+  "note": "worst of 8 horizon bearings"
+ },
+ {
+  "group": "Stabilization",
+  "name": "port: pointing jitter rms vs half-FOV at max zoom",
+  "value": "4987 urad",
+  "limit": "7732 urad",
+  "status": "WARN",
+  "note": "no fast stage"
+ },
+ {
+  "group": "Stabilization",
+  "name": "stbd: blur p95 at 120 mm, 1 ms",
+  "value": "1.01 px",
+  "limit": "1 px",
+  "status": "WARN",
+  "note": "worst of 8 horizon bearings"
+ },
+ {
+  "group": "Stabilization",
+  "name": "stbd: pointing jitter rms vs half-FOV at max zoom",
+  "value": "4987 urad",
+  "limit": "7732 urad",
+  "status": "WARN",
+  "note": "no fast stage"
+ },
+ {
+  "group": "Stabilization",
+  "name": "aft: blur p95 at 120 mm, 1 ms",
+  "value": "1.01 px",
+  "limit": "1 px",
+  "status": "WARN",
+  "note": "worst of 8 horizon bearings"
+ },
+ {
+  "group": "Stabilization",
+  "name": "aft: pointing jitter rms vs half-FOV at max zoom",
+  "value": "4987 urad",
+  "limit": "7732 urad",
+  "status": "WARN",
+  "note": "no fast stage"
+ },
+ {
+  "group": "Stabilization",
+  "name": "bow: blur p95 at 3 mm, 2 ms",
+  "value": "0.70 px",
+  "limit": "1 px",
+  "status": "PASS",
+  "note": "worst of 8 horizon bearings"
+ },
+ {
+  "group": "Stabilization",
+  "name": "bow: pointing jitter rms vs half-FOV at max zoom",
+  "value": "101334 urad",
+  "limit": "260844 urad",
+  "status": "PASS",
+  "note": "no fast stage"
+ },
+ {
+  "group": "Stabilization",
+  "name": "stern: blur p95 at 3 mm, 2 ms",
+  "value": "0.70 px",
+  "limit": "1 px",
+  "status": "PASS",
+  "note": "worst of 8 horizon bearings"
+ },
+ {
+  "group": "Stabilization",
+  "name": "stern: pointing jitter rms vs half-FOV at max zoom",
+  "value": "101334 urad",
+  "limit": "260844 urad",
+  "status": "PASS",
+  "note": "no fast stage"
+ },
+ {
+  "group": "Reach",
+  "name": "Detect person in water",
+  "value": "792 m (top, waves)",
+  "limit": ">= 1,000 m",
+  "status": "WARN",
+  "note": "same camera at deck height (2.5 m): 100 m"
+ },
+ {
+  "group": "Reach",
+  "name": "Detect lobster buoy",
+  "value": "1,178 m (top, waves)",
+  "limit": ">= 500 m",
+  "status": "PASS",
+  "note": "same camera at deck height (2.5 m): 143 m"
+ },
+ {
+  "group": "Reach",
+  "name": "Detect sailboat 30ft",
+  "value": "11,487 m (top, atmosphere)",
+  "limit": ">= 8,000 m",
+  "status": "PASS",
+  "note": "same camera at deck height (2.5 m): 11,487 m"
+ },
+ {
+  "group": "Reach",
+  "name": "Detect ship",
+  "value": "11,487 m (top, atmosphere)",
+  "limit": ">= 15,000 m",
+  "status": "WARN",
+  "note": "same camera at deck height (2.5 m): 11,487 m"
+ },
+ {
+  "group": "Ranging",
+  "name": "Horizon-dip range, top, at 1 km",
+  "value": "+/- 25 m (2.5%)",
+  "limit": "",
+  "status": "INFO",
+  "note": "refraction bias 3 m for dk = 0.04"
+ },
+ {
+  "group": "Ranging",
+  "name": "Horizon-dip range, top, at 2 km",
+  "value": "+/- 51 m (2.6%)",
+  "limit": "",
+  "status": "INFO",
+  "note": "refraction bias 10 m for dk = 0.04"
+ },
+ {
+  "group": "Ranging",
+  "name": "Horizon-dip range, top, at 5 km",
+  "value": "+/- 138 m (2.8%)",
+  "limit": "",
+  "status": "INFO",
+  "note": "refraction bias 54 m for dk = 0.04"
+ },
+ {
+  "group": "Ranging",
+  "name": "Group stereo top+bow, 16.7 m vertical baseline, at 2 km",
+  "value": "+/- 54 m (2.7%)",
+  "limit": "",
+  "status": "INFO",
+  "note": "relative orientation 50 urad from the shared horizon; a flexing rig without it: mrad"
+ },
+ {
+  "group": "Coverage",
+  "name": "Horizon seen by at least one camera (main+jib, heel 15 deg)",
+  "value": "100.0%",
+  "limit": ">= 98%",
+  "status": "PASS",
+  "note": ""
+ },
+ {
+  "group": "Coverage",
+  "name": "Horizon seen without top",
+  "value": "68.1%",
+  "limit": "",
+  "status": "INFO",
+  "note": "what is left when the masthead PTZ is busy in a group"
+ },
+ {
+  "group": "Coverage",
+  "name": "Horizon seen by two or more cameras",
+  "value": "68.1%",
+  "limit": "",
+  "status": "INFO",
+  "note": "where a looking group of 2+ is possible"
+ },
+ {
+  "group": "Mass aloft",
+  "name": "Camera mass on the mast / masthead equivalent",
+  "value": "7.2 / 5.0 kg",
+  "limit": "4 kg eq",
+  "status": "WARN",
+  "note": "equivalent = same heeling moment at the truck; cameras only, no brackets or cable"
+ }
+]
