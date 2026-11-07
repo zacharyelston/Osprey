@@ -1,0 +1,22 @@
+{
+ "kind": "escort",
+ "progress_label": "time on station",
+ "outcome": "recovered",
+ "left_task_because": "goal",
+ "goal": 1.0,
+ "progress": 1.0,
+ "goal_met": true,
+ "flight_time_s": 2837.5,
+ "on_scene_s": 0.0,
+ "task_s": 2700.0,
+ "t_half_s": 1350.0,
+ "t_goal_s": 2700.0,
+ "distance_km": 44.40947353143788,
+ "energy_left_frac": 0.1694511900141249,
+ "bank_max_deg": 35.0,
+ "power_mean_w": 73.20792446290437,
+ "escort_radius_m": 1500.0,
+ "escort_min": 45.0,
+ "watch_for": "sailboat_30ft",
+ "beam_reach_km": 6.661290322580645
+}

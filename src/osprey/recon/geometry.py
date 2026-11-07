@@ -309,9 +309,17 @@ def build_bwb(p, d: dict, *, explode: float = 0.0) -> list[Part]:
     xs = -(le + 0.30 * c)                                   # the 30 % chord line, swept back to the tips
     kind = d.get("airframe", "bwb")
     for sign in (1, -1):
-        k = int((0.92 if kind == "bwb" else 0.75) * (len(y) - 1))
-        v, f = _tube([xs[0], 0.0, lz[0]], [xs[k], sign * y[k], lz[k]], r_spar)
-        parts.append(Part(f"spar_{sign}", "spar", v, f))
+        if kind == "bwb":
+            k = int(0.92 * (len(y) - 1))
+            v, f = _tube([xs[0], 0.0, lz[0]], [xs[k], sign * y[k], lz[k]], r_spar)
+            parts.append(Part(f"spar_{sign}", "spar", v, f))
+            continue
+        # A curved wing takes its spar in short straight tubes, joined panel to panel.
+        k_end = int(0.85 * (len(y) - 1))
+        for j in range(0, k_end, 3):
+            j2 = min(j + 3, k_end)
+            v, f = _tube([xs[j], sign * y[j], lz[j]], [xs[j2], sign * y[j2], lz[j2]], r_spar * 0.8, 10)
+            parts.append(Part(f"spar_{sign}_{j}", "spar", v, f))
     if kind == "crescent":
         # A slim nose pod for the camera and battery; the tips already curve up.
         L, R, x0 = g.pod_length_m, g.pod_diameter_m / 2, g.pod_nose_x_m
@@ -359,7 +367,9 @@ def build_bwb(p, d: dict, *, explode: float = 0.0) -> list[Part]:
         parts.append(Part("gimbal", "gimbal", v, f))
         v, f = _sphere([xc + 0.04 + g.gimbal_radius_m * 0.75, 0, -0.42 * depth - 0.01], g.gimbal_radius_m * 0.45)
         parts.append(Part("lens", "lens", v, f))
-    xp = -(le[0] + c[0]) - 0.03 if kind == "bwb" else g.pod_nose_x_m - g.pod_length_m - 0.02
+    xp = -(le[0] + c[0]) - 0.03                             # behind the root trailing edge
+    if kind == "crescent":
+        xp = min(xp, g.pod_nose_x_m - g.pod_length_m - 0.02)
     rp = g.prop_diameter_m / 2
     v, f = _tube([xp, 0, 0], [xp - 0.004, 0, 0], rp, 40)
     parts.append(Part("prop_disc", "disc", v, f))

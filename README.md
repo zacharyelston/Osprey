@@ -345,6 +345,81 @@ all`.</sub>
 
 </details>
 
+### Three airframes: twin-boom, blended wing, crescent
+
+The twin-boom's pod, booms and tail are most of its drag, so two tailless flying wings join it
+(`--airframe`). Both are trimmed by the optimizer (zero pitching moment at task speed) and kept stable (a
+static margin of at least 6 %), with the CG, where the battery sits, as a design variable:
+- **`bwb`, a blended wing body.** Swept, with a thick centre body that holds the battery and payload
+  (75 mm deep). Moulded composite skins, so the chord isn't limited by a printer bed.
+- **`crescent`, an organic crescent flying wing**, after printed AI-optimized wings like the
+  [Neuronautics NX-2](https://cults3d.com/en/3d-model/gadget/neuronaut-nx-2-ai-optimized-organic-flying-wing).
+  - The optimizer shapes the leading edge's curve, so sweep grows toward the tips.
+  - The tips curve up into blended winglets.
+  - A slim nose pod carries the camera and battery.
+  - It prints in panels on carbon tubes, as the twin-boom does.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/airframes-dark.png">
+  <img src="docs/img/airframes.png" alt="The three airframes' do-everything birds drawn to scale, and their take-off mass and lift-to-drag with each payload">
+</picture>
+
+| Lightest airframe that does all seven jobs ([`runs/2026-11-06_recon-wings`](runs/2026-11-06_recon-wings/)) | One gimbal | A PTZ eye each side |
+|---|---|---|
+| Twin-boom, printed | 2.73 kg, 2.02 m, L/D 10.1 | 2.13 kg, 1.54 m, L/D 8.1 |
+| Blended wing, moulded | 2.11 kg, 1.32 m, L/D 11.6 | **1.80 kg, 1.15 m**, L/D 10.0 |
+| Crescent flying wing, printed | 2.18 kg, 1.98 m, **L/D 12.6** | 1.83 kg, 1.69 m, L/D 11.3 |
+
+- **Losing the tail and booms saves about 0.6 kg**, whichever payload.
+- **The two flying wings weigh about the same and differ in kind.**
+  - The blended wing is compact: 1.1-1.3 m span, 5.8 l inside, room for a bigger battery or payload.
+  - The crescent is efficient and needs no moulds: aspect ratio 14-16, L/D 11-13, about 70 W at task
+    speed. It prints in 8 panels.
+- **The crescent's chord stays at 13 cm, unlike the NX-2's wide root.** The Reynolds floor holds the tips
+  there, and with the payload in the pod, a mass-minimizing optimizer has no reason to widen the root.
+- **The blended wing sits at its 1.0 m minimum span on most single jobs.** That is a bound I set for
+  handling, so a smaller one is possible.
+
+<table>
+<tr>
+<td width="50%"><img src="docs/img/bird-crescent-turntable.gif" alt="The crescent flying wing turning: curved swept wing with upswept tips, orange nose pod, pusher prop"></td>
+<td width="50%"><img src="docs/img/bird-bwb-hero.png" alt="The blended wing body banking over the sea above the sailboat"></td>
+</tr>
+</table>
+
+![The crescent flying wing: top, front and side](docs/img/bird-crescent-threeview.png)
+
+**From design to moulds.** `osprey recon-buck` turns a sized flying wing into files to make it from:
+- the outer mould line as STL;
+- an upper and a lower buck, each the closed solid above or below the chord line, with a flat face where
+  the moulds part, ready for a CNC toolpath or a slicer;
+- every station's section points as CSV;
+- the stock block each buck needs, and the skin area and laminate weight.
+
+For the gimbal blended wing, the upper buck needs a 667 × 1366 × 119 mm block. The skin is 0.56 m², about
+0.2 kg of laminate. The exploded render shows where the moulds part:
+
+![The blended wing's upper and lower mould halves pulled apart](docs/img/bird-bwb-moulds.png)
+
+### Anti-piracy awareness
+
+How far each eye sees a fast skiff coming, and the warning that buys at 30 kn (`osprey recon-awareness`):
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/awareness-dark.png">
+  <img src="docs/img/awareness.png" alt="Ranges for detecting a skiff's wake, detecting and recognizing the skiff, and identifying a person aboard, from a spreader bullet, the masthead PTZ and the drone at 120 m">
+</picture>
+
+- **Altitude buys the wake, not the boat.** A planing skiff's wake is flat on the water. Waves hide it
+  from the masthead beyond 1-4 km; from 120 m only the haze limits it, at 12 km in clear air.
+- **The mast's 200 mm stabilized PTZ out-ranges the drone's 30 mm gimbal on the skiff itself**: 11 km
+  against 7.5 km to detect, 11 km against 1.9 km to recognize. Climbing above 120 m changes nothing with
+  these cameras: resolution and haze bind first.
+- **So the drone's value is position.** Flying picket 5 km out on the threat side, it sees a wake about
+  17 km from the boat: roughly 18 minutes of warning, against 12 from the masthead.
+- **Identifying who is aboard still means getting close**: the inspect job, or a longer zoom than this
+  gimbal's 30 mm.
+
 What the models say so far:
 
 - **The fixed parts set the size.** Body, avionics, gimbal and motor weigh 1.18 kg, more than everything
@@ -439,6 +514,9 @@ uv run osprey render --scenario docking --rig gecko5        # RGB, depth, class 
 uv run osprey sweep --workers 8                             # every scenario x rig
 uv run osprey recon --mission all                           # Recon: size and fly each job, then the matrix
 uv run osprey recon-render --mission all                    # Recon: render each sized drone
+uv run osprey recon --mission all --airframe crescent       # Recon: the crescent flying wing (or bwb)
+uv run osprey recon-buck --mission sar-offshore --airframe bwb   # Recon: OML and buck halves for moulds
+uv run osprey recon-awareness                               # Recon: anti-piracy ranges
 ```
 
 Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two workstations, `gpu1` and
@@ -455,9 +533,9 @@ Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two works
 | [`design/targets.toml`](design/targets.toml) | Target classes and Johnson criteria |
 | [`design/rigs/`](design/rigs/) | `gecko5` (pods), `spreader-pairs` (dual mounts on the spreader tips), `mast5` (1 top + 4 round the mast), `mast5-spreaders`, `whole-boat` |
 | [`design/scenarios/`](design/scenarios/) | `coastal-watch` (sea state 4), `mob` (sea state 3), `docking` |
-| [`design/recon/`](design/recon/) | Recon: the reference printed airframe, payload variants, and the mission profiles (search, survey, inspect, escort) |
+| [`design/recon/`](design/recon/) | Recon: the reference printed airframe, airframe variants (blended wing, crescent), payload variants, and the mission profiles (search, survey, inspect, escort) |
 | [`src/osprey/`](src/osprey/) | `frames`, `motion`, `optics`, `stabilize`, `occlusion`, `rig`, `tasking`, `calcs`, `figures`, `render/scene`, `cli` |
-| [`src/osprey/recon/`](src/osprey/recon/) | `tasks` (search, survey, inspect), `search` (sweep width, POD), `flight` (3-DOF), `sizing` (OpenMDAO + OpenAeroStruct), `fleet` (one bird, many jobs), `geometry` and `render` (the bird in MuJoCo), `figures` |
+| [`src/osprey/recon/`](src/osprey/recon/) | `tasks` (search, survey, inspect, escort), `search` (sweep width, POD), `flight` (3-DOF), `sizing` (OpenMDAO + OpenAeroStruct, trim and stability for flying wings), `fleet` (one bird, many jobs), `geometry` and `render` (the bird in MuJoCo), `buck` (mould files), `awareness` (anti-piracy ranges), `figures` |
 | [`runs/`](runs/README.md) | Kept runs, never edited after they are archived |
 | [`docs/`](docs/) | [Architecture](docs/architecture.md), [Recon](docs/recon.md), [remote runs](docs/remote-simulation.md), README figures |
 
@@ -465,6 +543,7 @@ Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two works
 
 | Run | What it shows |
 |---|---|
+| [`2026-11-06_recon-wings`](runs/2026-11-06_recon-wings/) | Recon: the blended wing and crescent flying wing, each payload, seven jobs and capability matrices; awareness ranges; bucks for the blended wings |
 | [`2026-11-06_recon-payloads`](runs/2026-11-06_recon-payloads/) | Recon: seven jobs (search, survey, inspect, escort) for each payload (gimbal, side PTZ eyes), each one's sized airframe and flight, and both capability matrices |
 | [`2026-11-06_pairs-sweep`](runs/2026-11-06_pairs-sweep/summary.md) | Every scenario x rig, now with `spreader-pairs` (dual mounts on the spreaders) in full |
 | [`2026-11-06_pairs-docking-render`](runs/2026-11-06_pairs-docking-render/) | 10 s docking render on `spreader-pairs`: video, one frame of `lo-port-fwd`, all labels |

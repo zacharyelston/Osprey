@@ -169,8 +169,9 @@ def threeview(p, d: dict, path: Path, W: int = 1800, H: int = 640):
     imgs = _shoot(_world("studio", a, b, cams, w3, H, floor_on=False), ["top", "front", "side"], w3, H)
     _save(np.concatenate([imgs["top"], imgs["front"], imgs["side"]], 1), path,
           labels=[(14, f"top: {d['span_m']:.2f} m span"),
-                  (w3 + 14, "front: winglets, payload, pusher prop" if d.get("airframe") == "bwb"
-                   else "front: 3 deg dihedral, gimbal, pusher prop"),
+                  (w3 + 14, {"bwb": "front: winglets, payload, pusher prop",
+                             "crescent": "front: upswept tips, nose pod, pusher prop"}.get(
+                      d.get("airframe"), "front: 3 deg dihedral, gimbal, pusher prop")),
                   (2 * w3 + 14, f"side: {L:.2f} m long")])
 
 

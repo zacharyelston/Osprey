@@ -731,12 +731,113 @@ def fig_recon_payloads(theme: str):
         _save(fig, "recon-payloads", theme)
 
 
+WINGS_RUN = RUNS / "2026-11-06_recon-wings"
+AIRFRAMES = [("twinboom", "Twin-boom, printed", PAYLOADS_RUN), ("bwb", "Blended wing, moulded", WINGS_RUN / "bwb"),
+             ("crescent", "Crescent flying wing, printed", WINGS_RUN / "crescent")]
+
+
+def fig_awareness(theme: str):
+    """How far each eye sees a fast skiff coming, and the warning that buys at 30 kn."""
+    from osprey.recon import awareness
+
+    t = THEMES[theme]
+    rows = awareness.table("ss3", 15.0)
+    cols = [("skiff_wake:detect", "wake detected"), ("skiff:detect", "skiff detected"),
+            ("skiff:recognize", "skiff recognized"), ("person_aboard:identify", "person aboard identified")]
+    eyes = [r for r in rows if "300" not in r["eye"] and "500" not in r["eye"]]
+    with plt.rc_context(FONT):
+        fig, ax = plt.subplots(figsize=(9.6, 4.4), facecolor=t["surface"])
+        _style(ax, t)
+        h = 0.2
+        for j, (key, name) in enumerate(cols):
+            for i, r in enumerate(eyes):
+                d, why, mins = r[key]
+                y = i + (j - 1.5) * h
+                ax.barh(y, d / 1e3, height=h * 0.9, color=t["series"][j], label=name if i == 0 else None)
+                ax.text(d / 1e3 + 0.15, y, f"{d / 1e3:.1f} km, {mins:.0f} min ({why})", va="center", fontsize=7,
+                        color=t["ink2"])
+        ax.set_yticks(range(len(eyes)), [r["eye"] for r in eyes], fontsize=8.5, color=t["ink"])
+        ax.invert_yaxis()
+        ax.set_xlim(0, 17)
+        ax.set_xlabel("range (km); minutes of warning for a skiff closing at 30 kn; what limits it")
+        ax.grid(axis="x", color=t["grid"], lw=0.8)
+        ax.set_axisbelow(True)
+        for s_ in ("top", "right", "left"):
+            ax.spines[s_].set_visible(False)
+        ax.tick_params(axis="y", length=0)
+        leg = ax.legend(loc="upper right", fontsize=8, frameon=False)
+        for txt in leg.get_texts():
+            txt.set_color(t["ink2"])
+        ax.set_title("Anti-piracy awareness, sea state 3, 15 km visibility: altitude buys the wake",
+                     loc="left", fontsize=11, color=t["ink"], pad=10)
+        _save(fig, "awareness", theme)
+
+
+def _one_bird(run: Path, payload: str):
+    mx = json.loads((run / payload / "matrix.json").read_text())
+    b = mx["one_bird"]
+    return b, json.loads((run / payload / b / "design.json").read_text())
+
+
+def fig_airframes(theme: str):
+    """The three airframes' do-everything birds: planforms to scale, mass and L/D."""
+    t = THEMES[theme]
+    with plt.rc_context(FONT):
+        fig, (ax, bx) = plt.subplots(1, 2, figsize=(11, 4.6), facecolor=t["surface"],
+                                     gridspec_kw={"width_ratios": [1.5, 1]})
+        for a in (ax, bx):
+            _style(a, t)
+        for i, (af, name, run) in enumerate(AIRFRAMES):
+            b, d = _one_bird(run, "gimbal")
+            y = np.array(d["half_span_y_m"])
+            c = np.array(d["chords_m"])
+            le = np.array(d.get("le_x_m", -0.3 * c))
+            if af == "twinboom":
+                le = 0.3 * c                                           # spar at 30 % chord, unswept
+            xo = -i * 1.15
+            for side in (-1, 1):
+                ax.fill(np.r_[side * y, side * y[::-1]], np.r_[xo - le, (xo - le - c)[::-1]],
+                        color=t["series"][i], alpha=0.35, ec=t["series"][i], lw=1.2)
+            if af == "twinboom":
+                ax.plot([0, 0], [xo - 0.3, xo - 0.8], color=t["series"][i], lw=1)   # pod and booms, roughly
+            ax.text(-1.35, xo + 0.12, f"{name}: {d['span_m']:.2f} m, {d['mass_total_kg']:.2f} kg", fontsize=8.5,
+                    color=t["ink"])
+        ax.set_aspect("equal")
+        ax.set_xlim(-1.4, 1.4)
+        ax.set_ylim(-3.6, 0.35)
+        ax.set_axis_off()
+        ax.set_title("The do-everything bird of each airframe (gimbal), to scale", loc="left", fontsize=10.5,
+                     color=t["ink"])
+        h = 0.36
+        for k, (pl, nm) in enumerate((("gimbal", "gimbal"), ("dual", "side PTZ eyes"))):
+            for i, (af, name, run) in enumerate(AIRFRAMES):
+                b, d = _one_bird(run, pl)
+                yv = i + (k - 0.5) * h
+                bx.barh(yv, d["mass_total_kg"], height=h * 0.9, color=t["series"][i], alpha=1.0 if k == 0 else 0.55)
+                bx.text(d["mass_total_kg"] + 0.04, yv, f"{d['mass_total_kg']:.2f} kg, L/D {d['LD']:.1f} ({nm})",
+                        va="center", fontsize=7.5, color=t["ink2"])
+        bx.set_yticks(range(len(AIRFRAMES)), [n.split(",")[0] for _, n, _ in AIRFRAMES], fontsize=8.5, color=t["ink"])
+        bx.invert_yaxis()
+        bx.set_xlim(0, 4.2)
+        bx.set_xlabel("take-off mass of the lightest airframe that does all seven jobs (kg)")
+        bx.grid(axis="x", color=t["grid"], lw=0.8)
+        bx.set_axisbelow(True)
+        for s_ in ("top", "right", "left"):
+            bx.spines[s_].set_visible(False)
+        bx.tick_params(axis="y", length=0)
+        bx.set_title("Mass and lift-to-drag", loc="left", fontsize=10.5, color=t["ink"])
+        fig.tight_layout()
+        _save(fig, "airframes", theme)
+
+
 def main():
     for theme in THEMES:
         fig_hero(theme)
         fig_recon_jobs(theme)
         fig_recon_payloads(theme)
         fig_pairs_layout(theme)
+        fig_awareness(theme)
+        fig_airframes(theme)
         fig_recon_matrix(theme)
         fig_recon_wings(theme)
         fig_recon_tracks(theme)
