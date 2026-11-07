@@ -7,3 +7,4 @@ __pycache__/
 out/
 MUJOCO_LOG.TXT
 *_out/
+_site/

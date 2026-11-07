@@ -6,6 +6,10 @@ boat into a slip. *Osprey Recon* is the boat's scout: a 3D-printed drone that fl
 whatever the captain needs to know about, from the anchorage ahead and the vessel on a crossing course to
 the wildlife and hazards round a remote island, and a person in the water.
 
+**The options at a glance:** [zacharyelston.github.io/Osprey](https://zacharyelston.github.io/Osprey/), a
+one-page tour where you pick a mast rig or build a bird and see what the models say. Its source is
+[`site/`](site/); `sh site/build.sh` assembles it into `_site/`.
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/hero-dark.png">
   <img src="docs/img/hero.png" alt="Left: four synthetic frames from the gecko pods' lower cameras while docking. Right: a render of the Recon drone, white printed wing and orange pod, banking over the sea above the sailboat.">
