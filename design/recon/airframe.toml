@@ -95,3 +95,17 @@ tail_t_over_c = 0.09
 tail_chord_min_m = 0.08    # below this a printed tail flies at too low a Reynolds number
 fin_aspect = 1.4
 prop_diameter_m = 0.23
+
+# The interlocking ladder frame (a car builder's buck) a flying wing's plug
+# or skin is formed over: flat ribs across the span and stringers along it, cut
+# from sheet and slotted together half-depth. osprey recon-frame.
+[frame]
+sheet_mm = [2440.0, 1220.0]    # 8 x 4 ft
+thickness_mm = 6.0             # MDF or birch ply
+clearance_mm = 0.3             # added to the slot width for a push fit
+rib_spacing_mm = 100.0
+stringer_chord_fractions = [0.20, 0.50, 0.80]   # each wing half: a stringer following each of these fractions of the chord
+skin_offset_mm = 3.0           # the frame sits this far inside the outer mould line
+base_mm = 25.0                 # the frame's lowest edge sits this far below the surface's lowest point
+edge_margin_mm = 5.0           # wood left between a slot and the end of the rib it is cut in
+part_gap_mm = 8.0              # between nested parts

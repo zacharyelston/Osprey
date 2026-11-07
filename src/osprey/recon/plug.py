@@ -1,20 +1,24 @@
 """Hand-off for the moulds: the sized blended wing's outer mould line (OML)
-as files a buck can be cut or printed from.
+as files a plug can be cut or printed from.
 
-A buck (plug) is the positive shape the moulds are taken off. The wing
-parts at its chord line into an upper and a lower mould. Each buck is the
+A plug is the positive shape the moulds are taken off (boat builders call
+it the buck; car builders mean the ladder frame by that, see frame.py). The
+wing parts at its chord line into an upper and a lower mould. Each plug is the
 solid above (or below) that parting surface, with a flat face where the
 moulds meet. The files are in millimetres, x forward, y port, z up:
 - oml.stl: the whole outer surface, both sides;
-- buck_upper.stl and buck_lower.stl: the two buck halves, closed solids
+- plug_upper.stl and plug_lower.stl: the two plug halves, closed solids
   ready for a CNC toolpath or a slicer;
 - sections.csv: every spanwise station's upper and lower surface points,
-  for hot-wire templates, CadQuery lofts or checking a cut buck;
-- buck.md: sizes, the stock block each half needs, and skin area and
+  for hot-wire templates, CadQuery lofts or checking a cut plug;
+- plug.md: sizes, the stock block each half needs, and skin area and
   laminate weight for ordering cloth.
 
+`osprey recon-plug` also renders plugs.png: both halves on a bench, parting
+faces down, the upper one inside a ghost of its stock block.
+
 A smooth B-rep (STEP) loft from sections.csv in CadQuery is the next step
-for CNC; these meshes are fine for printing a buck or roughing it.
+for CNC; these meshes are fine for printing a plug or roughing it.
 """
 
 from __future__ import annotations
@@ -64,8 +68,8 @@ def export(p, d: dict, out: Path, *, margin_mm: float = 25.0) -> dict:
     upper = _meshes(geometry.bwb_surface(p, d, half="upper"))
     lower = _meshes(geometry.bwb_surface(p, d, half="lower"))
     _stl(out / "oml.stl", oml, "osprey recon bwb outer mould line, mm")
-    _stl(out / "buck_upper.stl", upper, "osprey recon bwb upper buck, mm")
-    _stl(out / "buck_lower.stl", lower, "osprey recon bwb lower buck, mm")
+    _stl(out / "plug_upper.stl", upper, "osprey recon bwb upper plug, mm")
+    _stl(out / "plug_lower.stl", lower, "osprey recon bwb lower plug, mm")
 
     g = p.geometry
     y, le, c, tw, tc, lz = geometry._stations(p, d)
@@ -94,9 +98,9 @@ def export(p, d: dict, out: Path, *, margin_mm: float = 25.0) -> dict:
     lo_l, hi_l, stock_l = box(lower)
     info["stock_upper_mm"] = stock_u.tolist()
     info["stock_lower_mm"] = stock_l.tolist()
-    lines = [f"# Buck hand-off: {p.mission.name}, blended wing body", "",
+    lines = [f"# Plug hand-off: {p.mission.name}, blended wing body", "",
              "Outer mould line of the sized design, in millimetres (x forward, y port, z up). The wing parts at its "
-             "chord line into an upper and a lower mould; each buck is the solid above or below that line.", "",
+             "chord line into an upper and a lower mould; each plug is the solid above or below that line.", "",
              "| | |", "|---|---|",
              f"| Span | {info['span_mm']:.0f} mm |",
              f"| Root / tip chord | {info['root_chord_mm']:.0f} / {info['tip_chord_mm']:.0f} mm |",
@@ -104,15 +108,15 @@ def export(p, d: dict, out: Path, *, margin_mm: float = 25.0) -> dict:
              f"| Sweep (leading edge) | {info['sweep_deg']:.1f} deg |",
              f"| Wetted area / skin at {lam:g} kg/m² | {wet:.2f} m² / {info['skin_kg']:.2f} kg |",
              f"| Volume inside the OML | {info['enclosed_l']:.1f} l |",
-             f"| Stock for the upper buck (L x W x H, with {margin_mm:g} mm margin) | "
+             f"| Stock for the upper plug (L x W x H, with {margin_mm:g} mm margin) | "
              + " x ".join(f"{s_:.0f}" for s_ in stock_u) + " mm |",
-             f"| Stock for the lower buck | " + " x ".join(f"{s_:.0f}" for s_ in stock_l) + " mm |", "",
-             "Files: `oml.stl`, `buck_upper.stl`, `buck_lower.stl` (closed solids, binary STL), `sections.csv` "
+             f"| Stock for the lower plug | " + " x ".join(f"{s_:.0f}" for s_ in stock_l) + " mm |", "",
+             "Files: `oml.stl`, `plug_upper.stl`, `plug_lower.stl` (closed solids, binary STL), `sections.csv` "
              f"({len(y)} stations, upper and lower points).", "",
              "Notes:",
              "- The parting surface follows each section's chord line, so with washout it is gently twisted, not "
-             "flat. Mount each buck on a parting board shaped to it.",
-             "- The bucks are the bare OML. Add flanges, draft and a release finish before taking moulds off them.",
+             "flat. Mount each plug on a parting board shaped to it.",
+             "- The plugs are the bare OML. Add flanges, draft and a release finish before taking moulds off them.",
              "- Winglets, the payload fairing and the prop mount are separate parts and are not in these files.", ""]
-    (out / "buck.md").write_text("\n".join(lines))
+    (out / "plug.md").write_text("\n".join(lines))
     return info

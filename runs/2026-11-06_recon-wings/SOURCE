@@ -1,2 +1,3 @@
 d81f91c gpu1:~/osprey-sim/run-1E9v7b (osprey recon --mission all --airframe {bwb,crescent} --payload {gimbal,dual}, four in parallel; osprey recon-awareness)
-Bucks under bwb/*/<mission>/buck: uv run osprey recon-buck --run <this>/bwb/<payload> on d81f91c, locally
+Plugs under bwb/*/<mission>/plug: uv run osprey recon-plug --run <this>/bwb/<payload>, locally (first as recon-buck on d81f91c; renamed, same geometry)
+Ladder frames under {bwb,crescent}/*/<mission>/frame: uv run osprey recon-frame --run <this>/<airframe>/<payload>, locally, on the commit that adds frame.py

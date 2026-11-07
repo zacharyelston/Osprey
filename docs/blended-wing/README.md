@@ -25,7 +25,7 @@ wing has to trim and stabilize itself.
 - **Shape:** swept and tailless, with a thick centre body (17 % thick at the root, at least 75 mm deep)
   that holds the battery and payload.
 - **Construction:** moulded composite skins (REF 0.35 kg/m² of wetted area). The chord is not limited by a
-  printer bed, so it needs moulds, and the moulds need bucks.
+  printer bed, so it needs moulds, and the moulds need plugs.
 - **Controls:** winglets for yaw, elevons, and a pusher on the centreline.
 
 **`crescent`: an organic crescent flying wing**
@@ -61,7 +61,8 @@ Run it:
 ```bash
 uv run osprey recon --mission all --airframe bwb            # or crescent; add --payload dual for side eyes
 uv run osprey recon-render --mission all --airframe bwb     # renders of each sized airframe
-uv run osprey recon-buck --mission sar-offshore --airframe bwb   # OML and buck halves for the moulds
+uv run osprey recon-plug --mission sar-offshore --airframe bwb    # OML and plug halves for the moulds
+uv run osprey recon-frame --mission sar-offshore --airframe bwb   # CNC ladder-frame layout (DXF, SVG, cut list)
 ```
 
 ## Results so far
@@ -106,26 +107,80 @@ What it says:
 
 ## From design to moulds
 
-A buck (plug) is the positive shape moulds are taken off. `osprey recon-buck` writes these for a sized
-flying wing, in millimetres, x forward, y port, z up:
+Two words get in the way here. A boat builder's **buck** is the plug a mould is taken off; a car builder's
+**buck** is the interlocking ladder frame that sheet or skin is formed over. Osprey keeps them apart:
+
+- **plug**: the positive shape the moulds are taken off (`osprey recon-plug`);
+- **ladder frame**: the CNC-cut egg-crate a plug or skin is built over (`osprey recon-frame`).
+
+### Plugs
+
+`osprey recon-plug` writes these for a sized flying wing, in millimetres, x forward, y port, z up:
 
 | File | What |
 |---|---|
 | `oml.stl` | The outer mould line, both sides |
-| `buck_upper.stl`, `buck_lower.stl` | The solids above and below each section's chord line: closed meshes with a flat face where the two moulds part, for a CNC toolpath or a slicer |
-| `sections.csv` | Every station's upper and lower points, for hot-wire templates, a CadQuery loft, or checking a cut buck |
-| `buck.md` | Sizes, the stock block each half needs, skin area and laminate weight |
+| `plug_upper.stl`, `plug_lower.stl` | The solids above and below each section's chord line: closed meshes with a flat face where the two moulds part, for a CNC toolpath or a slicer |
+| `sections.csv` | Every station's upper and lower points, for hot-wire templates, a CadQuery loft, or checking a cut plug |
+| `plug.md` | Sizes, the stock block each half needs, skin area and laminate weight |
+| `plugs.png` | A picture of the two plugs on a bench, the upper one in its stock block |
 
-For the gimbal blended wing ([its buck files](../../runs/2026-11-06_recon-wings/bwb/gimbal/sar-offshore/buck/)):
+For the gimbal blended wing ([its plug files](../../runs/2026-11-06_recon-wings/bwb/gimbal/sar-offshore/plug/)):
 
 | | |
 |---|---|
 | Span, root and tip chord | 1316 mm, 441 / 129 mm |
 | Centre-body depth | 75 mm |
-| Stock, upper / lower buck (25 mm margin) | 667 × 1366 × 119 mm / 666 × 1366 × 104 mm |
+| Stock, upper / lower plug (25 mm margin) | 667 × 1366 × 119 mm / 666 × 1366 × 104 mm |
 | Skin | 0.56 m², about 0.2 kg of laminate |
 
+![The two plugs on a bench: the upper one in front inside a ghost of its stock block, the lower one behind it turned over, parting faces down](../img/bwb-plugs.png)
+
+<sub>The two plugs for the gimbal blended wing, as `osprey recon-plug` writes them: the upper plug in front,
+inside a ghost of the 667 × 1366 × 119 mm block it is cut from, and the lower plug behind it, turned over.
+Both sit on their parting faces.</sub>
+
 ![The blended wing's upper and lower mould halves pulled apart](../img/bird-bwb-moulds.png)
+
+### Ladder frames
+
+Instead of machining a plug from a block, build it over a frame: flat ribs and stringers cut from one sheet
+of 6 mm MDF or birch ply, slotted together half-depth into an egg-crate that stands on a flat table. Their top
+edges trace the surface 3 mm inside the outer mould line, so planking or foam faired to the frame lands on
+the designed shape. There are two frames, one for each mould half; the lower one is built upside down.
+`osprey recon-frame` writes them from the sized wing ([`src/osprey/recon/frame.py`](../../src/osprey/recon/frame.py),
+settings in `[frame]` of [`design/recon/airframe.toml`](../../design/recon/airframe.toml)):
+
+| File | What |
+|---|---|
+| `frame_sheet<N>.dxf` | One per sheet, R12, millimetres. Layer CUT: each part's closed outline with its slots. LABEL: part names to engrave or ignore. SHEET: the stock outline, not cut |
+| `frame_sheet<N>.svg` | The same sheet, to look at |
+| `frame_sheets.png` | All the sheets |
+| `frame.md` | The cut list (each part's size, slots and sheet) and how it goes together |
+| `frame.png` | Both frames assembled on their tables |
+
+How the frame is laid out:
+- **Ribs** sit every 100 mm across the span, in planes of constant y, so each one is a wing section.
+- **Stringers** follow 20, 50 and 80 % of the chord on each wing half. A wing whose edges curve can't take a
+  straight stringer from root to tip, and a curved one won't cut flat. So each stringer is a few straight
+  runs that break at the same ribs (the fewest runs that stay inside the planform with a slot's worth of rib
+  either side). Runs breaking together can't cross.
+- **Joints:** where a rib and a stringer cross, each part gets a slot half the local depth, the rib's from
+  below and the stringer's from above. A swept stringer crosses at an angle, so both slots widen by 1/sin of
+  it. Run ends butt the faces of the root, tip and break ribs, and get glued there.
+
+![Both ladder frames for the gimbal blended wing on their tables: ribs across the span, stringers following the sweep](../img/bwb-frame.png)
+
+![The blended wing's frame parts nested on one 2440 x 1220 mm sheet](../img/bwb-frame-sheet.png)
+
+| | Blended wing ([files](../../runs/2026-11-06_recon-wings/bwb/gimbal/sar-offshore/frame/)) | Crescent ([files](../../runs/2026-11-06_recon-wings/crescent/gimbal/sar-offshore/frame/)) |
+|---|---|---|
+| Parts, upper + lower frames | 54: 30 ribs, 24 stringer runs | 90: 42 ribs, 48 stringer runs |
+| Slotted joints per frame | 30 | 36 |
+| Tallest part off the table | 92 mm | 160 mm |
+| Stock | One 2440 × 1220 × 6 mm sheet, 0.75 m² of it used | One sheet, 1.63 m² used |
+
+![Both ladder frames for the crescent: its curved leading edge breaks each stringer into four straight runs](../img/crescent-frame.png)
 
 ## Not worked out yet
 
@@ -150,9 +205,15 @@ For the gimbal blended wing ([its buck files](../../runs/2026-11-06_recon-wings/
 **Structure and making it**
 - **The shell carries no load in the model**, and printed LW-PLA is weak between layers.
 - **The parting surface follows each section's chord line, so with washout it is gently twisted.** The
-  bucks need a parting board shaped to it, plus flanges, draft and a release finish.
-- **Separate parts:** winglets, the payload fairing, the hatch and the motor mount aren't in the buck
-  files.
+  plugs need a parting board shaped to it, plus flanges, draft and a release finish.
+- **Separate parts:** winglets, the payload fairing, the hatch and the motor mount aren't in the plug or
+  frame files.
+- **The ladder frames:**
+  - The nesting packs bounding boxes in rows; it doesn't interlock the curved parts.
+  - Slot corners aren't dog-boned for a round bit.
+  - The frames stand on one flat table. The crescent's lower frame has its upswept tips at the bottom, so
+    most of its root ribs are blank board below the surface. A stepped table would save it.
+  - The crescent's tip runs have one slot each; closer ribs there would hold them better.
 - **CNC:** these are meshes. A smooth STEP loft from `sections.csv` (CadQuery) is the next step for
   toolpaths.
 - **The crescent's printing:** panel splits, dowels and tube channels for it aren't generated yet.

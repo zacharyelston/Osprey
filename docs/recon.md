@@ -249,7 +249,7 @@ Findings:
 - **`twinboom`** (the default): a printed wing on a carbon spar, with a fuselage pod, twin booms and an
   H-tail.
 - **`bwb`** and **`crescent`**: tailless flying wings, trimmed and kept stable by the sizing. They are a
-  work in progress: their design notebook, results, mould buck export (`osprey recon-buck`) and open
+  work in progress: their design notebook, results, mould plug and CNC ladder-frame export (`osprey recon-plug`, `osprey recon-frame`) and open
   questions are in [docs/blended-wing](blended-wing/README.md).
 
 ## Anti-piracy awareness (`osprey recon-awareness`)
@@ -299,7 +299,7 @@ person aboard, with the minutes of warning at 30 kn. Three new target classes in
    - the capability matrix;
    - renders.
 2. **Phase 2, making it:**
-   - for the blended wing: CadQuery STEP lofts from `sections.csv`, and CNC toolpaths for the bucks;
+   - for the blended wing: CadQuery STEP lofts from `sections.csv`, and CNC toolpaths for the plugs;
    - then flanges, draft and parting boards for the moulds;
    - for the printed wings (twin-boom, crescent): airfoil sections into CadQuery;
    - a hollow single-wall or rib structure for vase-mode printing;

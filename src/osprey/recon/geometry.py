@@ -260,7 +260,7 @@ def bwb_surface(p, d: dict, n_span: int = 25, n_chord: int = 40, half: str | Non
     """The outer mould line as rings, root to tip for both sides (port y > 0
     first, mirrored). half="upper" or "lower" closes each section along its
     chord line instead, giving the solid above or below the parting surface:
-    a buck for that half of the mould."""
+    a plug for that half of the mould."""
     g = p.geometry
     y, le, c, tw, tc, lz = _stations(p, d, n_span)
     rings = []

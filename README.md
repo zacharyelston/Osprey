@@ -349,7 +349,7 @@ all`.</sub>
 
 Two tailless airframes are in design: a moulded blended wing body and a printed crescent flying wing,
 after the NX-2. The lightest that does all seven jobs is 1.80 kg (blended wing, a PTZ eye each side),
-against 2.13 kg for the twin-boom. `osprey recon-buck` turns them into files for mould bucks. The design
+against 2.13 kg for the twin-boom. `osprey recon-plug` and `osprey recon-frame` turn them into plug files and CNC ladder frames for the moulds. The design
 notebook, with results, renders and the open questions, is
 [docs/blended-wing](docs/blended-wing/README.md).
 
@@ -467,7 +467,8 @@ uv run osprey sweep --workers 8                             # every scenario x r
 uv run osprey recon --mission all                           # Recon: size and fly each job, then the matrix
 uv run osprey recon-render --mission all                    # Recon: render each sized drone
 uv run osprey recon --mission all --airframe crescent       # Recon: the crescent flying wing (or bwb)
-uv run osprey recon-buck --mission sar-offshore --airframe bwb   # Recon: OML and buck halves for moulds
+uv run osprey recon-plug --mission sar-offshore --airframe bwb   # Recon: OML and plug halves for moulds
+uv run osprey recon-frame --mission sar-offshore --airframe bwb  # Recon: CNC ladder-frame layout (DXF, SVG)
 uv run osprey recon-awareness                               # Recon: anti-piracy ranges
 ```
 
@@ -487,7 +488,7 @@ Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two works
 | [`design/scenarios/`](design/scenarios/) | `coastal-watch` (sea state 4), `mob` (sea state 3), `docking` |
 | [`design/recon/`](design/recon/) | Recon: the reference printed airframe, airframe variants (blended wing, crescent), payload variants, and the mission profiles (search, survey, inspect, escort) |
 | [`src/osprey/`](src/osprey/) | `frames`, `motion`, `optics`, `stabilize`, `occlusion`, `rig`, `tasking`, `calcs`, `figures`, `render/scene`, `cli` |
-| [`src/osprey/recon/`](src/osprey/recon/) | `tasks` (search, survey, inspect, escort), `search` (sweep width, POD), `flight` (3-DOF), `sizing` (OpenMDAO + OpenAeroStruct, trim and stability for flying wings), `fleet` (one bird, many jobs), `geometry` and `render` (the bird in MuJoCo), `buck` (mould files), `awareness` (anti-piracy ranges), `figures` |
+| [`src/osprey/recon/`](src/osprey/recon/) | `tasks` (search, survey, inspect, escort), `search` (sweep width, POD), `flight` (3-DOF), `sizing` (OpenMDAO + OpenAeroStruct, trim and stability for flying wings), `fleet` (one bird, many jobs), `geometry` and `render` (the bird in MuJoCo), `plug` and `frame` (mould plugs, CNC ladder frames), `awareness` (anti-piracy ranges), `figures` |
 | [`runs/`](runs/README.md) | Kept runs, never edited after they are archived |
 | [`docs/`](docs/) | [Architecture](docs/architecture.md), [Recon](docs/recon.md), [remote runs](docs/remote-simulation.md), README figures |
 
@@ -495,7 +496,7 @@ Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two works
 
 | Run | What it shows |
 |---|---|
-| [`2026-11-06_recon-wings`](runs/2026-11-06_recon-wings/) | Recon: the blended wing and crescent flying wing, each payload, seven jobs and capability matrices; awareness ranges; bucks for the blended wings |
+| [`2026-11-06_recon-wings`](runs/2026-11-06_recon-wings/) | Recon: the blended wing and crescent flying wing, each payload, seven jobs and capability matrices; awareness ranges; plugs and ladder frames for the flying wings |
 | [`2026-11-06_recon-payloads`](runs/2026-11-06_recon-payloads/) | Recon: seven jobs (search, survey, inspect, escort) for each payload (gimbal, side PTZ eyes), each one's sized airframe and flight, and both capability matrices |
 | [`2026-11-06_pairs-sweep`](runs/2026-11-06_pairs-sweep/summary.md) | Every scenario x rig, now with `spreader-pairs` (dual mounts on the spreaders) in full |
 | [`2026-11-06_pairs-docking-render`](runs/2026-11-06_pairs-docking-render/) | 10 s docking render on `spreader-pairs`: video, one frame of `lo-port-fwd`, all labels |
