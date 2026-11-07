@@ -68,12 +68,12 @@ def export(p, d: dict, out: Path, *, margin_mm: float = 25.0) -> dict:
     _stl(out / "buck_lower.stl", lower, "osprey recon bwb lower buck, mm")
 
     g = p.geometry
-    y, le, c, tw, tc = geometry._stations(p, d)
+    y, le, c, tw, tc, lz = geometry._stations(p, d)
     with open(out / "sections.csv", "w") as fh:
         fh.write("station,y_mm,surface,x_mm,z_mm,chord_mm,twist_deg,t_over_c\n")
         for i in range(len(y)):
             u, z = geometry.naca4(g.airfoil_camber, g.airfoil_camber_pos, float(tc[i]), 60)
-            pts = geometry._section(u, z, le[i], c[i], y[i], tw[i])
+            pts = geometry._section(u, z, le[i], c[i], y[i], tw[i], lz[i])
             k = len(u) // 2
             for j, row in enumerate(pts):
                 surf = "upper" if j <= k else "lower"

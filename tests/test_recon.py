@@ -287,3 +287,15 @@ def test_altitude_buys_the_wake_and_the_mast_lens_buys_the_boat():
     assert drone["skiff_wake:detect"][0] > 2 * mast["skiff_wake:detect"][0]
     assert mast["skiff:recognize"][0] > drone["skiff:recognize"][0]
     assert mast["skiff_wake:detect"][1] == "waves"
+
+
+def test_crescent_curves_its_leading_edge_and_prints():
+    p = load("sar-offshore", airframe="crescent")
+    d = sizing.optimize(p)
+    assert d["converged"] and d["airframe"] == "crescent"
+    assert abs(d["cm_trim"]) < 1e-3 and d["static_margin"] >= p.stability.static_margin_min - 1e-4
+    le = np.array(d["le_x_m"])[::-1]                 # root to tip
+    steps = np.diff(le)
+    assert steps[-1] > steps[0] > -1e-6              # sweep grows toward the tips: a crescent
+    assert d["print_panels"] > 0 and d["print_chord_ok"]
+    assert d["le_z_m"][0] > d["le_z_m"][-1]          # the tips curve up

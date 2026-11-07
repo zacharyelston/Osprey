@@ -124,7 +124,7 @@ def build(p, d: dict, *, explode: float = 0.0) -> list[Part]:
     """The whole drone. explode > 0 pulls the printed wing panels apart along
     the span by that many metres per joint, to show how it prints (a blended
     wing body: its upper and lower mould halves apart)."""
-    if d.get("airframe") == "bwb":
+    if d.get("airframe") in ("bwb", "crescent"):
         return build_bwb(p, d, explode=explode)
     g, w = p.geometry, p.wing
     foil = naca4(g.airfoil_camber, g.airfoil_camber_pos, w.t_over_c)
@@ -236,13 +236,14 @@ def _stations(p, d: dict, n_span: int = 25):
     y0, le0, c0 = ys[order], np.array(d["le_x_m"])[order], np.array(d["chords_m"])[order]
     half = d["span_m"] / 2
     y = np.linspace(0, half, n_span)
+    lez0 = np.array(d.get("le_z_m", np.zeros_like(ys)))[order]
     tw = np.array(d["twist_deg"])                       # control points, tip to root (OpenAeroStruct's order)
     tc = np.array(d.get("t_over_c_cp", [p.wing.t_over_c]))
     pos = 1 - y / half                                  # 0 at the tip, 1 at the root
     twist = np.radians(np.interp(pos, np.linspace(0, 1, len(tw)), tw)) if len(tw) > 1 else \
         np.radians(np.full_like(y, tw[0]))
     t_over_c = np.interp(pos, np.linspace(0, 1, len(tc)), tc) if len(tc) > 1 else np.full_like(y, tc[0])
-    return y, np.interp(y, y0, le0), np.interp(y, y0, c0), twist, t_over_c
+    return y, np.interp(y, y0, le0), np.interp(y, y0, c0), twist, t_over_c, np.interp(y, y0, lez0)
 
 
 def _section(foil_u, foil_z, le_x, chord, y, twist, z0=0.0) -> np.ndarray:
@@ -261,7 +262,7 @@ def bwb_surface(p, d: dict, n_span: int = 25, n_chord: int = 40, half: str | Non
     chord line instead, giving the solid above or below the parting surface:
     a buck for that half of the mould."""
     g = p.geometry
-    y, le, c, tw, tc = _stations(p, d, n_span)
+    y, le, c, tw, tc, lz = _stations(p, d, n_span)
     rings = []
     for sign in (1, -1):
         idx = range(n_span - 1, -1, -1) if sign < 0 else range(n_span)
@@ -277,9 +278,9 @@ def bwb_surface(p, d: dict, n_span: int = 25, n_chord: int = 40, half: str | Non
                 else:
                     uu = np.r_[lower[0], 1.0, np.linspace(1, 0, 12)[1:-1]]
                     zz = np.r_[lower[1], 0.0, np.zeros(10)]
-                rings.append(_section(uu, zz, le[i], c[i], sign * y[i], tw[i]))
+                rings.append(_section(uu, zz, le[i], c[i], sign * y[i], tw[i], lz[i]))
             else:
-                rings.append(_section(u, z, le[i], c[i], sign * y[i], tw[i]))
+                rings.append(_section(u, z, le[i], c[i], sign * y[i], tw[i], lz[i]))
     return rings
 
 
@@ -302,19 +303,34 @@ def build_bwb(p, d: dict, *, explode: float = 0.0) -> list[Part]:
         for side, rr in (("L", rings[:n]), ("R", rings[n:])):
             v, f = loft(rr)
             parts.append(Part(f"wing_{side}", "shell0", v, f))
-    y, le, c, tw, tc = _stations(p, d)
+    y, le, c, tw, tc, lz = _stations(p, d)
     half = d["span_m"] / 2
     r_spar = d["spar_radius_mm"][-1] / 1e3
     xs = -(le + 0.30 * c)                                   # the 30 % chord line, swept back to the tips
+    kind = d.get("airframe", "bwb")
     for sign in (1, -1):
-        k = int(0.92 * (len(y) - 1))
-        v, f = _tube([xs[0], 0.0, 0.0], [xs[k], sign * y[k], 0.0], r_spar)
+        k = int((0.92 if kind == "bwb" else 0.75) * (len(y) - 1))
+        v, f = _tube([xs[0], 0.0, lz[0]], [xs[k], sign * y[k], lz[k]], r_spar)
         parts.append(Part(f"spar_{sign}", "spar", v, f))
-    # Winglets: a swept fin at each tip.
-    hw = g.winglet_height_frac * d["span_m"]
+    if kind == "crescent":
+        # A slim nose pod for the camera and battery; the tips already curve up.
+        L, R, x0 = g.pod_length_m, g.pod_diameter_m / 2, g.pod_nose_x_m
+        xs_ = np.linspace(0, 1, 18)
+        radius = R * np.where(xs_ < 0.3, np.sqrt(np.clip(1 - ((0.3 - xs_) / 0.3) ** 2, 0.02, 1)),
+                              1 - 0.6 * (np.clip(xs_ - 0.3, 0, None) / 0.7) ** 1.4)
+        a = np.linspace(0, 2 * math.pi, 24, endpoint=False)
+        rings_p = [np.stack([np.full_like(a, x0 - x * L), r * np.cos(a), -0.2 * R + r * np.sin(a)], 1)
+                   for x, r in zip(xs_, radius)]
+        v, f = loft(rings_p)
+        parts.append(Part("pod", "pod", v, f))
+    hw = g.winglet_height_frac * d["span_m"] if kind == "bwb" else 0.0
     ct = c[-1]
     for sign in (1, -1):
-        base = np.array([-le[-1], sign * half, 0.0])
+        base = np.array([-le[-1], sign * half, lz[-1]])
+        if hw <= 0:
+            v, f = _sphere([base[0] - 0.02, sign * (half + 0.004), lz[-1]], 0.010, 10)
+            parts.append(Part(f"light_{sign}", "red" if sign > 0 else "green", v, f))
+            continue
         rings_w = []
         for k, zz in enumerate((0.0, hw)):
             cw = ct * (1.0 - 0.45 * k)
@@ -328,6 +344,8 @@ def build_bwb(p, d: dict, *, explode: float = 0.0) -> list[Part]:
     # Payload under the centre body, at the CG station; pusher prop at the root trailing edge.
     xc = -d.get("cg_x_m", 0.25)
     depth = c[0] * tc[0]
+    if kind == "crescent":
+        xc, depth = g.pod_nose_x_m - 0.12, g.pod_diameter_m * 1.3          # under the nose pod
     if getattr(p.payload, "layout", "gimbal") == "dual":
         for sign in (1, -1):
             v, f = _sphere([xc, sign * 0.11, -0.45 * depth], 0.032, 14)
@@ -341,7 +359,7 @@ def build_bwb(p, d: dict, *, explode: float = 0.0) -> list[Part]:
         parts.append(Part("gimbal", "gimbal", v, f))
         v, f = _sphere([xc + 0.04 + g.gimbal_radius_m * 0.75, 0, -0.42 * depth - 0.01], g.gimbal_radius_m * 0.45)
         parts.append(Part("lens", "lens", v, f))
-    xp = -(le[0] + c[0]) - 0.03
+    xp = -(le[0] + c[0]) - 0.03 if kind == "bwb" else g.pod_nose_x_m - g.pod_length_m - 0.02
     rp = g.prop_diameter_m / 2
     v, f = _tube([xp, 0, 0], [xp - 0.004, 0, 0], rp, 40)
     parts.append(Part("prop_disc", "disc", v, f))

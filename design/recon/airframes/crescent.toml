@@ -1,0 +1,50 @@
+# Airframe variant: an organic crescent flying wing, after the printed
+# "AI-optimized" flying wings such as the Neuronautics NX-2.
+#
+# - A slender wing whose sweep grows toward the tips: the optimizer shapes
+#   the leading edge's curve (x shear), not one sweep angle.
+# - Tips curving up into blended winglets (fixed z shear).
+# - A slim nose pod carrying the camera and battery, so the wing stays thin.
+# - Printed LW-PLA panels on carbon tubes, with nylon-hinged elevons: no
+#   moulds, so the printer bed limits the chord again.
+#
+# Tailless, so it is trimmed and kept stable like the blended wing.
+# Overlaid on design/recon/airframe.toml with `--airframe crescent`.
+
+[layout]
+kind = "crescent"
+label = "Organic crescent flying wing: printed panels on carbon tubes, nose pod, curved upswept tips"
+
+[wing]
+num_y = 15
+num_x = 2
+span_m = 2.0
+root_chord_m = 0.28
+chord_cp_init = [0.35, 0.60, 0.85, 1.00, 1.00]   # tip to root, on root_chord_m
+chord_scale_bounds = [0.25, 1.05]
+sweep_deg = 0.0
+xshear_cp_init = [0.45, 0.25, 0.10, 0.03, 0.0]    # tip to root: the leading edge's sweep-back, m
+xshear_bounds_m = [-0.05, 0.90]
+zshear_cp = [0.14, 0.04, 0.01, 0.0, 0.0]          # tip to root: the tips curve up (fixed), m
+twist_bounds_deg = [-8.0, 4.0]
+t_over_c_cp = [0.09, 0.11, 0.12]
+span_bounds_m = [1.4, 3.2]
+cl_max = 1.0
+cd0_extra = 0.004
+
+[stability]
+static_margin_min = 0.06
+cg_x_bounds_m = [-0.15, 0.35]   # the pod puts the payload ahead of the root leading edge
+probe_alpha_deg = 1.0
+
+[body]
+mass_kg = 0.32            # nose pod and hatch, elevon servos, wiring, motor mount
+cda_m2 = 0.005            # slim nose pod with the camera, motor and prop hub
+
+[manufacture]
+method = "printed"
+
+[geometry]
+pod_length_m = 0.42
+pod_diameter_m = 0.085
+pod_nose_x_m = 0.30

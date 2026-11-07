@@ -383,8 +383,8 @@ def cmd_recon_buck(args) -> int:
     for name in (MISSIONS if args.mission == "all" else [args.mission]):
         p = load_mission(name, payload=args.payload, airframe=args.airframe)
         d = json.loads((src / name / "design.json").read_text())
-        if d.get("airframe") != "bwb":
-            print(f"{name}: not a blended wing (--airframe bwb); its wing prints in panels instead")
+        if d.get("airframe") not in ("bwb", "crescent"):
+            print(f"{name}: not a flying wing (--airframe bwb or crescent); its wing prints in panels instead")
             return 1
         dst = (Path(args.out) if args.out else src) / name / "buck"
         info = buck.export(p, d, dst)

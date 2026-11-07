@@ -49,7 +49,12 @@ SKIN_WETTED = 2.04          # wetted area of a ~12 % section per unit planform a
 
 
 def bwb(p) -> bool:
-    return getattr(p.layout, "kind", "twinboom") == "bwb"
+    """Tailless: the blended wing body or the crescent flying wing."""
+    return getattr(p.layout, "kind", "twinboom") in ("bwb", "crescent")
+
+
+def crescent(p) -> bool:
+    return getattr(p.layout, "kind", "twinboom") == "crescent"
 
 
 def surface(p) -> dict:
@@ -58,8 +63,12 @@ def surface(p) -> dict:
                           "span": w.span_m, "root_chord": w.root_chord_m})
     if bwb(p):
         # Swept, tailless, a thick centre body: chord, twist and thickness vary tip to root.
-        return {**_surface_common(p, mesh), "sweep": w.sweep_deg, "chord_cp": np.array(w.chord_cp_init, float),
+        surf = {**_surface_common(p, mesh), "sweep": w.sweep_deg, "chord_cp": np.array(w.chord_cp_init, float),
                 "twist_cp": np.zeros(len(w.chord_cp_init)), "t_over_c_cp": np.array(w.t_over_c_cp, float)}
+        if crescent(p):
+            # The leading edge's curve and the tips' upsweep, point by point along the span.
+            surf.update(xshear_cp=np.array(w.xshear_cp_init, float), zshear_cp=np.array(w.zshear_cp, float))
+        return surf
     return {**_surface_common(p, mesh), "chord_cp": np.ones(2), "twist_cp": np.zeros(2),
             "t_over_c_cp": np.array([w.t_over_c])}
 
@@ -271,7 +280,10 @@ def build(p, time_factor: float = 1.0) -> tuple[om.Problem, dict]:
     if bwb(p):
         st = p.stability
         m.add_design_var("wing.twist_cp", *w.twist_bounds_deg, units="deg")
-        m.add_design_var("wing.sweep", *w.sweep_bounds_deg, units="deg", ref=20.0)
+        if crescent(p):
+            m.add_design_var("wing.geometry.xshear_cp", *w.xshear_bounds_m, units="m", ref=0.3)
+        else:
+            m.add_design_var("wing.sweep", *w.sweep_bounds_deg, units="deg", ref=20.0)
         m.add_design_var("empty_cg", lower=st.cg_x_bounds_m[0], upper=st.cg_x_bounds_m[1], indices=[0], units="m",
                          ref=0.2)
         m.add_constraint("AS_point_0.CM", indices=[1], equals=0.0, ref=0.05)            # trimmed
@@ -284,7 +296,8 @@ def build(p, time_factor: float = 1.0) -> tuple[om.Problem, dict]:
         m.add_subsystem("depth", om.ExecComp("d = c * tc", d={"units": "m"}, c={"units": "m"},
                                              tc={"val": w.t_over_c_cp[-1]}))
         m.connect("mass.root_chord", "depth.c")
-        m.add_constraint("depth.d", lower=p.volume.root_depth_min_m, units="m", ref=0.1)
+        if hasattr(p, "volume"):                                       # the payload lives in the wing
+            m.add_constraint("depth.d", lower=p.volume.root_depth_min_m, units="m", ref=0.1)
     else:
         m.add_design_var("wing.twist_cp", -5.0, 8.0, units="deg")
     m.add_design_var("wing.tube_group.radius_cp", *sp.radius_bounds_m, units="m", ref=0.01)
@@ -375,10 +388,12 @@ def optimize(p, time_factor: float = 1.0) -> dict:
         "kind": mi["task"].kind, "task_track_km": mi["task_m"] / 1e3,
         "half_span_y_m": (-y).tolist(), "chords_m": c.tolist(),
         "le_x_m": mesh.reshape(prob.get_val("wing.mesh").shape)[0, :, 0].tolist(),
+        "le_z_m": mesh.reshape(prob.get_val("wing.mesh").shape)[0, :, 2].tolist(),
         "airframe": getattr(p.layout, "kind", "twinboom"),
     }
     if bwb(p):
-        d.update(sweep_deg=float(g("wing.sweep", "deg")[0]), cg_x_m=float(g("empty_cg", "m")[0]),
+        le = np.array(d["le_x_m"])
+        d.update(sweep_deg=float(math.degrees(math.atan2(le[0] - le[-1], b / 2))), cg_x_m=float(g("empty_cg", "m")[0]),
                  static_margin=float(g("margin.sm")[0]), cm_trim=float(g("AS_point_0.CM")[1]),
                  t_over_c_cp=list(p.wing.t_over_c_cp), root_depth_m=float(g("depth.d")[0]))
     d["time_factor"] = time_factor
