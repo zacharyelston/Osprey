@@ -22,7 +22,8 @@ from osprey.recon import geometry
 RGBA = {"shell0": "0.94 0.94 0.92 1", "shell1": "0.74 0.77 0.77 1", "spar": "0.07 0.07 0.08 1",
         "carbon": "0.09 0.09 0.10 1", "pod": "0.96 0.45 0.10 1", "gimbal": "0.16 0.16 0.18 1",
         "lens": "0.05 0.12 0.25 1", "tail": "0.96 0.45 0.10 1", "prop": "0.08 0.08 0.08 1",
-        "disc": "0.3 0.3 0.3 0.12", "red": "0.95 0.1 0.1 1", "green": "0.1 0.9 0.2 1"}
+        "disc": "0.3 0.3 0.3 0.12", "red": "0.95 0.1 0.1 1", "green": "0.1 0.9 0.2 1",
+        "buck": "0.70 0.52 0.33 1", "stock": "0.55 0.70 0.85 0.12"}
 
 
 def _mesh_xml(name: str, part: geometry.Part) -> str:
@@ -237,6 +238,7 @@ def lineup(designs: list[tuple[object, dict, str]], path: Path, W: int = 1800, H
 
 
 def _save(img: np.ndarray, path: Path, labels: list[tuple[int, str]] = (), y: int = 12):
+    """Save an image with text labels: (x, text) pairs, stacked down from y when x repeats."""
     from PIL import Image, ImageDraw, ImageFont
 
     im = Image.fromarray(img)
@@ -245,7 +247,46 @@ def _save(img: np.ndarray, path: Path, labels: list[tuple[int, str]] = (), y: in
         font = ImageFont.load_default(size=24)
     except TypeError:                      # Pillow < 10.1
         font = ImageFont.load_default()
+    rows: dict[int, int] = {}
     for x, txt in labels:
-        dr.text((x, y), txt, fill=(245, 245, 245), font=font, stroke_width=2, stroke_fill=(40, 40, 45))
+        yy = y + 32 * rows.get(x, 0)
+        rows[x] = rows.get(x, 0) + 1
+        dr.text((x, yy), txt, fill=(245, 245, 245), font=font, stroke_width=2, stroke_fill=(40, 40, 45))
     path.parent.mkdir(parents=True, exist_ok=True)
     im.save(path)
+
+
+def bucks(p, d: dict, path: Path, W: int = 1600, H: int = 900, margin_m: float = 0.025):
+    """The two buck halves on a bench, parting faces down, in tooling-board
+    colour, the upper one inside a ghost of the stock block it is cut from.
+    The meshes are the ones `osprey recon-buck` writes as STL."""
+    from osprey.recon import buck as bk
+
+    parts = []
+    upper = bk._meshes(geometry.bwb_surface(p, d, half="upper"))
+    lower = bk._meshes(geometry.bwb_surface(p, d, half="lower"))
+    allu = np.concatenate([v for v, _ in upper])
+    span_x = float(allu[:, 0].max() - allu[:, 0].min())
+    gap = 0.18
+    for k, (v, f) in enumerate(upper):
+        parts.append(geometry.Part(f"upper{k}", "buck", v.copy(), f))
+    for k, (v, f) in enumerate(lower):
+        v2 = v.copy()
+        v2[:, 2] *= -1                                         # turned over: parting face down
+        v2[:, 0] -= span_x + gap
+        parts.append(geometry.Part(f"lower{k}", "buck", v2, f[:, ::-1].copy()))
+    lo, hi = allu.min(0) - margin_m, allu.max(0) + margin_m
+    lo[2] = 0.0
+    corners = np.array([[x, y, z] for x in (lo[0], hi[0]) for y in (lo[1], hi[1]) for z in (lo[2], hi[2])])
+    faces = np.array([[0, 1, 3], [0, 3, 2], [4, 6, 7], [4, 7, 5], [0, 4, 5], [0, 5, 1],
+                      [2, 3, 7], [2, 7, 6], [0, 2, 6], [0, 6, 4], [1, 5, 7], [1, 7, 3]])
+    parts.append(geometry.Part("stock", "stock", corners, faces))
+    a, b = _drone_xml("bucks", parts, np.zeros(3), _quat())
+    bench = '<geom name="bench" type="box" pos="{} 0 -0.012" size="{} {} 0.012" rgba="0.36 0.37 0.40 1" ' \
+            'contype="0" conaffinity="0"/>'.format(-(span_x + gap) / 2 + float(allu[:, 0].mean()) / 2,
+                                                   span_x + 0.5, float(hi[1] - lo[1]) / 2 + 0.25)
+    centre = np.array([float(allu[:, 0].mean()) - (span_x + gap) / 2, 0.0, 0.03])
+    cam = _cam("b", centre + np.array([1.75, -0.45, 1.85]), centre + np.array([-0.05, 0, 0]), fovy=44)
+    img = _shoot(_world("studio", a, b, cam, W, H, extra=bench, floor_on=False), ["b"], W, H)["b"]
+    _save(img, path, labels=[(14, "front: the upper buck in its stock block   behind: the lower buck, turned over"),
+                             (14, f"{d['span_m'] * 1000:.0f} mm span, parting faces down on the bench")])

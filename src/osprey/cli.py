@@ -373,7 +373,7 @@ def cmd_recon_awareness(args) -> int:
 
 
 def cmd_recon_buck(args) -> int:
-    """Export a sized blended wing's outer mould line and buck halves."""
+    """Export a sized flying wing's outer mould line and buck halves, with a picture of the bucks."""
     from osprey.recon import buck
     from osprey.recon.params import MISSIONS
     from osprey.recon.params import load as load_mission
@@ -388,6 +388,9 @@ def cmd_recon_buck(args) -> int:
             return 1
         dst = (Path(args.out) if args.out else src) / name / "buck"
         info = buck.export(p, d, dst)
+        from osprey.recon import render as rr
+
+        rr.bucks(p, d, dst / "bucks.png")
         print(f"{name}: span {info['span_mm']:.0f} mm, upper stock " + " x ".join(f"{v:.0f}" for v in info["stock_upper_mm"])
               + f" mm, skin {info['skin_kg']:.2f} kg -> {dst}")
     return 0

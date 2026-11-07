@@ -13,6 +13,9 @@ moulds meet. The files are in millimetres, x forward, y port, z up:
 - buck.md: sizes, the stock block each half needs, and skin area and
   laminate weight for ordering cloth.
 
+`osprey recon-buck` also renders bucks.png: both halves on a bench, parting
+faces down, the upper one inside a ghost of its stock block.
+
 A smooth B-rep (STEP) loft from sections.csv in CadQuery is the next step
 for CNC; these meshes are fine for printing a buck or roughing it.
 """

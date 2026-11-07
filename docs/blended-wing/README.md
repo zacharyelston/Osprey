@@ -115,6 +115,7 @@ flying wing, in millimetres, x forward, y port, z up:
 | `buck_upper.stl`, `buck_lower.stl` | The solids above and below each section's chord line: closed meshes with a flat face where the two moulds part, for a CNC toolpath or a slicer |
 | `sections.csv` | Every station's upper and lower points, for hot-wire templates, a CadQuery loft, or checking a cut buck |
 | `buck.md` | Sizes, the stock block each half needs, skin area and laminate weight |
+| `bucks.png` | A picture of the two bucks on a bench, the upper one in its stock block |
 
 For the gimbal blended wing ([its buck files](../../runs/2026-11-06_recon-wings/bwb/gimbal/sar-offshore/buck/)):
 
@@ -124,6 +125,12 @@ For the gimbal blended wing ([its buck files](../../runs/2026-11-06_recon-wings/
 | Centre-body depth | 75 mm |
 | Stock, upper / lower buck (25 mm margin) | 667 × 1366 × 119 mm / 666 × 1366 × 104 mm |
 | Skin | 0.56 m², about 0.2 kg of laminate |
+
+![The two bucks on a bench: the upper one in front inside a ghost of its stock block, the lower one behind it turned over, parting faces down](../img/bwb-bucks.png)
+
+<sub>The two bucks for the gimbal blended wing, as `osprey recon-buck` writes them: the upper buck in front,
+inside a ghost of the 667 × 1366 × 119 mm block it is cut from, and the lower buck behind it, turned over.
+Both sit on their parting faces.</sub>
 
 ![The blended wing's upper and lower mould halves pulled apart](../img/bird-bwb-moulds.png)
 
