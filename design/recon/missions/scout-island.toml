@@ -1,0 +1,28 @@
+# At anchor off a remote island: map the shore and the hinterland for a
+# landing beach, wildlife and hazards before anyone goes ashore. The boat
+# stays put.
+
+[mission]
+kind = "survey"
+name = "scout-island"
+label = "From anchor, map 1.5 km of island shore for a landing, wildlife and hazards"
+sea_state = "ss1"
+visibility_km = 20.0
+boat_speed_kn = 0.0
+boat_mode = "hold"         # at anchor
+boat_heading_deg = 0.0
+site_range_m = 1500.0
+site_bearing_deg = 300.0
+site_size_m = [900.0, 1500.0]
+survey_heading_deg = 30.0
+survey_alt_m = 110.0
+sidelap = 0.20
+overshoot_m = 60.0
+coverage_goal = 0.98
+look_for = ["person_in_water", "kayak", "debris_log"]
+wind_from_deg = 60.0
+wind_kn = 10.0
+cruise_alt_m = 110.0
+task_time_max_s = 3600.0
+reserve_frac = 0.20
+recovery_radius_m = 30.0

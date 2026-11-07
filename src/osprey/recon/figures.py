@@ -1,5 +1,5 @@
 """Recon figures: the sized airframe, the mission's ground track over the
-search area, and the flight timeline."""
+task area, the flight timeline, and the capability matrix."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-PHASE_COLORS = {"outbound": "#4C72B0", "search": "#DD8452", "return": "#55A868"}
+PHASE_COLORS = {"outbound": "#4C72B0", "task": "#DD8452", "return": "#55A868"}
 
 
 def planform(p, d: dict, path):
@@ -52,12 +52,19 @@ def planform(p, d: dict, path):
 
 def track(p, r: dict, path):
     fig, ax = plt.subplots(figsize=(8, 8))
-    g = r["grid"]
+    task = r["task"]
     t_end = r["t"][-1]
-    off = g.datum + g.drift * t_end
-    rem = g.remaining()
-    ax.pcolormesh(g.x + off[0], g.y + off[1], rem, cmap="Purples", shading="auto", alpha=0.85,
-                  vmin=0, vmax=rem.max())
+    if hasattr(task, "grid"):
+        g = task.grid
+        off = g.datum + g.drift * t_end
+        if task.kind == "search":
+            shade, note = g.remaining(), "shading: where the person still is, if not found (end of flight)"
+        else:
+            shade, note = g.prior * (1 - g.unfound), "shading: the area imaged"
+        ax.pcolormesh(g.x + off[0], g.y + off[1], shade, cmap="Purples", shading="auto", alpha=0.85,
+                      vmin=0, vmax=shade.max())
+    else:
+        note = "the vessel's track, and the orbits round it"
     ph = r["phase"]
     for name, col in PHASE_COLORS.items():
         sel = ph == name
@@ -65,8 +72,10 @@ def track(p, r: dict, path):
             ax.plot(np.where(sel, r["x"], np.nan), np.where(sel, r["y"], np.nan), color=col, lw=1.2, label=name)
     ax.plot(r["boat_x"], r["boat_y"], color="k", lw=2, label="boat")
     ax.plot(*r["boat_x"][:1], *r["boat_y"][:1], "k^", ms=8)
-    d = r["datum0"][None, :] + r["drift"][None, :] * r["t"][:, None]
-    ax.plot(d[:, 0], d[:, 1], color="#8e44ad", lw=1, ls="--", label="datum, drifting")
+    if task.kind != "survey":
+        d = np.array([task.where(tt) for tt in r["t"]])
+        ax.plot(d[:, 0], d[:, 1], color="#8e44ad", lw=1, ls="--",
+                label="datum, drifting" if task.kind == "search" else "vessel")
     w = r["wind"]
     ax.annotate("", xy=(0.12, 0.9), xytext=(0.12 - w[0] / 40, 0.9 - w[1] / 40), xycoords="axes fraction",
                 arrowprops=dict(arrowstyle="->", lw=2, color="#2c3e50"))
@@ -75,8 +84,7 @@ def track(p, r: dict, path):
     ax.set_xlabel("east (m)")
     ax.set_ylabel("north (m)")
     ax.legend(loc="lower right", fontsize=8)
-    ax.set_title(f"{p.mission.label}\nshading: where the person still is, if not found (end of flight)",
-                 fontsize=10)
+    ax.set_title(f"{p.mission.label}\n{note}", fontsize=10)
     fig.tight_layout()
     fig.savefig(path, dpi=130)
     plt.close(fig)
@@ -86,7 +94,8 @@ def timeline(p, ac, r: dict, path):
     fig, axs = plt.subplots(4, 1, figsize=(10, 7.5), sharex=True)
     t = r["t"] / 60
     series = [("altitude (m)", r["h"]), ("electric power (W)", r["power"]),
-              ("battery left (%)", 100 * r["energy"] / ac.energy_j), ("POD (%)", 100 * r["pod"])]
+              ("battery left (%)", 100 * r["energy"] / ac.energy_j),
+              (f"{r['task'].progress_label} (%)", 100 * r["progress"])]
     for ax, (lab, y) in zip(axs, series):
         ax.plot(t, y, color="#2c3e50", lw=1)
         ax.set_ylabel(lab, fontsize=9)
@@ -94,9 +103,40 @@ def timeline(p, ac, r: dict, path):
             sel = r["phase"] == name
             if sel.any():
                 ax.axvspan(t[sel][0], t[sel][-1], color=col, alpha=0.12, lw=0)
-    axs[3].axhline(100 * p.mission.search_pod, color="#c0392b", ls=":", lw=1)
+    axs[3].axhline(100 * r["task"].goal, color="#c0392b", ls=":", lw=1)
     axs[-1].set_xlabel("minutes since launch")
-    axs[0].set_title(f"{p.mission.name}: outbound (blue), search (orange), return (green)", fontsize=10)
+    axs[0].set_title(f"{p.mission.name}: outbound (blue), {r['task'].kind} (orange), return (green)", fontsize=10)
+    fig.tight_layout()
+    fig.savefig(path, dpi=130)
+    plt.close(fig)
+
+
+def matrix(M: dict, designs: dict, missions: list[str], order: list[str], best: str | None, path):
+    """Every airframe through every mission: green when it gets home with the
+    goal met (shade: battery left), red when it doesn't."""
+    from osprey.recon.fleet import ok
+
+    fig, ax = plt.subplots(figsize=(1.6 * len(missions) + 3.2, 0.62 * len(order) + 1.6))
+    for i, dn in enumerate(order):
+        for j, mn in enumerate(missions):
+            s = M[dn][mn]
+            good = ok(s)
+            col = plt.cm.Greens(0.35 + 0.6 * s["energy_left_frac"]) if good else "#e8a3a3"
+            ax.add_patch(plt.Rectangle((j, i), 0.96, 0.9, color=col))
+            txt = f"{s['energy_left_frac']:.0%} left" if good else f"{s['progress']:.0%}\n{s['progress_label']}"
+            ax.text(j + 0.48, i + 0.45, txt, ha="center", va="center", fontsize=8)
+    ax.set_xlim(0, len(missions))
+    ax.set_ylim(len(order), 0)
+    ax.set_xticks(np.arange(len(missions)) + 0.48, missions, rotation=20, ha="right", fontsize=8)
+    ax.set_yticks(np.arange(len(order)) + 0.45,
+                  [f"{dn}: {designs[dn]['mass_total_kg']:.2f} kg" + ("  ★" if dn == best else "") for dn in order],
+                  fontsize=8)
+    ax.set_xlabel("mission flown")
+    ax.set_ylabel("airframe sized for")
+    for sp in ax.spines.values():
+        sp.set_visible(False)
+    ax.tick_params(length=0)
+    ax.set_title("One bird, many jobs (★: lightest airframe that does every mission)", fontsize=10)
     fig.tight_layout()
     fig.savefig(path, dpi=130)
     plt.close(fig)

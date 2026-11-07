@@ -1,20 +1,27 @@
 """3-DOF point-mass flight simulation of a Recon mission.
 
-The drone launches from the moving boat, flies to the datum (which drifts
-with the water), searches an expanding square laid out in the water's frame,
-and returns to the boat. The mission's boat_mode says what the boat does
-meanwhile:
-- "return": it turns back to the datum and heaves to there, drifting (the
-  usual man-overboard drill);
-- "sail": it sails on. It flies a point-mass model:
+The drone launches from the moving boat and flies to its task (recon/tasks.py):
+- a search drifting with a datum;
+- a site to survey;
+- a vessel to inspect.
+
+It works the task, then returns to the boat. The mission's boat_mode says
+what the boat does meanwhile:
+- "return" or "approach": it heads for the task and heaves to near it,
+  drifting with the water (the man-overboard drill, or arriving at the
+  anchorage being scouted);
+- "sail": it sails on;
+- "hold": it stays where it is, at anchor.
+
+The drone is a point-mass model:
 - wind triangle to hold the ground track;
 - bank-limited turns with their load factor and induced drag;
 - climb limited by excess shaft power;
 - an electric energy budget.
-It leaves the search for home when POD reaches the goal, the search time runs
-out, or the battery reaches the energy to get home plus the reserve ("bingo").
-A pattern that ends short of the goal is flown again, turned 45 deg and
-offset half a track spacing.
+
+It leaves the task for home when the task's goal is met or its pattern ends,
+when the task time runs out, or when the battery reaches the energy to get
+home plus the reserve ("bingo").
 
 World frame: x east, y north, metres; headings clockwise from north.
 """
@@ -27,10 +34,10 @@ from dataclasses import dataclass
 import numpy as np
 
 from osprey.motion import KN
-from osprey.recon import search
+from osprey.recon import tasks
 
 G = 9.81
-PHASES = ("outbound", "search", "return", "recovered", "lost")
+PHASES = ("outbound", "task", "return", "recovered", "lost")
 
 
 def rho(h: float) -> float:
@@ -98,31 +105,14 @@ def _wrap(a: float) -> float:
 
 
 def simulate(p, ac: Aircraft, *, dt: float = 0.5, t_max: float = 3 * 3600.0,
-             search_time_max: float | None = None) -> dict:
+             task_time_max: float | None = None) -> dict:
     m = p.mission
     wind = _wind(m)
-    drift = np.array(m.drift_ms, float)
     hb = math.radians(m.boat_heading_deg)
     boat_v = m.boat_speed_kn * KN * np.array([math.sin(hb), math.cos(hb)])
-    b = math.radians(m.datum_bearing_deg)
-    datum0 = m.datum_range_m * np.array([math.sin(b), math.cos(b)])
-
-    sw = search.sweep(p, m.search_alt_m)
-    pl = search.plan(sw, m.datum_sigma_m, m.search_pod)
-    up = math.degrees(math.atan2(-wind[0], -wind[1]))           # first leg into the wind
-    pattern = search.expanding_square(pl.spacing_m, pl.half_size_m, up)
-    passes = 1
-    t_cap = m.search_time_max_s if search_time_max is None else search_time_max
-    grid = search.Grid(datum0, drift, m.datum_sigma_m)
-
-    sweeps: dict[int, search.Sweep] = {}
+    task = tasks.build(p, wind)
+    t_cap = m.task_time_max_s if task_time_max is None else task_time_max
     speeds: dict[tuple[int, int], float] = {}
-
-    def sweep_at(alt):
-        key = int(round(alt / 5) * 5)
-        if key not in sweeps:
-            sweeps[key] = search.sweep(p, key)
-        return sweeps[key]
 
     def range_speed(alt, headwind):
         key = (int(round(alt / 10)), int(round(headwind * 2)))
@@ -134,36 +124,36 @@ def simulate(p, ac: Aircraft, *, dt: float = 0.5, t_max: float = 3 * 3600.0,
     boat_speed = m.boat_speed_kn * KN
     boat = np.zeros(2)
     pos = np.zeros(2)
-    h, psi, v = 2.0, math.atan2(datum0[0], datum0[1]), ac.v_search
+    e0 = task.entry(0.0, pos)
+    h, psi, v = 2.0, math.atan2(e0[0], e0[1]), ac.v_search
     energy = ac.energy_j
-    phase, wp_i, t_search0 = "outbound", 1, None
-    rec = {k: [] for k in ("t", "x", "y", "h", "v", "phase", "energy", "pod", "power", "bank", "boat_x", "boat_y")}
+    phase, t_task0, why = "outbound", None, "-"
+    rec = {k: [] for k in ("t", "x", "y", "h", "v", "phase", "energy", "progress", "power", "bank",
+                           "boat_x", "boat_y")}
     t = 0.0
     while t < t_max and phase not in ("recovered", "lost"):
-        datum = datum0 + drift * t
         if phase == "outbound":
-            target, h_cmd = datum, (m.cruise_alt_m if np.linalg.norm(datum - pos) > 600 else m.search_alt_m)
-            if np.linalg.norm(datum - pos) < 30:
-                phase, t_search0 = "search", t
-        if phase == "search":
-            target = datum0 + drift * t + pattern[wp_i]
-            h_cmd = m.search_alt_m
-            if np.linalg.norm(target - pos) < max(15.0, 0.6 * pl.spacing_m):
-                wp_i += 1
-                if wp_i >= len(pattern) and grid.pod < m.search_pod:
-                    off = pl.spacing_m / 2 * np.array([1.0, 1.0])
-                    pattern = search.expanding_square(pl.spacing_m, pl.half_size_m, up + 45 * passes) + off
-                    passes += 1
-                    wp_i = 1
-            home = float(np.linalg.norm(boat - pos))
-            v_home = range_speed(m.cruise_alt_m, float(np.linalg.norm(wind)))
-            away = boat_speed if boat_mode == "sail" else 0.0
-            t_home = home / max(v_home - np.linalg.norm(wind) - away, 1.0)   # worst case: all against
+            target = task.entry(t, pos)
+            far = np.linalg.norm(target - pos) > 600
+            h_cmd = m.cruise_alt_m if far else task.alt_m
+            if np.linalg.norm(target - pos) < 30:
+                phase, t_task0 = "task", t
+        if phase == "task":
+            target = task.target(t, pos)
+            h_cmd = task.alt_m
+            # Bingo: the energy to get home along the line to the boat as it is now,
+            # against that line's headwind and the boat's speed away along it, plus the reserve.
+            to_boat = boat - pos
+            home = float(np.linalg.norm(to_boat))
+            uh = to_boat / max(home, 1e-6)
+            head_home = -float(wind @ uh)
+            v_home = range_speed(m.cruise_alt_m, head_home)
+            away = float(boat_v @ uh) if boat_mode == "sail" else 0.0
+            t_home = home / max(v_home - head_home - away, 1.0)
             bingo = ac.power(v_home, m.cruise_alt_m) * t_home * (1 + m.reserve_frac)
-            if grid.pod >= m.search_pod or t - t_search0 > t_cap or energy <= bingo:
-                phase = "return"
-                rec.setdefault("why", []).append("pod" if grid.pod >= m.search_pod else "time"
-                                                 if t - t_search0 > t_cap else "bingo")
+            reason = task.done() or ("time" if t - t_task0 > t_cap else "bingo" if energy <= bingo else None)
+            if reason:
+                phase, why = "return", reason
         if phase == "return":
             target = boat
             h_cmd = m.cruise_alt_m if np.linalg.norm(boat - pos) > 400 else 15.0
@@ -171,13 +161,13 @@ def simulate(p, ac: Aircraft, *, dt: float = 0.5, t_max: float = 3 * 3600.0,
                 phase = "recovered"
                 continue
 
-        # Speed: search speed in the search, best range for the wind otherwise.
+        # Speed: task speed on the task, best range for the wind otherwise.
         to = target - pos
         dist = float(np.linalg.norm(to))
         course = math.atan2(to[0], to[1]) if dist > 1e-6 else psi
         u = np.array([math.sin(course), math.cos(course)])
         head = -float(wind @ u)
-        v = ac.v_search if phase == "search" else range_speed(h, head)
+        v = ac.v_search if phase == "task" else range_speed(h, head)
         # Wind triangle: air heading that makes good the course. `cross` is the
         # wind's push to the right of the course; crab left into it.
         cross = float(wind @ np.array([u[1], -u[0]]))
@@ -191,59 +181,68 @@ def simulate(p, ac: Aircraft, *, dt: float = 0.5, t_max: float = 3 * 3600.0,
         climb = max(-3.0, min(climb_max, (h_cmd - h) / 8.0))
         pw = ac.power(v, h, n, climb)
         vg = v * np.array([math.sin(psi), math.cos(psi)]) + wind
-        if phase == "search" and abs(h - m.search_alt_m) < 15:
-            grid.look(pos, math.atan2(vg[0], vg[1]), t, dt, float(np.linalg.norm(vg)), sweep_at(h))
+        if phase == "task" and abs(h - task.alt_m) < 15:
+            task.look(pos, math.atan2(vg[0], vg[1]), t, dt, float(np.linalg.norm(vg)), h)
         for k_, v_ in (("t", t), ("x", pos[0]), ("y", pos[1]), ("h", h), ("v", v), ("phase", phase),
-                       ("energy", energy), ("pod", grid.pod), ("power", pw), ("bank", bank),
+                       ("energy", energy), ("progress", task.progress), ("power", pw), ("bank", bank),
                        ("boat_x", boat[0]), ("boat_y", boat[1])):
             rec[k_].append(v_)
         pos = pos + vg * dt
         h = max(h + climb * dt, 0.0)
-        if boat_mode == "return" and np.linalg.norm(datum - boat) > 150:
-            boat = boat + boat_speed * (datum - boat) / np.linalg.norm(datum - boat) * dt
-        elif boat_mode == "return":
-            boat = boat + drift * dt                       # hove to, drifting with the person
-        else:
+        aim = task.where(t)
+        if boat_mode in ("return", "approach") and np.linalg.norm(aim - boat) > 150:
+            boat = boat + boat_speed * (aim - boat) / np.linalg.norm(aim - boat) * dt
+        elif boat_mode in ("return", "approach"):
+            boat = boat + task.drift * dt                  # hove to there, drifting with the water
+        elif boat_mode == "sail":
             boat = boat + boat_v * dt
         energy -= pw * dt
         if energy <= 0:
             phase = "lost"
         t += dt
 
-    out = {k: np.array(v_) for k, v_ in rec.items() if k != "why"}
-    out.update(grid=grid, sweep=sw, plan=pl, pattern=pattern, datum0=datum0, drift=drift, wind=wind,
-               outcome=phase, why=(rec.get("why") or ["-"])[0], passes=passes)
+    out = {k: np.array(v_) for k, v_ in rec.items()}
+    out.update(task=task, wind=wind, outcome=phase, why=why)
+    if task.kind == "search":                              # what the search figures read
+        out.update(grid=task.grid, sweep=task.sweep, plan=task.plan, datum0=task.datum0, drift=task.drift,
+                   pod=out["progress"], passes=task.passes)
     return out
 
 
 def summary(p, ac: Aircraft, r: dict) -> dict:
     ph = r["phase"]
     t = r["t"]
-    pod = r["pod"]
+    prog = r["progress"]
+    task = r["task"]
 
     def first(mask):
         i = np.flatnonzero(mask)
         return float(t[i[0]]) if i.size else math.inf
 
-    on_scene = first(ph == "search")
+    on_scene = first(ph == "task")
     left = first(ph == "return")
     seg = np.hypot(np.diff(r["x"]), np.diff(r["y"]))
-    return {
+    done = float(prog[-1]) if prog.size else 0.0
+    s = {
+        "kind": task.kind,
+        "progress_label": task.progress_label,
         "outcome": r["outcome"],
-        "left_search_because": r["why"],
+        "left_task_because": r["why"],
+        "goal": task.goal,
+        "progress": done,
+        "goal_met": bool(done >= task.goal - 1e-6 or r["why"] == "pattern" and done >= 0.9 * task.goal),
         "flight_time_s": float(t[-1]) if t.size else 0.0,
         "on_scene_s": on_scene,
-        "search_s": (left - on_scene) if math.isfinite(left) else math.inf,
-        "pod": float(pod[-1]) if pod.size else 0.0,
-        "pod_planned": r["plan"].pod,
-        "t_pod50_s": first(pod >= 0.5),
-        "t_pod90_s": first(pod >= 0.9),
+        "task_s": (left - on_scene) if math.isfinite(left) else math.inf,
+        "t_half_s": first(prog >= 0.5 * task.goal),
+        "t_goal_s": first(prog >= task.goal - 1e-6),
         "distance_km": float(seg.sum() / 1e3),
         "energy_left_frac": float(r["energy"][-1] / ac.energy_j) if t.size else 0.0,
         "bank_max_deg": float(np.degrees(np.abs(r["bank"]).max())) if t.size else 0.0,
         "power_mean_w": float(np.mean(r["power"])) if t.size else 0.0,
-        "sweep_width_eff_m": r["sweep"].width_eff_m,
-        "track_spacing_m": r["plan"].spacing_m,
-        "search_half_size_m": r["plan"].half_size_m,
-        "search_passes": r["passes"],
+        **task.info(),
     }
+    if task.kind == "search":
+        s.update(pod=done, pod_planned=task.plan.pod, t_pod50_s=first(prog >= 0.5), t_pod90_s=first(prog >= 0.9),
+                 left_search_because=r["why"], search_s=s["task_s"], search_passes=task.passes)
+    return s

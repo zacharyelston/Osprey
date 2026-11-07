@@ -3,6 +3,7 @@
 # with the water, and returns to the boat, which has turned back to the datum.
 
 [mission]
+kind = "search"
 name = "sar-datum"
 label = "MOB 3 km astern, sea state 3, 15 kn wind"
 sea_state = "ss3"
@@ -20,6 +21,6 @@ wind_kn = 15.0
 cruise_alt_m = 100.0
 search_alt_m = 80.0             # 120 m is the usual drone ceiling
 search_pod = 0.90          # stop searching once the probability of detection reaches this
-search_time_max_s = 1800.0
+task_time_max_s = 1800.0
 reserve_frac = 0.20        # energy kept for the return, beyond the estimate
 recovery_radius_m = 30.0

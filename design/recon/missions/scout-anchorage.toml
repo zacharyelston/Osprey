@@ -1,0 +1,28 @@
+# Scout the evening's anchorage before the boat gets there: fly 8 km ahead
+# and image the whole bay straight down, for moorings, pot lines, rocks and
+# debris, while the boat keeps sailing toward it.
+
+[mission]
+kind = "survey"
+name = "scout-anchorage"
+label = "Scout an anchorage 8 km ahead: image the bay for moorings, rocks and debris"
+sea_state = "ss2"
+visibility_km = 15.0
+boat_speed_kn = 6.0
+boat_mode = "approach"     # the boat keeps sailing for the anchorage
+boat_heading_deg = 20.0
+site_range_m = 8000.0
+site_bearing_deg = 20.0
+site_size_m = [500.0, 800.0]   # across the survey legs, along them
+survey_heading_deg = 110.0
+survey_alt_m = 90.0
+sidelap = 0.25
+overshoot_m = 60.0
+coverage_goal = 0.98
+look_for = ["lobster_buoy", "debris_log", "kayak"]
+wind_from_deg = 220.0
+wind_kn = 12.0
+cruise_alt_m = 100.0
+task_time_max_s = 2400.0
+reserve_frac = 0.20
+recovery_radius_m = 30.0

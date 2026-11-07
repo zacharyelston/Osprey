@@ -42,7 +42,9 @@ class Sweep:
         return self.far_m - self.near_m
 
 
-def sweep(p, alt_m: float) -> Sweep:
+def sweep(p, alt_m: float, depression_deg: float | None = None) -> Sweep:
+    """The camera's useful footprint at an altitude, looking down at the
+    payload's search depression (or depression_deg: 90 is straight down)."""
     cam, kind, pl = p.camera, p.target, p.payload
     f = pl.search_focal_mm
     ifov = optics.ifov(cam.pixel_um, f)
@@ -57,19 +59,19 @@ def sweep(p, alt_m: float) -> Sweep:
     }
     r_det = min(limits.values())
     binding = min(limits, key=limits.get)
-    dep = math.radians(pl.depression_deg)
+    dep = math.radians(pl.depression_deg if depression_deg is None else depression_deg)
     if r_det <= alt_m:
         return Sweep(alt_m, 0.0, 0.0, 0.0, r_det, binding, 0.0, 0.0)
     g_det = math.sqrt(r_det**2 - alt_m**2)
     lo, hi = dep - vfov / 2, dep + vfov / 2
-    near = alt_m / math.tan(hi) if hi < math.pi / 2 else 0.0
+    near = alt_m / math.tan(hi) if abs(hi - math.pi / 2) > 1e-9 else 0.0     # behind the drone past nadir
     far = min(alt_m / math.tan(lo) if lo > 0 else math.inf, g_det)
     slant = alt_m / math.sin(dep)
     fov_half = slant * math.tan(hfov / 2)
     half = min(fov_half, g_det)
     if fov_half <= g_det:
         binding = "field of view"
-    centre = alt_m / math.tan(dep)
+    centre = alt_m / math.tan(dep) if dep < math.pi / 2 - 1e-9 else 0.0
     p_vis = optics.wave_exposure(alt_m, max(centre, 1.0), kind.height_m, p.sea.hs_m, p.sea.tp_s, k=k, n=120) \
         if p.sea.hs_m > 0 else 1.0
     return Sweep(alt_m, half, near, max(far, near), r_det, binding, p_vis, pl.detector_recall * p_vis)

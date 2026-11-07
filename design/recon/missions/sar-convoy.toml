@@ -3,6 +3,7 @@
 # upwind. The geometry that made the first offshore sizing too optimistic.
 
 [mission]
+kind = "search"
 name = "sar-convoy"
 label = "Search 5 km astern while the boat sails on, sea state 3, 15 kn wind"
 sea_state = "ss3"
@@ -20,6 +21,6 @@ wind_kn = 15.0
 cruise_alt_m = 100.0
 search_alt_m = 100.0             # 120 m is the usual drone ceiling
 search_pod = 0.90
-search_time_max_s = 2400.0
+task_time_max_s = 2400.0
 reserve_frac = 0.20
 recovery_radius_m = 30.0
