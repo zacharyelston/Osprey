@@ -262,13 +262,13 @@ def test_blended_wing_is_trimmed_stable_and_deep_enough():
     assert d["print_panels"] == 0                                       # moulded, not printed
 
 
-def test_buck_halves_are_closed_and_match_the_design(tmp_path):
-    from osprey.recon import buck, geometry
+def test_plug_halves_are_closed_and_match_the_design(tmp_path):
+    from osprey.recon import geometry, plug
 
     p = load("sar-datum", airframe="bwb")
     d = sizing.optimize(p)
-    info = buck.export(p, d, tmp_path)
-    assert {f.name for f in tmp_path.iterdir()} >= {"oml.stl", "buck_upper.stl", "buck_lower.stl", "sections.csv"}
+    info = plug.export(p, d, tmp_path)
+    assert {f.name for f in tmp_path.iterdir()} >= {"oml.stl", "plug_upper.stl", "plug_lower.stl", "sections.csv"}
     assert info["span_mm"] == pytest.approx(d["span_m"] * 1000)
     assert info["root_depth_mm"] == pytest.approx(d["root_depth_m"] * 1000, rel=0.02)
     for half in ("upper", "lower"):
@@ -299,3 +299,101 @@ def test_crescent_curves_its_leading_edge_and_prints():
     assert steps[-1] > steps[0] > -1e-6              # sweep grows toward the tips: a crescent
     assert d["print_panels"] > 0 and d["print_chord_ok"]
     assert d["le_z_m"][0] > d["le_z_m"][-1]          # the tips curve up
+
+
+WINGS = Path(__file__).resolve().parents[1] / "runs/2026-11-06_recon-wings"
+
+
+def _wing(airframe):
+    import json
+
+    return (load("sar-offshore", airframe=airframe),
+            json.loads((WINGS / airframe / "gimbal/sar-offshore/design.json").read_text()))
+
+
+def _area(P):
+    return 0.5 * float(np.sum(P[:, 0] * np.roll(P[:, 1], -1) - np.roll(P[:, 0], -1) * P[:, 1]))
+
+
+@pytest.mark.parametrize("airframe", ["bwb", "crescent"])
+def test_ladder_frame_slots_pair_up_and_nothing_clashes(airframe):
+    from osprey.recon import frame
+
+    p, d = _wing(airframe)
+    t = p.frame.thickness_mm + p.frame.clearance_mm
+    for side in ("upper", "lower"):
+        parts, info = frame.build(p, d, side)
+        ribs = [q for q in parts if q.kind == "rib"]
+        stringers = [q for q in parts if q.kind == "stringer"]
+        base = info["base_z_mm"]
+        assert all(abs(q.outline[:, 1].min() - base) < 1e-6 for q in parts)    # all stand on the table
+        n_rib_slots = sum(len(q.slots) for q in ribs)
+        assert n_rib_slots == sum(len(q.slots) for q in stringers) == info["joints"] > 0
+        for s in stringers:
+            ox, oy = s.origin
+            ux, uy = s.direction
+            assert len(s.slots) >= 1                                           # every run is slotted in somewhere
+            for r in ribs:
+                a = (r.origin[1] - oy) / uy
+                if not 0 < a < s.size[0]:
+                    continue
+                x = ox + a * ux
+                lo, hi = r.outline[:, 0].min(), r.outline[:, 0].max()
+                mine = [hd for sa, hd in s.slots if abs(sa - a) < 1e-6]
+                if not lo - t < x < hi + t:
+                    continue                                                   # passes beyond the rib's ends
+                assert mine, f"{s.name} runs through {r.name} with no slot"
+                theirs = [hd for sx, hd in r.slots if abs(sx - x) < 1e-6]
+                assert len(theirs) == 1
+                # the two half-depth slots meet: together they are the part's full height there
+                h = theirs[0] + mine[0]
+                assert theirs[0] == pytest.approx(h / 2, rel=1e-6)
+                assert h > 0
+        # the slot widths: the sheet plus clearance, widened by the crossing angle
+        for s in stringers:
+            wd = t / abs(s.direction[1])
+            assert wd >= t
+
+
+@pytest.mark.parametrize("airframe", ["bwb", "crescent"])
+def test_ladder_frame_parts_are_simple_and_solid(airframe):
+    from osprey.recon import frame
+
+    p, d = _wing(airframe)
+    for q in frame.build(p, d, "upper")[0]:
+        A = abs(_area(q.outline))
+        tri = frame.triangulate(q.outline)
+        assert sum(abs(_area(q.outline[k])) for k in tri) == pytest.approx(A, rel=1e-6)
+        v, f = frame.solid(q, p.frame.thickness_mm)
+        vol = np.einsum("ij,ij->i", v[f[:, 0]], np.cross(v[f[:, 1]], v[f[:, 2]])).sum() / 6 * 1e9
+        assert vol == pytest.approx(A * p.frame.thickness_mm, rel=1e-6)    # closed and wound outward
+
+
+def test_ladder_frame_layout_files(tmp_path):
+    from osprey.recon import frame
+
+    p, d = _wing("bwb")
+    info = frame.export(p, d, tmp_path)
+    W, H = p.frame.sheet_mm
+    n_cut = 0
+    for k in range(1, info["sheets"] + 1):
+        txt = (tmp_path / f"frame_sheet{k}.dxf").read_text().split("\n")
+        pairs = list(zip(txt[0::2], txt[1::2]))
+        assert pairs[-1] == ("0", "EOF")
+        polys = [i for i, pr in enumerate(pairs) if pr == ("0", "POLYLINE")]
+        layers = [pairs[i + 1][1] for i in polys]
+        assert layers.count("SHEET") == 1
+        n_cut += layers.count("CUT")
+        xs = [float(v) for c, v in pairs if c == "10"]
+        ys = [float(v) for c, v in pairs if c == "20"]
+        assert min(xs) >= 0 and max(xs) <= W and min(ys) >= 0 and max(ys) <= H     # on the sheet
+        assert (tmp_path / f"frame_sheet{k}.svg").exists()
+    assert n_cut == info["parts"] == sum(len(v) for v in info["frames"].values())
+    for sheet in info["nest"]:                                                 # no two parts overlap
+        boxes = [(frame.placed(q, x, y, tn).min(0), frame.placed(q, x, y, tn).max(0)) for q, x, y, tn in sheet]
+        for i in range(len(boxes)):
+            for j in range(i + 1, len(boxes)):
+                (a0, a1), (b0, b1) = boxes[i], boxes[j]
+                assert (a1 <= b0).any() or (b1 <= a0).any()
+    md = (tmp_path / "frame.md").read_text()
+    assert md.count("| R") + md.count("| S") >= info["parts"]

@@ -2,7 +2,7 @@
 # with a thick centre section that holds the battery and the payload, a
 # pusher prop on the centreline and elevons on the outer trailing edge; no
 # fuselage pod, booms or tail. Moulded composite skins (from a CNC or
-# printed buck), not printed panels. Overlaid on design/recon/airframe.toml
+# printed plug), not printed panels. Overlaid on design/recon/airframe.toml
 # with `--airframe bwb`.
 #
 # Tailless means the wing must trim itself and stay stable: sweep plus

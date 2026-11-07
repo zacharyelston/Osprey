@@ -372,9 +372,8 @@ def cmd_recon_awareness(args) -> int:
     return 0
 
 
-def cmd_recon_buck(args) -> int:
-    """Export a sized flying wing's outer mould line and buck halves, with a picture of the bucks."""
-    from osprey.recon import buck
+def _flying_wings(args):
+    """Each requested mission's sized flying wing: (name, params, design, its run directory)."""
     from osprey.recon.params import MISSIONS
     from osprey.recon.params import load as load_mission
 
@@ -384,22 +383,40 @@ def cmd_recon_buck(args) -> int:
         p = load_mission(name, payload=args.payload, airframe=args.airframe)
         d = json.loads((src / name / "design.json").read_text())
         if d.get("airframe") not in ("bwb", "crescent"):
-            print(f"{name}: not a flying wing (--airframe bwb or crescent); its wing prints in panels instead")
-            return 1
-        dst = (Path(args.out) if args.out else src) / name / "buck"
-        info = buck.export(p, d, dst)
-        from osprey.recon import render as rr
+            raise SystemExit(f"{name}: not a flying wing (--airframe bwb or crescent); its wing prints in panels instead")
+        yield name, p, d, (Path(args.out) if args.out else src) / name
 
-        rr.bucks(p, d, dst / "bucks.png")
+
+def cmd_recon_plug(args) -> int:
+    """Export a sized flying wing's outer mould line and plug halves, with a picture of the plugs."""
+    from osprey.recon import plug
+    from osprey.recon import render as rr
+
+    for name, p, d, dst in _flying_wings(args):
+        info = plug.export(p, d, dst / "plug")
+        rr.plugs(p, d, dst / "plug" / "plugs.png")
         print(f"{name}: span {info['span_mm']:.0f} mm, upper stock " + " x ".join(f"{v:.0f}" for v in info["stock_upper_mm"])
-              + f" mm, skin {info['skin_kg']:.2f} kg -> {dst}")
+              + f" mm, skin {info['skin_kg']:.2f} kg -> {dst / 'plug'}")
+    return 0
+
+
+def cmd_recon_frame(args) -> int:
+    """CNC layout files for a sized flying wing's interlocking ladder frames, with pictures."""
+    from osprey.recon import frame
+    from osprey.recon import render as rr
+
+    for name, p, d, dst in _flying_wings(args):
+        info = frame.export(p, d, dst / "frame")
+        rr.frame(p, d, dst / "frame" / "frame.png", frames_=info["frames"])
+        print(f"{name}: {info['parts']} parts on {info['sheets']} sheet(s) of {p.frame.sheet_mm[0]:.0f} x "
+              f"{p.frame.sheet_mm[1]:.0f} x {p.frame.thickness_mm:g} mm -> {dst / 'frame'}")
     return 0
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="osprey", description=__doc__)
     ap.add_argument("cmd", choices=["calc", "sim", "render", "all", "sweep", "recon-size", "recon-fly", "recon",
-                                    "recon-render", "recon-buck", "recon-awareness"])
+                                    "recon-render", "recon-plug", "recon-frame", "recon-awareness"])
     ap.add_argument("--scenario", default="coastal-watch", choices=SCENARIOS)
     ap.add_argument("--rig", default=None, choices=RIGS, help="override the scenario's rig")
     ap.add_argument("--out", default=None, help="output directory (absolute); default out/<scenario>/<rig>")
@@ -413,13 +430,15 @@ def main(argv=None) -> int:
     ap.add_argument("--design", default=None, help="recon-fly: a design.json to fly instead of sizing one")
     ap.add_argument("--payload", default="gimbal", help="recon: gimbal, or a design/recon/payloads variant (dual)")
     ap.add_argument("--airframe", default="twinboom", help="recon: twinboom, or a design/recon/airframes variant (bwb)")
-    ap.add_argument("--run", default=None, help="recon-render: a run directory holding <mission>/design.json "
+    ap.add_argument("--run", default=None, help="recon-render, -plug, -frame: a run directory holding <mission>/design.json "
                                                 "(default out/recon)")
     args = ap.parse_args(argv)
     if args.cmd == "recon-render":
         return cmd_recon_render(args)
-    if args.cmd == "recon-buck":
-        return cmd_recon_buck(args)
+    if args.cmd == "recon-plug":
+        return cmd_recon_plug(args)
+    if args.cmd == "recon-frame":
+        return cmd_recon_frame(args)
     if args.cmd == "recon-awareness":
         return cmd_recon_awareness(args)
     if args.cmd.startswith("recon"):
