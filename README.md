@@ -14,7 +14,7 @@ the wildlife and hazards round a remote island, and a person in the water.
 <sub>Left: the four lower pod cameras during a synthetic docking run
 ([`runs/2026-11-06_gecko-docking-render`](runs/2026-11-06_gecko-docking-render/)); every frame also has
 metric depth, a class mask and the camera's exact pose. Right: the Recon drone, the airframe that does
-all six scouting and search jobs, rendered banking over the sea with the sailboat below
+all seven scouting, search and escort jobs, rendered banking over the sea with the sailboat below
 (`osprey recon-render`).</sub>
 
 > **Status: screening models, not specifications.** Every input is a REF stand-in (a reference 40 ft
@@ -42,10 +42,10 @@ all six scouting and search jobs, rendered banking over the sea with the sailboa
 </tr>
 <tr><th colspan="4" align="left">Recon (kept run of 2026-11-06)</th></tr>
 <tr>
-<td align="center" width="25%"><h3>1 bird, 6 jobs</h3>a 2.73 kg, 2.02 m printed drone does every job and gets home<br><sub>search, survey and inspect; 16-90 % battery left</sub></td>
+<td align="center" width="25%"><h3>1 bird, 7 jobs</h3>a 2.73 kg, 2.02 m printed drone does every job and gets home<br><sub>2.13 kg with a PTZ eye each side instead of a gimbal</sub></td>
 <td align="center" width="25%"><h3>1.7 cm</h3>per pixel over an anchorage 8 km ahead, imaged before arrival<br><sub>a mooring buoy is 17 px across</sub></td>
 <td align="center" width="25%"><h3>13 min</h3>to fly 5 km, identify a vessel from 200 m and come home<br><sub>37 px across the boat</sub></td>
-<td align="center" width="25%"><h3>30 s</h3>to size, calibrate and fly six jobs on a laptop<br><sub>OpenMDAO, OpenAeroStruct, 3-DOF sim</sub></td>
+<td align="center" width="25%"><h3>35 s</h3>to size, calibrate and fly seven jobs on a laptop<br><sub>OpenMDAO, OpenAeroStruct, 3-DOF sim</sub></td>
 </tr>
 </table>
 
@@ -147,6 +147,52 @@ water right against the topsides. That band will need deck-level cameras.
   link. Frames are encoded on the pod (40 Mb/s), and small, distant targets are searched for before
   compression smears them.
 
+### 6. A new layout: back-to-back dual mounts on the spreaders
+
+A $59 back-to-back camera mount (two bullets on one conduit fitting) suggested a different split of the
+work, rig [`spreader-pairs`](design/rigs/spreader-pairs.toml):
+- **Spreader tips:** a dual mount at each tip, one fixed camera looking forward and one aft.
+- **Pairs across the boat:** the two forward cameras are a stereo pair with the spreaders' full span
+  between them, and so are the two aft ones.
+  - The lower pair is opened to 4 mm and tilted 30° down, for the water round the bow and the stern.
+  - The upper pair is level, for the horizon ahead and astern.
+- **Masthead:** keeps its gecko pod, for the all-round view, the long zoom and the look straight down.
+- **Beams:** left to Recon, flying escort.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/pairs-layout-dark.png">
+  <img src="docs/img/pairs-layout.png" alt="Plan view: the lower and upper spreader pairs' fields of view ahead and astern, the masthead pod's all-round circle, and the beams shaded for Recon">
+</picture>
+
+| [`runs/2026-11-06_pairs-sweep`](runs/2026-11-06_pairs-sweep/summary.md) | `gecko5` | `spreader-pairs` |
+|---|---|---|
+| Mass aloft, masthead equivalent | 11.9 kg | **7.7 kg** |
+| Energy per day underway | 381 Ah | **259 Ah** |
+| Whole horizon swept under sail | 100 % (8 s revisit) | 100 % (7 s revisit) |
+| Stereo range at 30 m / 200 m, lower pair (sea state 4) | | ±7 cm / ±3.2 m with synced shutters; ±14 cm / ±6.3 m on the cameras' own clocks |
+| Docking: water within 3 m seen by 2+ cameras | 96.5 % | 44 % (bow and stern only) |
+| Hull edge with a stereo pair, depth p95 | 89 %, 4.6 cm | 35 %, **1.3 cm** |
+| Coastal watch, boat alone: kayak / ferry / sloop | 88 / 84 / 99 % | 23 / 11 / 0 % |
+
+- **Same-height pairs don't need gyros.** The mast's fore-aft bending moves both cameras of a pair
+  together: 0 µrad between them, against 846 µrad between the masthead and gooseneck pods.
+- **Synced shutters do matter.** Bullets running on their own clocks (about 2 ms apart) lose 370 µrad
+  while the boat rolls, which halves the stereo precision at 200 m. Hardware-synced shutters, or a pod
+  computer that grabs both frames, fix it.
+- **The pairs are near-boat tools.** At 1 km even a synced lower pair ranges to ±81 m.
+- **The boat alone loses identification at range and on the beams.** The fixed 8 mm bullets can't
+  recognize a kayak at 1.8 km. The coastal targets sit 25-60° off the bow, at or past the edge of their
+  view. That is the work this layout hands to Recon: escort for the beams, inspection for anything to be
+  identified.
+- **Docking alongside needs the beams covered from the boat.** The tilted lower pair gives centimetre
+  stereo at the bow and stern, but in a slip the pier is abeam, and a fixed-wing drone can't hold station
+  there. The masthead's lower eye or deck cameras have to cover it.
+
+<p align="center"><img src="docs/img/pairs-docking-sheet.png" alt="Synthetic docking frames from spreader-pairs: the lower pairs see the pier ahead and the finger pier and neighbour astern; the upper pairs hold the horizon" width="100%"></p>
+
+<sub>Frame 50 of the `spreader-pairs` docking render on gpu1
+([`runs/2026-11-06_pairs-docking-render`](runs/2026-11-06_pairs-docking-render/)).</sub>
+
 ### The gecko pod
 
 <picture>
@@ -202,14 +248,15 @@ meanwhile, the sea and the wind. A task tells the drone what to do on arrival:
 - **search:** an expanding square drifting with the datum, until the probability of detection (POD)
   reaches the goal;
 - **survey:** lawnmower legs with the gimbal pointing straight down, until the site is imaged;
-- **inspect:** orbits round a moving vessel, zoomed in to identify it.
+- **inspect:** orbits round a moving vessel, zoomed in to identify it;
+- **escort:** circles the boat as it sails, watching the beams.
 
 OpenMDAO sizes an airframe for each job, and a 3-DOF flight sim flies it through. Then every airframe is
 flown through every job, to find the one bird a crew should actually build.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/recon-jobs-dark.png">
-  <img src="docs/img/recon-jobs.png" alt="Timeline of the one airframe flying all six jobs: out, on the job and home, each finished with battery to spare">
+  <img src="docs/img/recon-jobs.png" alt="Timeline of the one airframe flying all seven jobs: out, on the job and home, each finished with battery to spare">
 </picture>
 
 <picture>
@@ -217,7 +264,7 @@ flown through every job, to find the one bird a crew should actually build.
   <img src="docs/img/recon-tracks.png" alt="Three flown jobs: an expanding-square search 3 km astern, lawnmower survey legs over an anchorage 8 km ahead, and orbits round a vessel 5 km off">
 </picture>
 
-| Job ([`runs/2026-11-06_recon-missions`](runs/2026-11-06_recon-missions/)) | Kind | Its own airframe | Result | Back aboard |
+| Job ([`runs/2026-11-06_recon-payloads`](runs/2026-11-06_recon-payloads/gimbal/matrix.md), gimbal) | Kind | Its own airframe | Result | Back aboard |
 |---|---|---|---|---|
 | MOB 3 km astern, sea state 3, boat turns back | search | 1.60 kg, 1.20 m | 90 % POD at 23.5 min | 23.8 min, 17 % left |
 | 5 km astern, boat sails on at 6 kn | search | 1.87 kg, 1.36 m | 90 % POD at 20.3 min | 53.6 min, 15 % left |
@@ -225,17 +272,50 @@ flown through every job, to find the one bird a crew should actually build.
 | Anchorage 8 km ahead, 500 x 800 m bay | survey | 1.58 kg, 1.20 m | 98 % imaged at 1.7 cm per pixel; a mooring buoy 17 px across | 24.4 min, 17 % left |
 | Island shore from anchor, 900 x 1500 m | survey | 1.67 kg, 1.21 m | 98 % imaged at 2.1 cm per pixel; a person 12 px across | 29.2 min, 17 % left |
 | Vessel 5 km off on a crossing course | inspect | 1.47 kg, 1.20 m | two orbits at 200 m, 37 px across the boat | 12.9 min, 23 % left |
+| The beams, 45 min, boat sailing at 6.5 kn | escort | 1.92 kg, 1.39 m | circling at 1.5 km, watching out to 6.7 km for a 30 ft boat | 47.1 min, 17 % left |
 
-**One bird, many jobs.** Each airframe sized for one job, flown through all six:
+**One bird, many jobs.** Each airframe sized for one job, flown through all seven:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/recon-matrix-dark.png">
-  <img src="docs/img/recon-matrix.png" alt="Capability matrix: six airframes by six jobs; only the 2.73 kg airframe sized for the offshore search completes every job">
+  <img src="docs/img/recon-matrix.png" alt="Capability matrix: seven airframes by seven jobs; only the 2.73 kg airframe sized for the offshore search completes every job">
 </picture>
 
 The airframe sized for the hardest job, the 10 km offshore search, does every job and gets home with 16 to
 90 % of its battery left. Each lighter one fails somewhere, mostly on the long searches. The anchorage and
 vessel jobs barely use it: that headroom is time on scene, or a second sortie.
+
+**A PTZ eye on each side.** The same dual mount, turned sideways under the bird, gives `--payload dual`:
+- **Eyes:** a small PTZ looking out to the left and another to the right.
+- **Belly fisheye:** looks straight down, for inspection and landings.
+- **Searching:** each eye works its own strip beside the track, and the belly fills the gap underneath.
+- **Surveying:** both eyes turn down to image two strips at once, at the gimbal's pixels.
+- **Inspecting:** the inboard eye holds the vessel round the orbit.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/recon-payloads-dark.png">
+  <img src="docs/img/recon-payloads.png" alt="Minutes on each job for the two do-everything birds: the side-eyed one searches in a fraction of the time and surveys in about half">
+</picture>
+
+| | One gimbal | Side PTZ eyes + belly fisheye |
+|---|---|---|
+| Lightest airframe that does all seven jobs | 2.73 kg, 2.02 m | **2.13 kg, 1.54 m** |
+| What sizes it | the 10 km search (99 min on task) | the 45 min escort (the search drops to 13 min) |
+| Payload | 0.35 kg, 6 W | 0.51 kg, 10 W |
+
+- **Searching:** looking sideways is mostly what does it. The gimbal searches ahead and down, so the
+  narrow side of its image lies across the track: about 100 m of effective sweep at 80 m. Two side eyes
+  and the belly make about 600 m. A single gimbal turned to one side would get one strip, about half
+  that.
+- **The edges of the strips:** they are about 340 m slant away, where a person is 2-3 pixels across. The
+  detector recall assumed everywhere (0.9) matters most there.
+
+<table>
+<tr>
+<td width="50%"><img src="docs/img/bird-dual-underside.png" alt="Under the side-eyed bird: a PTZ eye on each side of the orange pod and the belly fisheye"></td>
+<td width="50%"><img src="docs/img/bird-payloads.png" alt="The two do-everything birds to scale: the gimbal bird at 2.02 m span and the side-eyed bird at 1.54 m"></td>
+</tr>
+</table>
 
 ### The bird
 
@@ -269,7 +349,7 @@ What the models say so far:
 
 - **The fixed parts set the size.** Body, avionics, gimbal and motor weigh 1.18 kg, more than everything
   the optimizer controls on most jobs. Their drag holds lift-to-drag at 6 to 9: a cleaner fuselage and
-  gimbal fairing is worth more than a better wing. Five of the six jobs want the smallest wing allowed.
+  gimbal fairing is worth more than a better wing. Most jobs want the smallest wing allowed.
 - **Stall speed and Reynolds number set the wing.** Every design sits on the 12 m/s stall limit and the
   150,000 chord-Reynolds floor, so the chord stays near 13 cm and the span grows with the battery.
 - **Scouting is cheap, searching is not.** Imaging a whole bay 8 km ahead takes 11 minutes on task, and
@@ -294,9 +374,12 @@ time; Recon goes and looks at whatever the captain asks about beyond it.
 2. **Recon goes and looks.** Nest's tracks become Recon's tasks: the datum for a search, a vessel to
    inspect, the anchorage on the chart to survey. The drone works beyond the mast's horizon and its wave
    limit, and its imagery comes back into the same picture.
-3. **Nest brings the drone home.** The pods' lower eyes see the deck and the drone's final approach
+3. **Or they split the circle.** With `spreader-pairs`, the mast's fore and aft pairs take ahead and
+   astern, and Recon flies escort round the boat to take the beams. On the bird, the same back-to-back
+   mount turned sideways puts a PTZ eye on each side.
+4. **Nest brings the drone home.** The pods' lower eyes see the deck and the drone's final approach
    for recovery onto a moving, heeling boat.
-4. **Recon lightens the mast.** If the drone does the long-range looking, the masthead's long-zoom PTZ
+5. **Recon lightens the mast.** If the drone does the long-range looking, the masthead's long-zoom PTZ
    can become a mid-zoom one. In the same models that takes about 1.2 kg off the 11.9 kg masthead
    equivalent, and brings the masthead pod's peak draw from 81.4 W to 68.1 W, inside one PoE cable. The
    mass budget still needs more than that.
@@ -370,9 +453,9 @@ Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two works
 | [`design/cameras.toml`](design/cameras.toml) | Camera classes: long-zoom PTZ, mid-zoom PTZ (upright and inverted), fixed wide, interior dome, fisheye |
 | [`design/electronics.toml`](design/electronics.toml) | Pod kits: SOC, IMU, housing, PoE, network and power budgets |
 | [`design/targets.toml`](design/targets.toml) | Target classes and Johnson criteria |
-| [`design/rigs/`](design/rigs/) | `gecko5` (pods), `mast5` (1 top + 4 round the mast), `mast5-spreaders`, `whole-boat` |
+| [`design/rigs/`](design/rigs/) | `gecko5` (pods), `spreader-pairs` (dual mounts on the spreader tips), `mast5` (1 top + 4 round the mast), `mast5-spreaders`, `whole-boat` |
 | [`design/scenarios/`](design/scenarios/) | `coastal-watch` (sea state 4), `mob` (sea state 3), `docking` |
-| [`design/recon/`](design/recon/) | Recon: the reference printed airframe and the mission profiles (search, survey, inspect) |
+| [`design/recon/`](design/recon/) | Recon: the reference printed airframe, payload variants, and the mission profiles (search, survey, inspect, escort) |
 | [`src/osprey/`](src/osprey/) | `frames`, `motion`, `optics`, `stabilize`, `occlusion`, `rig`, `tasking`, `calcs`, `figures`, `render/scene`, `cli` |
 | [`src/osprey/recon/`](src/osprey/recon/) | `tasks` (search, survey, inspect), `search` (sweep width, POD), `flight` (3-DOF), `sizing` (OpenMDAO + OpenAeroStruct), `fleet` (one bird, many jobs), `geometry` and `render` (the bird in MuJoCo), `figures` |
 | [`runs/`](runs/README.md) | Kept runs, never edited after they are archived |
@@ -382,7 +465,10 @@ Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two works
 
 | Run | What it shows |
 |---|---|
-| [`2026-11-06_recon-missions`](runs/2026-11-06_recon-missions/matrix.md) | Recon: six jobs (search, survey, inspect), each one's sized airframe and flight, and the capability matrix |
+| [`2026-11-06_recon-payloads`](runs/2026-11-06_recon-payloads/) | Recon: seven jobs (search, survey, inspect, escort) for each payload (gimbal, side PTZ eyes), each one's sized airframe and flight, and both capability matrices |
+| [`2026-11-06_pairs-sweep`](runs/2026-11-06_pairs-sweep/summary.md) | Every scenario x rig, now with `spreader-pairs` (dual mounts on the spreaders) in full |
+| [`2026-11-06_pairs-docking-render`](runs/2026-11-06_pairs-docking-render/) | 10 s docking render on `spreader-pairs`: video, one frame of `lo-port-fwd`, all labels |
+| [`2026-11-06_recon-missions`](runs/2026-11-06_recon-missions/matrix.md) | Recon: the first six jobs, gimbal only |
 | [`2026-11-06_recon-phase1`](runs/2026-11-06_recon-phase1/) | Recon phase 1: the three search missions only |
 | [`2026-11-06_gecko-sweep`](runs/2026-11-06_gecko-sweep/summary.md) | Every scenario x rig with sector watch; `gecko5` reports in full |
 | [`2026-11-06_gecko-docking-render`](runs/2026-11-06_gecko-docking-render/) | 10 s docking render on `gecko5` with optimized aims: video, one frame of `port-down`, all labels |

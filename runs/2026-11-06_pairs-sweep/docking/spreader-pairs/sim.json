@@ -1,0 +1,65 @@
+{
+ "summary": {
+  "tasks": {},
+  "stations": {
+   "top": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   },
+   "top-down": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   },
+   "lo-port-fwd": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   },
+   "lo-port-aft": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   },
+   "lo-stbd-fwd": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   },
+   "lo-stbd-aft": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   },
+   "hi-port-fwd": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   },
+   "hi-port-aft": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   },
+   "hi-stbd-fwd": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   },
+   "hi-stbd-aft": {
+    "watch": 1.0,
+    "slew": 0.0,
+    "tasked": 0.0
+   }
+  },
+  "always_watch": true,
+  "watch_full_frac": 1.0,
+  "watch_min_frac": 1.0,
+  "revisit_median_s": 3.5890006848969818,
+  "revisit_p95_s": 3.5890006848969818,
+  "pairs_in_pod": 0,
+  "pairs_across": 0
+ },
+ "tasks": {}
+}

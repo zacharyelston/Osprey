@@ -1,0 +1,1 @@
+7f1236d local (macOS), uv run osprey recon --mission all --payload {gimbal,dual} --out runs/2026-11-06_recon-payloads/<payload>; about 35 s each

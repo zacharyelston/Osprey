@@ -85,6 +85,7 @@ The tail is not optimized yet; it is the first thing a stability model will chan
 | `scout-anchorage` | survey a 500 x 800 m bay at 90 m | 8 km ahead | sea state 2, 12 kn | sails for the anchorage |
 | `scout-island` | survey 900 x 1500 m of shore at 110 m | 1.5 km from anchor | sea state 1, 10 kn | at anchor |
 | `inspect-vessel` | inspect a 30 ft sailboat at 200 m standoff, 2 orbits | 5 km off, crossing at 8 kn | sea state 3, 15 kn | sails on |
+| `escort-flanks` | escort: circle the boat at 1.5 km for 45 min, watching the beams | round the boat | sea state 3, 15 kn | sails on at 6.5 kn |
 
 ## Models
 
@@ -105,7 +106,29 @@ The tail is not optimized yet; it is the first thing a stability model will chan
   (a mooring buoy, a log, a kayak, a person).
 - **Inspect:** orbits round a moving vessel at a standoff distance for a set
   number of laps. The task reports the focal length needed to identify it
-  and the pixels across it.
+  and the pixels across it. With fixed cameras (the dual payload), it makes
+  passes beside the vessel instead, with the vessel ahead and then astern,
+  until the vessel has been in view at identify resolution long enough.
+- **Escort:** circles the boat as it sails, at a set radius, for a set time.
+  It watches the beams that the mast's fore and aft pairs leave to it (rig
+  `spreader-pairs`).
+
+**Payloads** (`--payload`):
+- **`gimbal`** (the default): a 3-axis gimbal camera.
+- **`dual`** (`design/recon/payloads/dual.toml`): the drone version of the
+  dual mounts on the spreaders, turned sideways.
+  - A back-to-back pair of small PTZ eyes, one looking out to the left and
+    one to the right, and a fisheye in the belly for looking straight down,
+    for inspection and landing.
+  - Searching, each eye looks out and down at 30° and searches its own strip
+    beside the track, 76 to 330 m out at 80 m. The belly fisheye fills the
+    gap underneath, as far out as it can still resolve a person.
+  - Surveying, both eyes turn down to image two strips side by side: twice
+    the gimbal's swath at the same pixels.
+  - Inspecting, the inboard eye holds the vessel round the orbit, as the
+    gimbal does.
+  - It weighs 0.51 kg against the gimbal's 0.35 kg, and draws 10 W against
+    6 W.
 
 **Flight** (`recon/flight.py`). A point-mass model:
 - a wind triangle to hold the ground track;
@@ -140,7 +163,7 @@ along it, plus the reserve.
 - **Derivatives:** analytic from OpenAeroStruct, complex step for the Osprey
   components (`tests/test_recon.py` checks them against finite differences).
 
-## Results (2026-11-06, `runs/2026-11-06_recon-missions`)
+## Results (2026-11-06, `runs/2026-11-06_recon-missions`, gimbal; seven jobs and both payloads in `runs/2026-11-06_recon-payloads`)
 
 | Job | Its own airframe | Result | Back aboard |
 |---|---|---|---|
@@ -150,6 +173,7 @@ along it, plus the reserve.
 | `scout-anchorage` | 1.58 kg, 1.20 m, 0.23 kg | 98 % imaged, 1.7 cm per pixel, 11 legs | 24.4 min, 17 % left |
 | `scout-island` | 1.67 kg, 1.21 m, 0.33 kg | 98 % imaged, 2.1 cm per pixel, 15 legs | 29.2 min, 17 % left |
 | `inspect-vessel` | 1.47 kg, 1.20 m, 0.15 kg | 2 orbits at 200 m, 37 px across the boat | 12.9 min, 23 % left |
+| `escort-flanks` | 1.92 kg, 1.39 m | 45 min on station; watches the beams out to 6.7 km for a 30 ft sailboat | 47.1 min, 17 % left |
 
 **One bird, many jobs.** Every airframe flown through every job
 (`matrix.md`). The airframe sized for the offshore search, 2.73 kg and
@@ -158,6 +182,40 @@ its battery left. Every lighter one fails at least one of the longer
 searches.
 
 ![Capability matrix](img/recon-matrix.png)
+
+**One gimbal or a PTZ eye each side.** Each payload's do-everything airframe
+(`runs/2026-11-06_recon-payloads`):
+
+| | Gimbal | Side PTZ eyes + belly fisheye |
+|---|---|---|
+| Do-everything airframe | 2.73 kg, 2.02 m (sized for the offshore search) | **2.13 kg, 1.54 m** (sized for the escort) |
+| MOB 3 km: time on task | 20 min | **1.5 min** |
+| 5 km, boat sails on | 17 min | **3 min** |
+| MOB 10 km, sea state 4 | 99 min | **13 min** |
+| Anchorage survey | 11 min at 1.7 cm/px | **6 min** at 1.7 cm/px |
+| Island survey | 26 min at 2.1 cm/px | **14 min** at 2.1 cm/px |
+| Vessel inspection | 2 orbits, 4 min | 2 orbits, 4 min |
+| Escort, 45 min | 62 % battery left | 17 % left: the job that sizes it |
+
+- **Searching:** the side eyes are far better, for a reason that is mostly
+  geometry. The gimbal searches ahead and down, so its narrow side faces
+  across the track: about 100 m of effective sweep at 80 m. An eye looking
+  out to the side puts the image's depth across the track instead. Two of
+  them and the belly make about 600 m. A single gimbal turned to one side
+  would get one strip, about half that.
+- **The 10 km search is no longer the hard job.** It drops from 99 to 13
+  minutes on task, so the escort's 45 minutes on station sizes the bird
+  instead. The airframe comes out 0.6 kg lighter, even carrying 0.16 kg more
+  camera.
+- **Surveying:** both eyes turned down image two strips at the gimbal's
+  pixels, so a bay takes half the time.
+- **Caveat:** the outer edge of each strip is about 340 m slant, where a
+  person is 2 to 3 pixels across. The 0.9 detector recall assumed
+  everywhere matters most there.
+
+![The two do-everything birds, to scale](img/bird-payloads.png)
+
+![Under the side-eyed bird: a PTZ eye each side and the belly fisheye](img/bird-dual-underside.png)
 
 Findings:
 
