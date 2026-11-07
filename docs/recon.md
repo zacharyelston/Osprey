@@ -248,63 +248,9 @@ Findings:
 
 - **`twinboom`** (the default): a printed wing on a carbon spar, with a fuselage pod, twin booms and an
   H-tail.
-- **`bwb`** (`design/recon/airframes/bwb.toml`): a blended wing body.
-  - Swept and tailless, with a thick centre body (17 % thick at the root, at least 75 mm deep) that
-    holds the battery and payload.
-  - Moulded composite skins at 0.35 kg/m², so no printer-bed limit on the chord.
-  - Winglets, elevons and a centreline pusher.
-- **`crescent`** (`design/recon/airframes/crescent.toml`): an organic crescent flying wing, after printed
-  AI-optimized wings like the Neuronautics NX-2.
-  - The leading edge's curve is a design variable (OpenAeroStruct x shear at five points), so sweep can
-    grow toward the tips.
-  - The tips curve up (fixed z shear), and a slim nose pod carries the payload.
-  - It prints in panels on carbon tubes.
-
-**Sizing a flying wing.** The flying wings add to the twin-boom's sizing:
-- **Points:** a probe point a degree above the task point.
-- **Design variables:** sweep (or the leading-edge curve), twist at four or five points, and the CG of
-  everything but the wing.
-- **Constraints:**
-  - zero pitching moment at the task point (trim);
-  - a static margin of at least 6 % of the reference chord, from the moment slope between the two points;
-  - for the blended wing, the centre body's depth.
-
-**Results** (`runs/2026-11-06_recon-wings`, lightest airframe that does all seven jobs):
-
-| | One gimbal | A PTZ eye each side |
-|---|---|---|
-| Twin-boom | 2.73 kg, 2.02 m, L/D 10.1 | 2.13 kg, 1.54 m, L/D 8.1 |
-| Blended wing | 2.11 kg, 1.32 m, AR 7.0, 36° mean leading-edge sweep, L/D 11.6 | **1.80 kg**, 1.15 m, L/D 10.0 |
-| Crescent | 2.18 kg, 1.98 m, AR 16.1, static margin 14 %, **L/D 12.6** | 1.83 kg, 1.69 m, L/D 11.3 |
-
-- **Tail and booms:** losing them saves about 0.6 kg.
-- **The two flying wings:** they weigh about the same. The blended wing is compact, with 5.8 l inside;
-  the crescent is the efficient one, printed with no moulds.
-- **The crescent's chord:** it stays near 13 cm everywhere. The Reynolds floor sets the tips, and with
-  the payload in the pod nothing rewards a wide root. A volume or payload-in-wing requirement would.
-- **The blended wing's span:** it sits on its 1.0 m minimum on most single jobs.
-
-![The blended wing over the sea](img/bird-bwb-hero.png)
-
-![The crescent: top, front and side](img/bird-crescent-threeview.png)
-
-## From design to moulds (`osprey recon-buck`)
-
-A buck (plug) is the positive shape moulds are taken off. For a sized flying wing, `recon-buck` writes
-these files, in millimetres, x forward, y port, z up:
-- `oml.stl`: the outer mould line, both sides;
-- `buck_upper.stl` and `buck_lower.stl`: the solids above and below each section's chord line. These are
-  closed meshes, with a flat face where the two moulds part, for a CNC toolpath or a slicer.
-- `sections.csv`: every station's upper and lower points, for hot-wire templates, a CadQuery loft or
-  checking a cut buck;
-- `buck.md`: the sizes, the stock block each half needs, and skin area and laminate weight.
-
-The gimbal blended wing's upper buck needs a 667 × 1366 × 119 mm block, and its skin is 0.56 m², about
-0.2 kg of laminate. Before moulds come off a buck it still needs flanges, draft, a parting board shaped to
-its (slightly twisted) chord line, and a release finish. Winglets, the payload fairing and the motor
-mount are separate parts.
-
-![The blended wing's mould halves](img/bird-bwb-moulds.png)
+- **`bwb`** and **`crescent`**: tailless flying wings, trimmed and kept stable by the sizing. They are a
+  work in progress: their design notebook, results, mould buck export (`osprey recon-buck`) and open
+  questions are in [docs/blended-wing](blended-wing/README.md).
 
 ## Anti-piracy awareness (`osprey recon-awareness`)
 
