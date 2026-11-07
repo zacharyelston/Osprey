@@ -498,3 +498,53 @@ def test_tailsitter_wind_limits_match_their_formulas():
     rows = ts.sea(p, d, fl, ts.periods(p, d, fl))
     heels = [r["heel_deg"] for r in rows]
     assert heels == sorted(heels) and rows[0]["ok"]                        # more wind, more heel; calm is fine
+
+
+def test_cyclone_rotor_matches_blade_elements_and_momentum_by_hand():
+    from osprey.recon import cyclone as cy_
+    from osprey.recon import tailsitter as ts
+
+    p, d = _kept()
+    cy = cy_.inputs()
+    m = cy_.mass(p, d, cy)
+    g = cy_.geometry(p, d, cy)
+    assert g["R_m"] == pytest.approx(d["span_m"] / 2 + cy.hub_radius_m) and g["chord_m"] == pytest.approx(d["S_m2"] / d["span_m"])
+    h = cy_.rotor(p, d, cy, m["mass_kg"])
+    R, r0, c, w = g["R_m"], g["r0_m"], g["chord_m"], h["omega_rads"]
+    T = m["mass_kg"] * 9.81
+    # Thrust from three blades at a uniform lift coefficient: rho N c CL w^2 (R^3 - r0^3) / 6.
+    assert 1.225 * 3 * c * cy.cl_mean * w ** 2 * (R ** 3 - r0 ** 3) / 6 == pytest.approx(T, rel=1e-6)
+    assert h["p_ideal_w"] == pytest.approx(T ** 1.5 / math.sqrt(2 * 1.225 * math.pi * R * R), rel=1e-6)
+    assert h["p_profile_w"] == pytest.approx(1.225 * 3 * c * cy.cd_section * w ** 3 * (R ** 4 - r0 ** 4) / 8, rel=1e-6)
+    assert 0 < h["figure_of_merit"] < 1
+    # The big disc: well under the tailsitter's two props for the same weight.
+    pt, _ = _tailsitter()
+    assert h["p_shaft_w"] < 0.6 * ts.hover_power(pt, T)
+    # The tip motors are sized for the tricopter transition, and that is enough to hover spinning on one of them.
+    kg, peak = cy_.motors(p, d, cy, m["mass_kg"])
+    assert m["motor_kg"] == pytest.approx(kg, rel=1e-3) and peak / 3 > h["p_shaft_w"]
+
+
+def test_cyclone_tricopter_and_seed_fall_formulas():
+    from osprey.recon import cyclone as cy_
+
+    p, d = _kept()
+    cy = cy_.inputs()
+    T = 25.0
+    A = 3 * math.pi * (cy.tri_prop_diameter_m / 2) ** 2
+    p_ideal = T ** 1.5 / math.sqrt(2 * 1.225 * A)
+    assert cy_.tri_power(p, cy, T) == pytest.approx(p_ideal / cy.tri_figure_of_merit, rel=1e-6)   # hover: ideal over FM
+    assert cy_.tri_power(p, cy, T, v=10.0) < cy_.tri_power(p, cy, T)                              # induced power falls with speed
+    m = cy_.mass(p, d, cy)
+    au = cy_.autorotation(p, d, cy, m)
+    disc = cy_.geometry(p, d, cy)["disc_m2"]
+    assert 0.5 * 1.225 * au["sink_ms"] ** 2 * disc * cy.autorotation_cd == pytest.approx(m["mass_kg"] * 9.81, rel=1e-6)
+    assert au["flare_ratio"] == pytest.approx(au["spin_j"] / au["sink_j"]) and au["flared_g"] <= au["splash_g"]
+    wing = cy_.aircraft(p, d, cy, m, "wing")
+    assert wing.span_m == pytest.approx(2 * cy_.geometry(p, d, cy)["R_m"] * math.sin(math.radians(60)))
+    assert wing.cl_max == cy.cl_max and wing.mass_kg == m["mass_kg"]
+    tri = cy_.aircraft(p, d, cy, m, "tricopter")
+    v = 12.0
+    assert tri.power(v, 0.0) == pytest.approx(cy_.tri_power(p, cy, tri.W, v, 0.0, cy.tri_cda_m2) / tri.eta_motor + tri.p_aux_w)
+    assert tri.energy_j == pytest.approx(wing.energy_j)
+    assert wing.energy_j < flight.Aircraft.from_design(p, d).energy_j    # the hover and transitions come off the battery

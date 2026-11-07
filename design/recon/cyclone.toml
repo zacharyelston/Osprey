@@ -1,0 +1,43 @@
+# Recon as a Cyclone: three arms that are wings, after Nick Rehm's Cyclone-Rotor
+# tricopter. Twisting the arms about their own axes turns it from a tricopter
+# (motors up) into a rotor (motors pushing round, the whole bird spinning).
+# Built from the twin-boom one-bird: each arm is one of its wing halves, plus a
+# third. All values REF: stand-ins until a model is built and measured.
+
+[cyclone]
+arms = 3
+hub_radius_m = 0.08          # pod, bearings and the arm-twist servos
+hub_kg = 0.35                # replaces the twin-boom's 0.45 kg pod, booms, tail and servos
+hub_cda_m2 = 0.008           # the pod and gimbal, no booms or tail
+
+# Spinning: the arms are rotor blades.
+cl_mean = 0.55               # mean blade lift coefficient in the hover, under a symmetric section's stall
+cd_section = 0.018           # symmetric section at Re 100-200k
+induced_factor = 1.15        # momentum theory's induced power, times this for tip loss and uneven inflow
+tip_prop_efficiency = 0.60   # the tip props pushing the arms round at the tip speed
+nacelle_cda_m2 = 0.0008      # each tip motor's nacelle, whirled round at the tip speed
+thrust_to_weight = 1.6       # peak spinning thrust, as the tailsitter's
+mu_max = 0.35                # advance ratio (wind / tip speed) past which the retreating arm stalls
+autorotation_cd = 1.2        # drag coefficient on the disc, motors off, spinning down like a seed
+splash_stop_m = 0.10         # how far the hub and arms sink stopping on the water
+
+# As a tricopter: motors up, the transition between spinning and wing-borne flight.
+tri_prop_diameter_m = 0.25
+tri_figure_of_merit = 0.60
+tri_thrust_to_weight = 1.3   # peak, for the transition: sizes the motors
+tri_cda_m2 = 0.030           # hub plus three arms at odd angles to the flow, flying as a tricopter
+specific_kg_per_kw = 0.22    # motor, ESC and prop per kW of peak shaft power (the tailsitter's)
+fixed_kg = 0.06              # mounts and wiring for three motors
+transition_s = 8.0           # each way, as a tricopter, between the spin and the wing
+
+# Stopped and locked as a fixed wing: one arm aft as the tail, two forward at +-60 degrees.
+# One forward arm's leading edge faces aft in the spin, so it flips 180 degrees: the
+# sections have to be symmetric.
+cl_max = 0.90                # symmetric section, against the cambered wing's 1.2
+cd_symmetric_extra = 0.004   # profile drag over the cambered section at the cruise lift
+k_factor = 1.10              # induced drag over a straight wing of the same span: sweep and the hub
+prop_offaxis_deg = 30.0      # the forward arms' tip props, square to their arms, point 30 deg off the nose
+
+# Each sortie's time off the wing, as the tailsitter's: spinning, less the two transitions.
+hover_time_s = 45.0
+exposure_ms = 1.0            # the camera's, for the smear while spinning

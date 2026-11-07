@@ -460,10 +460,43 @@ def _tailsitter_water(name, p, d, o: Path, args):
           f"{lr['t_wing_borne_s']:.1f} s; surface tension {lr['surface_tension_n']:.2f} N -> {o}")
 
 
+def cmd_recon_cyclone(args) -> int:
+    """Recon as a Cyclone: the twin-boom one-bird rebuilt with three wing arms that spin as a rotor,
+    against the tailsitter one-bird for the same cameras."""
+    from osprey.recon import cyclone
+    from osprey.recon import figures as rfig
+
+    payloads = ("gimbal", "dual") if args.payload == "all" else (args.payload,)
+    base = Path(args.run) if args.run else ROOT / "runs" / "2026-11-06_recon-payloads"
+    tsr = ROOT / "runs" / "2026-11-07_recon-water" / "tailsitter"
+    dst = Path(args.out) if args.out else OUT / "recon-cyclone"
+
+    def one(root: Path) -> tuple[str, dict]:
+        best = json.loads((root / "matrix.json").read_text())["one_bird"]
+        return best, json.loads((root / best / "design.json").read_text())
+
+    for pl in payloads:
+        _, d = one(base / pl)
+        tn, ts = one(tsr / pl)
+        tw = json.loads((tsr / pl / tn / "water" / "tailsitter.json").read_text())
+        a = cyclone.assess(d, pl, ts, tw)
+        o = dst / pl
+        o.mkdir(parents=True, exist_ok=True)
+        (o / "cyclone.md").write_text(cyclone.report(a, pl))
+        (o / "cyclone.json").write_text(json.dumps(a, indent=1, default=float))
+        rfig.cyclone(a, f"Recon as a Cyclone, {pl}: {a['mass']['mass_kg']:.2f} kg re-sized for all seven jobs", o / "cyclone.png")
+        h, au = a["hover"], a["autorotation"]
+        print(f"{pl}: {a['mass']['mass_kg']:.2f} kg; hover {h['p_shaft_w']:.0f} W at {h['rpm']:.0f} rpm "
+              f"(tailsitter {a['tailsitter']['hover_w']:.0f} W); motors off {au['sink_ms']:.1f} m/s; jobs as a wing "
+              f"{sum(r['ok'] for r in a['resized']['jobs'].values())}/7 -> {o}")
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="osprey", description=__doc__)
     ap.add_argument("cmd", choices=["calc", "sim", "render", "all", "sweep", "recon-size", "recon-fly", "recon",
-                                    "recon-render", "recon-plug", "recon-frame", "recon-water", "recon-awareness"])
+                                    "recon-render", "recon-plug", "recon-frame", "recon-water", "recon-awareness",
+                                    "recon-cyclone"])
     ap.add_argument("--scenario", default="coastal-watch", choices=SCENARIOS)
     ap.add_argument("--rig", default=None, choices=RIGS, help="override the scenario's rig")
     ap.add_argument("--out", default=None, help="output directory (absolute); default out/<scenario>/<rig>")
@@ -475,11 +508,13 @@ def main(argv=None) -> int:
     ap.add_argument("--workers", type=int, default=8, help="sweep: parallel processes")
     ap.add_argument("--mission", default="sar-datum", help="recon: a design/recon/missions name, or all")
     ap.add_argument("--design", default=None, help="recon-fly: a design.json to fly instead of sizing one")
-    ap.add_argument("--payload", default="gimbal", help="recon: gimbal, or a design/recon/payloads variant (dual)")
+    ap.add_argument("--payload", default="gimbal", help="recon: gimbal, or a design/recon/payloads variant (dual); "
+                                                              "recon-cyclone also takes all")
     ap.add_argument("--airframe", default="twinboom", help="recon: twinboom, or a design/recon/airframes variant (bwb)")
     ap.add_argument("--water", action="store_true", help="recon: size and fly with the float kit aboard (recon/water.py)")
     ap.add_argument("--run", default=None, help="recon-render, -plug, -frame, -water: a run directory holding <mission>/design.json "
-                                                "(default out/recon)")
+                                                "(default out/recon); recon-cyclone: one holding <payload>/matrix.json "
+                                                "(default runs/2026-11-06_recon-payloads)")
     args = ap.parse_args(argv)
     if args.cmd == "recon-render":
         return cmd_recon_render(args)
@@ -489,6 +524,8 @@ def main(argv=None) -> int:
         return cmd_recon_frame(args)
     if args.cmd == "recon-water":
         return cmd_recon_water(args)
+    if args.cmd == "recon-cyclone":
+        return cmd_recon_cyclone(args)
     if args.cmd == "recon-awareness":
         return cmd_recon_awareness(args)
     if args.cmd.startswith("recon"):

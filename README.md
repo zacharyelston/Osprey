@@ -365,7 +365,10 @@ the water and the landing loads. `--water` sizes the bird with the float kit abo
 but each needs its prop on a 17–24 cm pylon, and take-off from the water only works in a flat calm. A
 tailsitter version of the blended wing does better. It floats upright on four strut pods, props half a
 metre up, and is wing-borne 4.3 s after throttle-up in up to sea state 3–4. It costs 0.25–0.6 kg against
-the float plane. The notebook, with the WingtraRAY as prior art, is
+the float plane. A Cyclone (`osprey recon-cyclone`, after Nick Rehm's spinning tricopter) hovers on
+2–2.4× less power by spinning as one big rotor. It also falls like a seed with the motors off and
+hovers on one motor. But its transitions and symmetric-section wing leave it 0.12–0.16 kg heavier than
+the tailsitter. The notebook, with the WingtraRAY as prior art, is
 [docs/float-launch](docs/float-launch/README.md).
 
 ### Anti-piracy awareness
@@ -484,6 +487,7 @@ uv run osprey recon-render --mission all                    # Recon: render each
 uv run osprey recon --mission all --airframe crescent       # Recon: the crescent flying wing (or bwb)
 uv run osprey recon-plug --mission sar-offshore --airframe bwb   # Recon: OML and plug halves for moulds
 uv run osprey recon-frame --mission sar-offshore --airframe bwb  # Recon: CNC ladder-frame layout (DXF, SVG)
+uv run osprey recon-cyclone --payload all                   # Recon: three wing arms spinning as a rotor
 uv run osprey recon-awareness                               # Recon: anti-piracy ranges
 ```
 
@@ -503,7 +507,7 @@ Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two works
 | [`design/scenarios/`](design/scenarios/) | `coastal-watch` (sea state 4), `mob` (sea state 3), `docking` |
 | [`design/recon/`](design/recon/) | Recon: the reference printed airframe, airframe variants (blended wing, crescent), payload variants, and the mission profiles (search, survey, inspect, escort) |
 | [`src/osprey/`](src/osprey/) | `frames`, `motion`, `optics`, `stabilize`, `occlusion`, `rig`, `tasking`, `calcs`, `figures`, `render/scene`, `cli` |
-| [`src/osprey/recon/`](src/osprey/recon/) | `tasks` (search, survey, inspect, escort), `search` (sweep width, POD), `flight` (3-DOF), `sizing` (OpenMDAO + OpenAeroStruct, trim and stability for flying wings), `fleet` (one bird, many jobs), `geometry` and `render` (the bird in MuJoCo), `plug` and `frame` (mould plugs, CNC ladder frames), `water` (afloat, take-off from the sea, landing loads), `tailsitter` (hover sizing, afloat upright, the water launch), `awareness` (anti-piracy ranges), `figures` |
+| [`src/osprey/recon/`](src/osprey/recon/) | `tasks` (search, survey, inspect, escort), `search` (sweep width, POD), `flight` (3-DOF), `sizing` (OpenMDAO + OpenAeroStruct, trim and stability for flying wings), `fleet` (one bird, many jobs), `geometry` and `render` (the bird in MuJoCo), `plug` and `frame` (mould plugs, CNC ladder frames), `water` (afloat, take-off from the sea, landing loads), `tailsitter` (hover sizing, afloat upright, the water launch), `cyclone` (three wing arms spinning as a rotor), `awareness` (anti-piracy ranges), `figures` |
 | [`runs/`](runs/README.md) | Kept runs, never edited after they are archived |
 | [`docs/`](docs/) | [Architecture](docs/architecture.md), [Recon](docs/recon.md), [remote runs](docs/remote-simulation.md), README figures |
 
@@ -511,6 +515,7 @@ Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two works
 
 | Run | What it shows |
 |---|---|
+| [`2026-11-07_recon-cyclone`](runs/2026-11-07_recon-cyclone/) | Recon as a Cyclone: spinning hover, seed fall, both ways to cruise, re-sized for all seven jobs |
 | [`2026-11-06_recon-wings`](runs/2026-11-06_recon-wings/) | Recon: the blended wing and crescent flying wing, each payload, seven jobs and capability matrices; awareness ranges; plugs and ladder frames for the flying wings |
 | [`2026-11-06_recon-payloads`](runs/2026-11-06_recon-payloads/) | Recon: seven jobs (search, survey, inspect, escort) for each payload (gimbal, side PTZ eyes), each one's sized airframe and flight, and both capability matrices |
 | [`2026-11-06_pairs-sweep`](runs/2026-11-06_pairs-sweep/summary.md) | Every scenario x rig, now with `spreader-pairs` (dual mounts on the spreaders) in full |
