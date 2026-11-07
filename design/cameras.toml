@@ -120,3 +120,54 @@ exposure_ms = 1.0
 mass_kg = 0.35
 power_w = [4.0, 6.0]
 stabilization = { outer_hz = 6.0, inner_hz = 0.0, inner_stroke_deg = 0.0, floor_urad = 100.0 }
+
+# A fixed 4K bullet, the kind a back-to-back dual mount carries (two per
+# mount, one each way). Varifocal, set once at install; unstabilized; it
+# encodes its own video and has its own PoE cable.
+[camera.bullet_4k]
+label = "Fixed 4K bullet, varifocal set to 8 mm (1/1.8 in)"
+width_px = 3840
+height_px = 2160
+pixel_um = 2.0
+focal_mm = [8.0, 8.0]
+tilt_deg = [-8.0, -8.0]
+fixed = true
+slew_dps = 0.0
+zoom_s = 0.0
+exposure_ms = 1.0
+mass_kg = 0.55
+power_w = [5.0, 8.0]
+stabilization = { outer_hz = 0.0, inner_hz = 0.0, inner_stroke_deg = 0.0, floor_urad = 0.0 }
+
+# The same bullet with its varifocal opened to 4 mm and tilted down: the
+# lower spreader pair's view of the water round the bow and the stern.
+[camera.bullet_4k_wide]
+label = "Fixed 4K bullet, varifocal set to 4 mm, tilted down (1/1.8 in)"
+width_px = 3840
+height_px = 2160
+pixel_um = 2.0
+focal_mm = [4.0, 4.0]
+tilt_deg = [-30.0, -30.0]
+fixed = true
+slew_dps = 0.0
+zoom_s = 0.0
+exposure_ms = 1.0
+mass_kg = 0.55
+power_w = [5.0, 8.0]
+stabilization = { outer_hz = 0.0, inner_hz = 0.0, inner_stroke_deg = 0.0, floor_urad = 0.0 }
+
+# A light fixed board camera for the drone's fore/aft pair (payload "dual").
+[camera.recon_board]
+label = "Drone board camera, fixed 8 mm (1/2.3 in 12 MP)"
+width_px = 4056
+height_px = 3040
+pixel_um = 1.55
+focal_mm = [8.0, 8.0]
+tilt_deg = [-35.0, -35.0]
+fixed = true
+slew_dps = 0.0
+zoom_s = 0.0
+exposure_ms = 1.0
+mass_kg = 0.06
+power_w = [1.5, 1.5]
+stabilization = { outer_hz = 0.0, inner_hz = 0.0, inner_stroke_deg = 0.0, floor_urad = 0.0 }

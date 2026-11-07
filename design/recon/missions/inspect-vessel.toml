@@ -20,6 +20,7 @@ need = "identify"
 standoff_m = 200.0
 inspect_alt_m = 60.0
 laps = 2
+dwell_s = 30.0             # with fixed cameras: seconds in view at identify resolution
 wind_from_deg = 90.0
 wind_kn = 15.0
 cruise_alt_m = 100.0

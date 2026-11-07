@@ -91,3 +91,24 @@ def test_pod_checks_report_power_network_and_flex():
 def test_rigs_without_pods_skip_the_pod_checks():
     checks = calcs.run(load("docking", rig="mast5"))
     assert not {c.group for c in checks} & {"Pod power", "Pod network", "Pod timing"}
+
+
+def test_dual_mounts_face_fore_and_aft_with_a_port_each():
+    p = load("docking", rig="spreader-pairs")
+    sts = {s.id: s for s in stations(p)}
+    for pd in pods(p):
+        if not pd.horizontal:
+            continue
+        fwd, aft = sts[f"{pd.id}-fwd"], sts[f"{pd.id}-aft"]
+        assert fwd.pos[0] > pd.pos[0] > aft.pos[0]
+        assert math.degrees(fwd.face_az) == 0 and abs(math.degrees(aft.face_az)) == 180
+        assert not pd.has_computer and len(pd.ports()) == 2
+
+
+def test_same_height_pairs_cancel_mast_flex():
+    p = load("coastal-watch", rig="spreader-pairs")
+    checks = {c.name: c for c in calcs.run(p)}
+    flex = [c for n, c in checks.items() if "baseline and mast flex" in n]
+    assert flex and all(c.value.endswith(", 0 urad") for c in flex)
+    near = [c for n, c in checks.items() if "stereo range at 30 m" in n]
+    assert near and all(c.status == "PASS" for c in near)

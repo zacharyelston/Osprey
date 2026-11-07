@@ -1,0 +1,19 @@
+# Payload variant: no gimbal. A back-to-back pair of light fixed cameras,
+# one looking ahead and one astern along the track, plus a fisheye in the
+# belly looking straight down for surveys and for landing. Overlaid on
+# design/recon/airframe.toml with `--payload dual`.
+#
+# Searching, the pair sees every patch twice: once coming, once going.
+# Surveying, the belly fisheye images a wide swath, at coarser pixels.
+# Inspecting, fixed cameras can't follow a vessel round an orbit, so the
+# drone makes passes with the vessel ahead and then astern.
+
+[payload]
+layout = "dual"
+camera = "recon_board"
+belly = "fisheye_down"
+belly_halfangle_deg = 60.0   # usable cone of the belly fisheye for a survey
+mount_kg = 0.05
+search_focal_mm = 8.0
+depression_deg = 35.0
+detector_recall = 0.90

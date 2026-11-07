@@ -74,7 +74,10 @@ def sweep(p, alt_m: float, depression_deg: float | None = None) -> Sweep:
     centre = alt_m / math.tan(dep) if dep < math.pi / 2 - 1e-9 else 0.0
     p_vis = optics.wave_exposure(alt_m, max(centre, 1.0), kind.height_m, p.sea.hs_m, p.sea.tp_s, k=k, n=120) \
         if p.sea.hs_m > 0 else 1.0
-    return Sweep(alt_m, half, near, max(far, near), r_det, binding, p_vis, pl.detector_recall * p_vis)
+    p_pass = pl.detector_recall * p_vis
+    if getattr(pl, "layout", "gimbal") == "dual" and depression_deg is None:
+        p_pass = 1 - (1 - p_pass) ** 2          # the fore camera, then the aft one, see every patch
+    return Sweep(alt_m, half, near, max(far, near), r_det, binding, p_vis, p_pass)
 
 
 @dataclass
