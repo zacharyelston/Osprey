@@ -166,13 +166,14 @@ def build(p, d: dict, *, explode: float = 0.0) -> list[Part]:
     v, f = loft(rings)
     parts.append(Part("pod", "pod", v, f))
     if getattr(p.payload, "layout", "gimbal") == "dual":
-        # A back-to-back pair under the pod (lenses fore and aft) and a belly fisheye dome.
-        xc, zb = x0 - 0.25 * L, zc - R * 0.95
-        v, f = _tube([xc + 0.05, 0, zb], [xc - 0.05, 0, zb], 0.022, 14)
-        parts.append(Part("dualcam", "gimbal", v, f))
-        for k, dx in enumerate((0.052, -0.052)):
-            v, f = _sphere([xc + dx, 0, zb], 0.013, 10)
-            parts.append(Part(f"lens{k}", "lens", v, f))
+        # A PTZ eye on each side of the pod, looking out, and a belly fisheye dome.
+        xc = x0 - 0.22 * L
+        for side in (1, -1):
+            yc = side * (R * 0.85 + 0.03)
+            v, f = _sphere([xc, yc, zc - 0.2 * R], 0.034, 14)
+            parts.append(Part(f"eye_{side}", "gimbal", v, f))
+            v, f = _sphere([xc + 0.01, yc + side * 0.024, zc - 0.32 * R], 0.016, 10)
+            parts.append(Part(f"lens_{side}", "lens", v, f))
         v, f = _sphere([x0 - 0.55 * L, 0, zc - R * 0.9], 0.02, 12)
         parts.append(Part("belly", "lens", v, f))
     else:

@@ -183,8 +183,7 @@ def _task_rows(s: dict) -> list[tuple[str, str]]:
                   f"ground sample {s['gsd_cm']:.1f} cm ({s['camera']})"),
                  ("Pixels across each target", px)]
     elif s["kind"] == "inspect":
-        how = (f"{s['in_view_s']:.0f} s in view on {s['passes'] + 1} pass(es) (fixed fore/aft cameras)"
-               if s["camera"] != "gimbal" else f"{s['focal_needed_mm']:.1f} mm focal needed of {s['focal_max_mm']:g} mm")
+        how = f"{s['focal_needed_mm']:.1f} mm focal needed of {s['focal_max_mm']:g} mm ({s['camera']})"
         rows += [("Inspection", f"{s['standoff_m']:.0f} m standoff ({s['slant_m']:.0f} m slant); {how}; "
                   f"{s['px_across_at_focal']:.0f} px across; {'resolves' if s['resolves'] else 'does NOT resolve'} it")]
     elif s["kind"] == "escort":
@@ -334,6 +333,7 @@ def cmd_recon_render(args) -> int:
         rr.hero(p, d, o / "bird-hero.png")
         rr.threeview(p, d, o / "bird-threeview.png")
         rr.exploded(p, d, o / "bird-exploded.png")
+        rr.underside(p, d, o / "bird-underside.png")
         rr.turntable(p, d, o / "bird-turntable.gif")
         lineup.append((p, d, name))
         print(f"{name}: renders in {o}")

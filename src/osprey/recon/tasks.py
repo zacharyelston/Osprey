@@ -7,10 +7,9 @@
   beach, a reef or an island's wildlife: a lawnmower pattern with the gimbal
   pointing straight down, until the area is imaged. It reports the ground
   sample distance and how many pixels each hazard class gets.
-- inspect: look at another vessel from a standoff distance. With the gimbal,
-  orbit it as it moves, zoomed in to identify it. With fixed fore/aft
-  cameras (payload "dual"), make passes beside it, with the vessel ahead and
-  then astern, until it has been in view long enough.
+- inspect: look at another vessel from a standoff distance. Orbit it as it
+  moves, zoomed in to identify it (the gimbal, or with payload "dual" the
+  inboard PTZ eye).
 - escort: keep the boat's beams under watch. Circle the boat as it sails, at
   a set radius, for a set time.
 
@@ -134,13 +133,11 @@ class SurveyTask(Task):
         h = math.radians(m.survey_heading_deg)
         self.along = np.array([math.sin(h), math.cos(h)])
         self.across = np.array([self.along[1], -self.along[0]])
-        self.belly = getattr(p.payload, "layout", "gimbal") == "dual" and p.belly is not None
-        if self.belly:
-            # The belly fisheye, straight down: a wide cone, coarse pixels.
-            half = self.alt_m * math.tan(math.radians(p.payload.belly_halfangle_deg))
-            sw = search.Sweep(self.alt_m, half, -half, half, math.inf, "fisheye cone", 1.0, 0.999)
-        else:
-            sw = search.sweep(p, self.alt_m, depression_deg=90.0)
+        self.eyes = 2 if getattr(p.payload, "layout", "gimbal") == "dual" else 1
+        sw = search.sweep(p, self.alt_m, depression_deg=90.0)
+        if self.eyes == 2:
+            # Both PTZ eyes turned down and slightly outboard: two footprints side by side.
+            sw = replace(sw, half_width_m=2 * sw.half_width_m)
         self.sweep = replace(sw, p_pass=0.999)                       # imaged is imaged
         self.spacing = 2 * sw.half_width_m * (1 - m.sidelap)
         n = max(int(math.ceil(self.size[0] / self.spacing)) + 1, 2)
@@ -189,14 +186,11 @@ class SurveyTask(Task):
 
     def info(self):
         cam, pl = self.p.camera, self.p.payload
-        if self.belly:
-            cam = self.p.belly
-            gsd = self.alt_m * cam.pixel_um * 1e-6 / (cam.focal_mm[0] * 1e-3)
-        else:
-            gsd = self.alt_m * cam.pixel_um * 1e-6 / (pl.search_focal_mm * 1e-3)
+        gsd = self.alt_m * cam.pixel_um * 1e-6 / (pl.search_focal_mm * 1e-3)
         cls = {k: round(getattr(self.p.targets, k).crit_m / gsd, 1) for k in self.p.mission.look_for}
         return {"gsd_cm": gsd * 100, "swath_m": 2 * self.sweep.half_width_m, "track_spacing_m": self.spacing,
-                "legs": len(self.pattern) // 2, "px_across": cls, "camera": "belly fisheye" if self.belly else "gimbal"}
+                "legs": len(self.pattern) // 2, "px_across": cls,
+                "camera": "two side PTZs, turned down" if self.eyes == 2 else "gimbal"}
 
 
 class InspectTask(Task):
@@ -216,56 +210,15 @@ class InspectTask(Task):
         self.track_m = 2 * math.pi * self.r * self.laps
         self.swept = 0.0
         self.theta = None
-        self.fixed = getattr(p.payload, "layout", "gimbal") == "dual"
-        if self.fixed:
-            # Passes beside the vessel: 3 standoffs before it to 3 after, alternating sides.
-            self.dwell = m.dwell_s
-            self.seen = 0.0
-            self.leg = 0
-            self.L = 3 * self.r
-            self.track_m = self.dwell * 18.0 * 2.5         # nominal: in view about 40 % of the time
-            self.hfov = optics.fov(p.camera.width_px, p.camera.pixel_um, p.camera.focal_mm[0])
 
     def where(self, t):
         return self.v0 + self.vel * t
 
     def entry(self, t, pos):
-        if self.fixed:
-            return self._pass_point(t, 0)
         d = pos - self.where(t)
         return self.where(t) + self.r * d / max(np.linalg.norm(d), 1e-6)
 
-    def _pass_point(self, t, k):
-        """Start (even k) or end (odd k) of pass k // 2: along the vessel's course,
-        offset to one side, the sides and directions alternating."""
-        sp = np.linalg.norm(self.vel)
-        u = self.vel / sp if sp > 0 else np.array([0.0, 1.0])
-        n = np.array([u[1], -u[0]])
-        p_ = k // 2
-        side = 1 if p_ % 2 == 0 else -1
-        start_first = p_ % 2 == 0
-        along = -self.L if (k % 2 == 0) == start_first else self.L
-        return self.where(t) + along * u + side * self.r * n
-
-    def look(self, pos, track_rad, t, dt, v_ground, alt):
-        if not self.fixed:
-            return
-        d = self.where(t) - pos
-        rel = (math.atan2(d[0], d[1]) - track_rad + math.pi) % (2 * math.pi) - math.pi
-        slant = math.hypot(np.linalg.norm(d), alt)
-        in_view = min(abs(rel), math.pi - abs(rel)) <= self.hfov / 2
-        kind = getattr(self.p.targets, self.p.mission.vessel_class)
-        px = kind.crit_m / (slant * optics.ifov(self.p.camera.pixel_um, self.p.camera.focal_mm[0]))
-        if in_view and px >= 2 * getattr(self.p.johnson, self.p.mission.need):
-            self.seen += dt
-
     def target(self, t, pos):
-        if self.fixed:
-            tgt = self._pass_point(t, self.leg)
-            if np.linalg.norm(tgt - pos) < 40.0:
-                self.leg += 1
-                tgt = self._pass_point(t, self.leg)
-            return tgt
         d = pos - self.where(t)
         th = math.atan2(d[1], d[0])
         if self.theta is not None:
@@ -276,19 +229,10 @@ class InspectTask(Task):
 
     @property
     def progress(self):
-        if self.fixed:
-            return min(self.seen / self.dwell, 1.0)
         return min(self.swept / (2 * math.pi * self.laps), 1.0)
 
     def info(self):
         kind = getattr(self.p.targets, self.p.mission.vessel_class)
-        if self.fixed:
-            slant = math.hypot(self.r, self.alt_m)
-            px = kind.crit_m / (slant * optics.ifov(self.p.camera.pixel_um, self.p.camera.focal_mm[0]))
-            return {"standoff_m": self.r, "slant_m": slant, "focal_needed_mm": self.p.camera.focal_mm[0],
-                    "focal_max_mm": self.p.camera.focal_mm[0], "px_across_at_focal": px,
-                    "resolves": px >= 2 * getattr(self.p.johnson, self.p.mission.need),
-                    "passes": self.leg // 2, "in_view_s": self.seen, "camera": "fixed fore/aft"}
         cam = self.p.camera
         slant = math.hypot(self.r, self.alt_m - kind.height_m / 2)
         need = getattr(self.p.johnson, self.p.mission.need)
@@ -296,7 +240,8 @@ class InspectTask(Task):
         f_use = min(max(f_req, cam.focal_mm[0]), cam.focal_mm[1])
         px = kind.crit_m / (slant * optics.ifov(cam.pixel_um, f_use))
         return {"standoff_m": self.r, "slant_m": slant, "focal_needed_mm": f_req, "focal_max_mm": cam.focal_mm[1],
-                "px_across_at_focal": px, "resolves": f_req <= cam.focal_mm[1], "camera": "gimbal"}
+                "px_across_at_focal": px, "resolves": f_req <= cam.focal_mm[1],
+                "camera": "inboard PTZ eye" if getattr(self.p.payload, "layout", "gimbal") == "dual" else "gimbal"}
 
 
 class EscortTask(InspectTask):
@@ -318,7 +263,7 @@ class EscortTask(InspectTask):
         self.track_m = self.duration * 18.0
         self.t_on = None
         self.t_now = 0.0
-        self.swept, self.theta, self.fixed = 0.0, None, False
+        self.swept, self.theta = 0.0, None
 
     def target(self, t, pos):
         if self.t_on is None:

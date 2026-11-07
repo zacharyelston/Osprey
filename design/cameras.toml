@@ -156,18 +156,18 @@ mass_kg = 0.55
 power_w = [5.0, 8.0]
 stabilization = { outer_hz = 0.0, inner_hz = 0.0, inner_stroke_deg = 0.0, floor_urad = 0.0 }
 
-# A light fixed board camera for the drone's fore/aft pair (payload "dual").
-[camera.recon_board]
-label = "Drone board camera, fixed 8 mm (1/2.3 in 12 MP)"
+# A small PTZ eye for the drone's side-looking pair (payload "dual"): one
+# each side, panning, tilting and zooming on its own.
+[camera.recon_ptz_mini]
+label = "Drone mini PTZ eye (1/2.3 in 12 MP, 6-30 mm)"
 width_px = 4056
 height_px = 3040
 pixel_um = 1.55
-focal_mm = [8.0, 8.0]
-tilt_deg = [-35.0, -35.0]
-fixed = true
-slew_dps = 0.0
-zoom_s = 0.0
+focal_mm = [6.0, 30.0]
+tilt_deg = [-90.0, 0.0]
+slew_dps = 150.0
+zoom_s = 1.2
 exposure_ms = 1.0
-mass_kg = 0.06
-power_w = [1.5, 1.5]
-stabilization = { outer_hz = 0.0, inner_hz = 0.0, inner_stroke_deg = 0.0, floor_urad = 0.0 }
+mass_kg = 0.17
+power_w = [2.0, 3.5]
+stabilization = { outer_hz = 6.0, inner_hz = 0.0, inner_stroke_deg = 0.0, floor_urad = 120.0 }

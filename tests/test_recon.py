@@ -154,35 +154,37 @@ def test_one_bird_is_the_lightest_that_does_everything():
     assert all(fleet.ok(s) for s in M[best].values())
 
 
-KEPT = tuple(sorted(d.name for d in (Path(__file__).resolve().parents[1] / "runs/2026-11-06_recon-missions").iterdir()
+KEPT = tuple(sorted(d.name for d in (Path(__file__).resolve().parents[1] / "runs/2026-11-06_recon-payloads/gimbal").iterdir()
                     if (d / "design.json").exists()))
 
 
-def test_dual_payload_sees_each_patch_twice_and_weighs_less():
+def test_side_eyes_split_the_search_and_the_belly_fills_the_gap():
     from osprey.recon.params import payload_kg
 
     g, d = load("sar-datum"), load("sar-datum", payload="dual")
     sg, sd = search.sweep(g, 80.0), search.sweep(d, 80.0)
-    assert sd.p_pass == pytest.approx(1 - (1 - sg.p_pass) ** 2)
-    assert sd.width_eff_m > sg.width_eff_m
-    assert payload_kg(d) < payload_kg(g)
+    left, right, belly = sd.rects
+    assert left[2] > 0 > right[3]                         # one strip each side of the track
+    assert belly[2] < 0 < belly[3] and belly[3] >= left[2] - 1e-9   # the belly covers the gap between them
+    assert sd.width_eff_m > 3 * sg.width_eff_m
+    assert payload_kg(d) > payload_kg(g)                  # two PTZs and a fisheye weigh more than one gimbal
 
 
-def test_belly_fisheye_survey_is_wide_and_coarse():
+def test_side_eyes_survey_two_strips_at_the_same_pixels():
     from osprey.recon import tasks
 
     g, d = load("scout-anchorage"), load("scout-anchorage", payload="dual")
     tg, td = tasks.build(g, np.zeros(2)), tasks.build(d, np.zeros(2))
-    assert td.info()["swath_m"] > 3 * tg.info()["swath_m"]
-    assert td.info()["gsd_cm"] > 3 * tg.info()["gsd_cm"]
+    assert td.info()["swath_m"] == pytest.approx(2 * tg.info()["swath_m"])
+    assert td.info()["gsd_cm"] == pytest.approx(tg.info()["gsd_cm"])
     assert len(td.pattern) < len(tg.pattern)
 
 
-def test_fixed_cameras_inspect_by_passing_not_orbiting():
+def test_inboard_eye_inspects_round_the_orbit():
     p = load("inspect-vessel", payload="dual")
     r = flight.simulate(p, _ac())
     s = flight.summary(p, _ac(), r)
-    assert s["camera"] == "fixed fore/aft" and s["goal_met"] and s["in_view_s"] >= p.mission.dwell_s
+    assert s["camera"] == "inboard PTZ eye" and s["goal_met"] and s["resolves"]
 
 
 def test_escort_circles_the_sailing_boat_for_its_time():
@@ -209,7 +211,7 @@ def _kept(m="sar-offshore"):
     import json
     from pathlib import Path
 
-    d = json.loads((Path(__file__).resolve().parents[1] / "runs/2026-11-06_recon-missions" / m / "design.json")
+    d = json.loads((Path(__file__).resolve().parents[1] / "runs/2026-11-06_recon-payloads/gimbal" / m / "design.json")
                    .read_text())
     return load(m), d
 

@@ -31,11 +31,26 @@ class Sweep:
     binding: str
     p_vis: float           # chance the person is not behind a crest
     p_pass: float          # chance one pass finds a person inside the footprint
+    # Several footprints at once (side-looking eyes and a belly camera), each
+    # (along_lo, along_hi, cross_lo, cross_hi, p_pass) in track coordinates,
+    # cross positive to the right. Empty: the one forward footprint above.
+    rects: tuple = ()
 
     @property
     def width_eff_m(self) -> float:
         """Effective sweep width: the swath times the per-pass detection."""
+        if self.rects:
+            # Cross-track coverage, overlaps counted once at the better detection.
+            xs = sorted({r[2] for r in self.rects} | {r[3] for r in self.rects})
+            w = 0.0
+            for a, b in zip(xs[:-1], xs[1:]):
+                ps = [r[4] for r in self.rects if r[2] <= a and r[3] >= b]
+                w += (b - a) * (1 - np.prod([1 - q for q in ps])) if ps else 0.0
+            return w
         return 2 * self.half_width_m * self.p_pass
+
+    def footprints(self):
+        return self.rects or ((self.near_m, self.far_m, -self.half_width_m, self.half_width_m, self.p_pass),)
 
     @property
     def along_m(self) -> float:
@@ -76,8 +91,39 @@ def sweep(p, alt_m: float, depression_deg: float | None = None) -> Sweep:
         if p.sea.hs_m > 0 else 1.0
     p_pass = pl.detector_recall * p_vis
     if getattr(pl, "layout", "gimbal") == "dual" and depression_deg is None:
-        p_pass = 1 - (1 - p_pass) ** 2          # the fore camera, then the aft one, see every patch
+        return side_sweep(p, alt_m, r_det, binding)
     return Sweep(alt_m, half, near, max(far, near), r_det, binding, p_vis, p_pass)
+
+
+def side_sweep(p, alt_m: float, r_det: float, binding: str) -> Sweep:
+    """Payload "dual": a PTZ eye on each side, looking out and down at
+    side_depression_deg, each searching a strip on its own side of the track.
+    The belly fisheye fills the gap underneath, as far out as it can still
+    resolve the person."""
+    cam, kind, pl = p.camera, p.target, p.payload
+    f = pl.search_focal_mm
+    k = p.atmosphere.k_refraction
+    hfov = optics.fov(cam.width_px, cam.pixel_um, f)          # along the track
+    vfov = optics.fov(cam.height_px, cam.pixel_um, f)         # across it, out from the side
+    dep = math.radians(pl.side_depression_deg)
+    g_det = math.sqrt(max(r_det**2 - alt_m**2, 0.0))
+    lo, hi = dep - vfov / 2, dep + vfov / 2
+    near = alt_m / math.tan(hi)
+    far = min(alt_m / math.tan(lo) if lo > 0 else math.inf, g_det)
+    slant = alt_m / math.sin(dep)
+    half_along = slant * math.tan(hfov / 2)
+    centre = alt_m / math.tan(dep)
+    p_vis = optics.wave_exposure(alt_m, max(centre, 1.0), kind.height_m, p.sea.hs_m, p.sea.tp_s, k=k, n=120) \
+        if p.sea.hs_m > 0 else 1.0
+    q = pl.detector_recall * p_vis
+    rects = [(-half_along, half_along, near, far, q), (-half_along, half_along, -far, -near, q)]
+    if p.belly is not None:
+        ifov_b = optics.ifov(p.belly.pixel_um, p.belly.focal_mm[0])
+        r_b = optics.johnson_range_m(kind.crit_m, ifov_b, p.johnson.detect)
+        g_b = min(math.sqrt(max(r_b**2 - alt_m**2, 0.0)), alt_m * math.tan(math.radians(pl.belly_halfangle_deg)))
+        if g_b > 0:
+            rects.append((-g_b, g_b, -min(g_b, near), min(g_b, near), pl.detector_recall))
+    return Sweep(alt_m, far, -half_along, half_along, r_det, binding + " (side eyes)", p_vis, q, tuple(rects))
 
 
 @dataclass
@@ -149,9 +195,12 @@ class Grid:
         dx, dy = self.x - rel[0], self.y - rel[1]
         along = dx * fx + dy * fy
         cross = dx * fy - dy * fx
-        inside = (along >= sw.near_m) & (along <= sw.far_m) & (np.abs(cross) <= sw.half_width_m)
-        if inside.any():
-            self.unfound[inside] *= (1 - sw.p_pass) ** (v_ground * dt / sw.along_m)
+        for a0, a1, c0, c1, q in sw.footprints():
+            if q <= 0 or a1 <= a0:
+                continue
+            inside = (along >= a0) & (along <= a1) & (cross >= c0) & (cross <= c1)
+            if inside.any():
+                self.unfound[inside] *= (1 - q) ** (v_ground * dt / (a1 - a0))
 
     @property
     def pod(self) -> float:
