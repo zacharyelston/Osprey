@@ -323,3 +323,46 @@ def frame(p, d: dict, path: Path, W: int = 1600, H: int = 900, frames_: dict | N
     _save(img, path, labels=[(14, f"front: upper-surface frame, {n['upper'][0]} ribs and {n['upper'][1]} stringers"),
                              (14, "behind: lower-surface frame, turned over"),
                              (14, f"{p.frame.thickness_mm:g} mm sheet, half-depth slots, standing on flat tables")])
+
+
+def afloat(birds: list[tuple[object, dict, dict, str]], path: Path, W: int = 1800, H: int = 760):
+    """Birds floating side by side at the draft and trim recon/water.py finds,
+    each pusher prop raised on the pylon the water needs (dashed in grey):
+    (params, design, afloat result, label) for each."""
+    from osprey.recon import water
+
+    assets, bodies, labels = [], [], []
+    y0 = 0.0
+    spans = [d["span_m"] for _, d, _, _ in birds]
+    gap = 0.5
+    for k, ((p, d, fl, label), span) in enumerate(zip(birds, spans)):
+        yc = y0 + span / 2
+        y0 += span + gap
+        th = math.radians(fl["trim_deg"])
+        cg = np.array(fl["cg"])
+        parts = geometry.build(p, d)
+        hub = None
+        for q in parts:
+            if q.kind in ("disc", "prop") and fl["pylon_m"] > 0:
+                if hub is None:
+                    hub = q.verts.mean(0)
+                q.verts = q.verts + [0, 0, fl["pylon_m"]]
+        if hub is not None:
+            v, f = geometry._tube(hub + [0.03, 0, -0.02], hub + [0.0, 0, fl["pylon_m"]], 0.008, 10)
+            parts.append(geometry.Part("pylon", "carbon", v, f))
+        for q in parts:
+            v = water._pitch(q.verts, cg, th)
+            v[:, 2] -= fl["waterline_z"]
+            v[:, 1] += yc
+            q.verts = v
+        a, b = _drone_xml(f"b{k}", parts, np.zeros(3), _quat())
+        assets.append(a)
+        bodies.append(b)
+        labels.append(label)
+    width = y0 - gap
+    centre = np.array([0.0, width / 2, 0.0])
+    eye = centre + np.array([0.5 * width + 0.4, -0.05 * width, 0.14 * width + 0.1])
+    cam = _cam("f", eye, centre + np.array([-0.3, 0, -0.02]), fovy=42)
+    img = _shoot(_world("sea", "".join(assets), "".join(bodies), cam, W, H), ["f"], W, H)["f"]
+    _save(img, path, labels=[(14, "afloat at the draft and trim the model finds; each prop raised on its pylon"),
+                             (14, "left to right: " + ",  ".join(labels))])

@@ -109,3 +109,23 @@ skin_offset_mm = 3.0           # the frame sits this far inside the outer mould 
 base_mm = 25.0                 # the frame's lowest edge sits this far below the surface's lowest point
 edge_margin_mm = 5.0           # wood left between a slot and the end of the rib it is cut in
 part_gap_mm = 8.0              # between nested parts
+
+# Water operations: Recon lands on the sea and takes off from it, so it must
+# float, keep its prop out of the spray and get over the hump. osprey
+# recon-water. REF stand-ins, from small-seaplane practice.
+[water]
+density_kgm3 = 1025.0
+reserve_min = 2.0              # sealed volume / volume displaced (seaplane floats: 1.8)
+prop_clearance_m = 0.05        # prop tips above the calm waterline, afloat, for spray
+kit_kg = 0.12                  # planing shoe with a step, seals and gaskets, prop pylon, drain plugs
+kit_cda_m2 = 0.0015            # the shoe's and pylon's drag area in flight
+deadrise_deg = 20.0            # the V of the planing shoe's bottom
+r_hump = 0.20                  # water resistance / weight on the water, at the hump
+r_plane = 0.07                 # once planing on the step
+hump_speed_frac = 0.35         # the hump, as a fraction of lift-off speed
+cl_run = 0.35                  # lift coefficient at the attitude it runs on the water
+liftoff_frac = 1.15            # lift-off at this x stall speed
+figure_of_merit = 0.60         # the prop's static-thrust efficiency
+thrust_margin_min = 0.10       # (thrust - drag - water resistance) / weight at the worst point of the run
+wave_frac = 0.10               # take-off in significant waves up to this fraction of the waterline length
+impact_c1 = 0.012              # FAR 23.527 hull load factor constant (knots, lb)

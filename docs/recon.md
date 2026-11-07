@@ -252,6 +252,9 @@ Findings:
   work in progress: their design notebook, results, mould plug and CNC ladder-frame export (`osprey recon-plug`, `osprey recon-frame`) and open
   questions are in [docs/blended-wing](blended-wing/README.md).
 
+Water operations (floating, take-off from the sea, landing loads, `osprey recon-water` and the `--water`
+float kit) are in their own notebook, [docs/float-launch](float-launch/README.md).
+
 ## Anti-piracy awareness (`osprey recon-awareness`)
 
 Ranges at which each eye detects a fast skiff's wake, detects and recognizes the skiff, and identifies a

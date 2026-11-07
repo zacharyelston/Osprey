@@ -397,3 +397,53 @@ def test_ladder_frame_layout_files(tmp_path):
                 assert (a1 <= b0).any() or (b1 <= a0).any()
     md = (tmp_path / "frame.md").read_text()
     assert md.count("| R") + md.count("| S") >= info["parts"]
+
+
+def test_buoyancy_integral_is_exact_on_a_box_and_a_sphere():
+    from osprey.recon import geometry, water
+
+    v = np.array([[x, y, z] for x in (-.5, .5) for y in (-.5, .5) for z in (-.5, .5)], float)
+    f = np.array([[0, 1, 3], [0, 3, 2], [4, 6, 7], [4, 7, 5], [0, 4, 5], [0, 5, 1],
+                  [2, 3, 7], [2, 7, 6], [0, 2, 6], [0, 6, 4], [1, 5, 7], [1, 7, 3]])
+    V, cx, pts = water._below([(v + [0.3, 0, 0], f)], 0.1)
+    assert V == pytest.approx(0.6) and cx == pytest.approx(0.3)
+    assert np.ptp(pts[:, 0]) == pytest.approx(1.0)                         # the waterplane spans the box
+    vs, fs = geometry._sphere([0.2, 0, 0], 1.0, 40)
+    V, cx, _ = water._below([(vs, fs)], 0.0)
+    assert V == pytest.approx(2 / 3 * math.pi, rel=0.02) and cx == pytest.approx(0.2, abs=1e-9)
+
+
+def test_a_bird_floats_with_its_buoyancy_under_its_weight():
+    from osprey.recon import geometry, water
+
+    p, d = _wing("bwb")
+    fl = water.afloat(p, d)
+    assert fl["displaced_l"] == pytest.approx((d["mass_total_kg"] + p.water.kit_kg) / p.water.density_kgm3 * 1e3)
+    assert fl["reserve"] > 1
+    sealed = [(water._pitch(q.verts, np.array(fl["cg"]), math.radians(fl["trim_deg"])), q.faces)
+              for q in geometry.build(p, d) if q.kind in water.SEALED]
+    V, cbx, _ = water._below(sealed, fl["waterline_z"])
+    assert V * 1e3 == pytest.approx(fl["displaced_l"], rel=1e-3)
+    assert abs(cbx) < 2e-3                                                 # buoyancy straight under the CG
+
+
+def test_water_takeoff_and_landing_loads_move_the_right_way():
+    from osprey.recon import water
+
+    p, d = _wing("bwb")
+    light, heavy = water.takeoff(p, d, 2.0), water.takeoff(p, d, 2.6)
+    assert light["gets_off"] and heavy["run_m"] > light["run_m"] and heavy["margin_min"] < light["margin_min"]
+    assert water.resistance(p, p.water.hump_speed_frac) == pytest.approx(p.water.r_hump)
+    n20 = water.impact_factor(p, 12.0, 2.0)
+    # FAR 23.527 by hand: 0.012 x (12 m/s in knots)^2 / (tan(20 deg)^(2/3) x (2 kg in lb)^(1/3))
+    assert n20 == pytest.approx(0.012 * (12 / 0.514444) ** 2 / (math.tan(math.radians(20)) ** (2 / 3)
+                                                              * (2 / 0.453592) ** (1 / 3)))
+    p.water.deadrise_deg = 30.0
+    assert water.impact_factor(p, 12.0, 2.0) < n20                        # a sharper V lands softer
+
+
+def test_the_float_kit_goes_into_the_sizing():
+    bare, wet = load("sar-offshore", airframe="bwb"), load("sar-offshore", airframe="bwb", water=True)
+    assert wet.body.mass_kg == pytest.approx(bare.body.mass_kg + bare.water.kit_kg)
+    assert wet.body.cda_m2 == pytest.approx(bare.body.cda_m2 + bare.water.kit_cda_m2)
+    assert wet.water.kit_aboard and not bare.water.kit_aboard

@@ -207,12 +207,13 @@ def cmd_recon(args) -> int:
 
     warnings.filterwarnings("ignore", module="openaerostruct")
     rc = 0
-    tag = ("" if args.airframe == "twinboom" else f"-{args.airframe}") + ("" if args.payload == "gimbal" else f"-{args.payload}")
+    tag = (("" if args.airframe == "twinboom" else f"-{args.airframe}") + ("" if args.payload == "gimbal" else f"-{args.payload}")
+           + ("-water" if args.water else ""))
     root = Path(args.out) if args.out else OUT / f"recon{tag}"
     names = list(MISSIONS) if args.mission == "all" else [args.mission]
     designs = {}
     for name in names:
-        p = load_mission(name, payload=args.payload, airframe=args.airframe)
+        p = load_mission(name, payload=args.payload, airframe=args.airframe, water=args.water)
         d_ = root / name
         d_.mkdir(parents=True, exist_ok=True)
         design_path = Path(args.design) if args.design else d_ / "design.json"
@@ -320,7 +321,8 @@ def cmd_recon_render(args) -> int:
     from osprey.recon.params import MISSIONS
     from osprey.recon.params import load as load_mission
 
-    tag = ("" if args.airframe == "twinboom" else f"-{args.airframe}") + ("" if args.payload == "gimbal" else f"-{args.payload}")
+    tag = (("" if args.airframe == "twinboom" else f"-{args.airframe}") + ("" if args.payload == "gimbal" else f"-{args.payload}")
+           + ("-water" if args.water else ""))
     src = Path(args.run) if args.run else OUT / f"recon{tag}"
     dst = Path(args.out) if args.out else OUT / f"recon{tag}"
     names = MISSIONS if args.mission == "all" else [args.mission]
@@ -330,7 +332,7 @@ def cmd_recon_render(args) -> int:
         if not f.exists():
             print(f"{name}: no {f}; run `osprey recon --mission {name}` first")
             return 1
-        p, d = load_mission(name, payload=args.payload, airframe=args.airframe), json.loads(f.read_text())
+        p, d = load_mission(name, payload=args.payload, airframe=args.airframe, water=args.water), json.loads(f.read_text())
         o = dst / name
         rr.hero(p, d, o / "bird-hero.png")
         rr.threeview(p, d, o / "bird-threeview.png")
@@ -374,16 +376,23 @@ def cmd_recon_awareness(args) -> int:
 
 def _flying_wings(args):
     """Each requested mission's sized flying wing: (name, params, design, its run directory)."""
+    for name, p, d, dst in _sized(args):
+        if d.get("airframe") not in ("bwb", "crescent"):
+            raise SystemExit(f"{name}: not a flying wing (--airframe bwb or crescent); its wing prints in panels instead")
+        yield name, p, d, dst
+
+
+def _sized(args):
+    """Each requested mission's sized bird: (name, params, design, where its outputs go)."""
     from osprey.recon.params import MISSIONS
     from osprey.recon.params import load as load_mission
 
-    tag = ("" if args.airframe == "twinboom" else f"-{args.airframe}") + ("" if args.payload == "gimbal" else f"-{args.payload}")
+    tag = (("" if args.airframe == "twinboom" else f"-{args.airframe}") + ("" if args.payload == "gimbal" else f"-{args.payload}")
+           + ("-water" if args.water else ""))
     src = Path(args.run) if args.run else OUT / f"recon{tag}"
     for name in (MISSIONS if args.mission == "all" else [args.mission]):
-        p = load_mission(name, payload=args.payload, airframe=args.airframe)
+        p = load_mission(name, payload=args.payload, airframe=args.airframe, water=args.water)
         d = json.loads((src / name / "design.json").read_text())
-        if d.get("airframe") not in ("bwb", "crescent"):
-            raise SystemExit(f"{name}: not a flying wing (--airframe bwb or crescent); its wing prints in panels instead")
         yield name, p, d, (Path(args.out) if args.out else src) / name
 
 
@@ -413,10 +422,29 @@ def cmd_recon_frame(args) -> int:
     return 0
 
 
+def cmd_recon_water(args) -> int:
+    """Water operations for a sized bird: afloat, take-off from the sea, landing loads, every job with the float kit."""
+    from osprey.recon import render as rr
+    from osprey.recon import water
+
+    for name, p, d, dst in _sized(args):
+        a = water.assess(p, d, args.payload, args.airframe)
+        o = dst / "water"
+        o.mkdir(parents=True, exist_ok=True)
+        (o / "water.md").write_text(water.report(a, f"{name}, {args.airframe}, {args.payload}"))
+        (o / "water.json").write_text(json.dumps(a, indent=1, default=float))
+        rr.afloat([(p, d, a["afloat"], f"{name}, {args.airframe}")], o / "afloat.png")
+        fl, to = a["afloat"], a["takeoff"]
+        print(f"{name}: reserve {fl['reserve']:.2f}, trim {fl['trim_deg']:+.1f} deg, pylon {fl['pylon_m'] * 100:.0f} cm, "
+              f"run {to['run_m']:.0f} m, landing {a['impact_g']:.1f} g, jobs with the kit "
+              f"{sum(r['kit']['ok'] for r in a['jobs'].values())}/{len(a['jobs'])} -> {o}")
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="osprey", description=__doc__)
     ap.add_argument("cmd", choices=["calc", "sim", "render", "all", "sweep", "recon-size", "recon-fly", "recon",
-                                    "recon-render", "recon-plug", "recon-frame", "recon-awareness"])
+                                    "recon-render", "recon-plug", "recon-frame", "recon-water", "recon-awareness"])
     ap.add_argument("--scenario", default="coastal-watch", choices=SCENARIOS)
     ap.add_argument("--rig", default=None, choices=RIGS, help="override the scenario's rig")
     ap.add_argument("--out", default=None, help="output directory (absolute); default out/<scenario>/<rig>")
@@ -430,7 +458,8 @@ def main(argv=None) -> int:
     ap.add_argument("--design", default=None, help="recon-fly: a design.json to fly instead of sizing one")
     ap.add_argument("--payload", default="gimbal", help="recon: gimbal, or a design/recon/payloads variant (dual)")
     ap.add_argument("--airframe", default="twinboom", help="recon: twinboom, or a design/recon/airframes variant (bwb)")
-    ap.add_argument("--run", default=None, help="recon-render, -plug, -frame: a run directory holding <mission>/design.json "
+    ap.add_argument("--water", action="store_true", help="recon: size and fly with the float kit aboard (recon/water.py)")
+    ap.add_argument("--run", default=None, help="recon-render, -plug, -frame, -water: a run directory holding <mission>/design.json "
                                                 "(default out/recon)")
     args = ap.parse_args(argv)
     if args.cmd == "recon-render":
@@ -439,6 +468,8 @@ def main(argv=None) -> int:
         return cmd_recon_plug(args)
     if args.cmd == "recon-frame":
         return cmd_recon_frame(args)
+    if args.cmd == "recon-water":
+        return cmd_recon_water(args)
     if args.cmd == "recon-awareness":
         return cmd_recon_awareness(args)
     if args.cmd.startswith("recon"):

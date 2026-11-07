@@ -1,0 +1,101 @@
+{
+ "afloat": {
+  "mass_kg": 2.3309176274720564,
+  "displaced_l": 2.274065978021518,
+  "sealed_l": 6.028726335584003,
+  "reserve": 2.651078022296043,
+  "trim_deg": 0.9197828359901907,
+  "draft_m": -0.06445535155974669,
+  "waterline_m": 1.1188152640134714,
+  "beam_m": 0.256,
+  "prop_clear_m": -0.1303485344028105,
+  "pylon_m": 0.1803485344028105,
+  "camera_clear_m": -0.08084126554940735,
+  "waterline_z": -0.001820121669691194,
+  "cg": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ "takeoff": {
+  "v_liftoff_ms": 13.800000055353465,
+  "v_stall_ms": 12.00000004813345,
+  "static_thrust_n": 18.03203356335337,
+  "thrust_to_weight": 0.7885854749098608,
+  "run_m": 14.786322954437567,
+  "run_s": 2.109999999999999,
+  "energy_wh": 0.2758169934640522,
+  "margin_min": 0.5874926197707621,
+  "margin_at_ms": 4.829972681014748,
+  "gets_off": true
+ },
+ "impact_g": 7.422264670001328,
+ "hull_m": 0.5,
+ "sea_hs_m": 0.05,
+ "sea_state": "ss1",
+ "kit_kg": 0.12,
+ "load_factor": 3.0,
+ "water": {
+  "density_kgm3": 1025.0,
+  "reserve_min": 2.0,
+  "prop_clearance_m": 0.05,
+  "kit_kg": 0.12,
+  "kit_cda_m2": 0.0015,
+  "deadrise_deg": 20.0,
+  "r_hump": 0.2,
+  "r_plane": 0.07,
+  "hump_speed_frac": 0.35,
+  "cl_run": 0.35,
+  "liftoff_frac": 1.15,
+  "figure_of_merit": 0.6,
+  "thrust_margin_min": 0.1,
+  "wave_frac": 0.1,
+  "impact_c1": 0.012,
+  "kit_aboard": true
+ },
+ "jobs": {
+  "escort-flanks": {
+   "kit": {
+    "ok": true,
+    "energy_left": 0.16871687093115437
+   }
+  },
+  "inspect-vessel": {
+   "kit": {
+    "ok": true,
+    "energy_left": 0.7886430973510837
+   }
+  },
+  "sar-convoy": {
+   "kit": {
+    "ok": true,
+    "energy_left": 0.5657453369311566
+   }
+  },
+  "sar-datum": {
+   "kit": {
+    "ok": true,
+    "energy_left": 0.8869081712270281
+   }
+  },
+  "sar-offshore": {
+   "kit": {
+    "ok": true,
+    "energy_left": 0.5000862975087026
+   }
+  },
+  "scout-anchorage": {
+   "kit": {
+    "ok": true,
+    "energy_left": 0.6895021305637505
+   }
+  },
+  "scout-island": {
+   "kit": {
+    "ok": true,
+    "energy_left": 0.6950362520208084
+   }
+  }
+ }
+}

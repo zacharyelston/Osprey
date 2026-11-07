@@ -20,10 +20,12 @@ def _merge(a: dict, b: dict) -> dict:
     return out
 
 
-def load(mission: str = "sar-datum", payload: str = "gimbal", airframe: str = "twinboom") -> SimpleNamespace:
+def load(mission: str = "sar-datum", payload: str = "gimbal", airframe: str = "twinboom",
+         water: bool = False) -> SimpleNamespace:
     """A mission, with the twin-boom airframe (the default) or a variant from
     design/recon/airframes, carrying the gimbal (the default) or a payload
-    variant from design/recon/payloads."""
+    variant from design/recon/payloads. water=True puts the float kit aboard:
+    its mass and drag join the body's, so the sizing carries them."""
     m = _toml(RECON / "missions" / f"{mission}.toml")["mission"]
     af = _toml(RECON / "airframe.toml")
     af["layout"].setdefault("kind", "twinboom")
@@ -32,6 +34,10 @@ def load(mission: str = "sar-datum", payload: str = "gimbal", airframe: str = "t
     if payload != "gimbal":
         af = _merge(af, _toml(RECON / "payloads" / f"{payload}.toml"))
     af["payload"].setdefault("layout", "gimbal")
+    af["water"]["kit_aboard"] = water
+    if water:
+        af["body"]["mass_kg"] += af["water"]["kit_kg"]
+        af["body"]["cda_m2"] += af["water"]["kit_cda_m2"]
     sea = _toml(DESIGN / "sea.toml")
     tg = _toml(DESIGN / "targets.toml")
     cams = _toml(DESIGN / "cameras.toml")["camera"]

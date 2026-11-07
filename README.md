@@ -353,6 +353,14 @@ against 2.13 kg for the twin-boom. `osprey recon-plug` and `osprey recon-frame` 
 notebook, with results, renders and the open questions, is
 [docs/blended-wing](docs/blended-wing/README.md).
 
+### Landing on the water (in progress)
+
+Every bird needs to float, so it can come down beside the boat when a catch on deck isn't possible.
+`osprey recon-water` floats the sized meshes, then checks the prop and cameras afloat, a take-off run on
+the water and the landing loads. `--water` sizes the bird with the float kit aboard. In short: they float,
+but each needs its prop on a 17–24 cm pylon, and take-off from the water only works in a flat calm. The
+notebook, with a look at the WingtraRAY tailsitter, is [docs/float-launch](docs/float-launch/README.md).
+
 ### Anti-piracy awareness
 
 How far each eye sees a fast skiff coming, and the warning that buys at 30 kn (`osprey recon-awareness`):
@@ -488,7 +496,7 @@ Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two works
 | [`design/scenarios/`](design/scenarios/) | `coastal-watch` (sea state 4), `mob` (sea state 3), `docking` |
 | [`design/recon/`](design/recon/) | Recon: the reference printed airframe, airframe variants (blended wing, crescent), payload variants, and the mission profiles (search, survey, inspect, escort) |
 | [`src/osprey/`](src/osprey/) | `frames`, `motion`, `optics`, `stabilize`, `occlusion`, `rig`, `tasking`, `calcs`, `figures`, `render/scene`, `cli` |
-| [`src/osprey/recon/`](src/osprey/recon/) | `tasks` (search, survey, inspect, escort), `search` (sweep width, POD), `flight` (3-DOF), `sizing` (OpenMDAO + OpenAeroStruct, trim and stability for flying wings), `fleet` (one bird, many jobs), `geometry` and `render` (the bird in MuJoCo), `plug` and `frame` (mould plugs, CNC ladder frames), `awareness` (anti-piracy ranges), `figures` |
+| [`src/osprey/recon/`](src/osprey/recon/) | `tasks` (search, survey, inspect, escort), `search` (sweep width, POD), `flight` (3-DOF), `sizing` (OpenMDAO + OpenAeroStruct, trim and stability for flying wings), `fleet` (one bird, many jobs), `geometry` and `render` (the bird in MuJoCo), `plug` and `frame` (mould plugs, CNC ladder frames), `water` (afloat, take-off from the sea, landing loads), `awareness` (anti-piracy ranges), `figures` |
 | [`runs/`](runs/README.md) | Kept runs, never edited after they are archived |
 | [`docs/`](docs/) | [Architecture](docs/architecture.md), [Recon](docs/recon.md), [remote runs](docs/remote-simulation.md), README figures |
 

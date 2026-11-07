@@ -50,3 +50,6 @@ method = "molded"         # no printer-bed limit on chord
 
 [geometry]
 winglet_height_frac = 0.07  # of the span, for the renders
+
+[water]
+kit_kg = 0.10                  # moulded skins are sealed already: the shoe, a prop pylon, hatch seals

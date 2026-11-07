@@ -390,6 +390,7 @@ def optimize(p, time_factor: float = 1.0) -> dict:
         "le_x_m": mesh.reshape(prob.get_val("wing.mesh").shape)[0, :, 0].tolist(),
         "le_z_m": mesh.reshape(prob.get_val("wing.mesh").shape)[0, :, 2].tolist(),
         "airframe": getattr(p.layout, "kind", "twinboom"),
+        "float_kit": bool(p.water.kit_aboard),
     }
     if bwb(p):
         le = np.array(d["le_x_m"])
