@@ -331,7 +331,9 @@ def cmd_recon_render(args) -> int:
         lineup.append((p, d, name))
         print(f"{name}: renders in {o}")
     if len(lineup) > 1:
-        lineup.sort(key=lambda x: x[1]["span_m"])
+        lineup.sort(key=lambda x: x[1]["mass_total_kg"])
+        if len(lineup) > 3:                                   # lightest, middle and heaviest, to keep it legible
+            lineup = [lineup[0], lineup[len(lineup) // 2], lineup[-1]]
         rr.lineup(lineup, dst / "bird-lineup.png")
         print(f"lineup: {dst / 'bird-lineup.png'}")
     return 0

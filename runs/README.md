@@ -16,5 +16,6 @@ docs/remote-simulation.md).
 | [2026-11-06_docking-render](2026-11-06_docking-render/) | 9af2de6 | gpu1 (EGL) | Sample of a 20 s docking render on mast5-spreaders: contact-sheet video, one frame's RGB/depth/class, all labels |
 | [2026-11-06_pods-fisheye-sweep](2026-11-06_pods-fisheye-sweep/) | 952d1da | gpu1 | Pods with a down-looking fisheye (the dropped design): calc reports for the three scenarios |
 | [2026-11-06_gecko-docking-render](2026-11-06_gecko-docking-render/) | 0f30414 | gpu1 (EGL) | Sample of a 10 s docking render on gecko5 with optimized aims: video, one frame of `port-down`, all labels |
+| [2026-11-06_recon-missions](2026-11-06_recon-missions/) | 7c146a0 | local | Recon as the scout: six jobs (search, survey, inspect), each sized and flown, and the capability matrix |
 | [2026-11-06_recon-phase1](2026-11-06_recon-phase1/) | ca12777 | local | Recon phase 1: each mission sized (OpenMDAO), calibrated and flown (3-DOF) |
 | [2026-11-06_gecko-sweep](2026-11-06_gecko-sweep/) | 36642dd | gpu1 | Every scenario x rig with sector watch; gecko5 reports in full, mast5 and mast5-spreaders sims for comparison |

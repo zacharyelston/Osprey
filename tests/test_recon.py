@@ -153,14 +153,14 @@ def test_one_bird_is_the_lightest_that_does_everything():
     assert all(fleet.ok(s) for s in M[best].values())
 
 
-KEPT = ("sar-datum", "sar-convoy", "sar-offshore")
+KEPT = MISSIONS
 
 
 def _kept(m="sar-offshore"):
     import json
     from pathlib import Path
 
-    d = json.loads((Path(__file__).resolve().parents[1] / "runs/2026-11-06_recon-phase1" / m / "design.json")
+    d = json.loads((Path(__file__).resolve().parents[1] / "runs/2026-11-06_recon-missions" / m / "design.json")
                    .read_text())
     return load(m), d
 
