@@ -1,0 +1,4 @@
+local, on the commit that gives the tailsitter's pitch-over flat-plate lift past the stall and props whose thrust falls with airspeed (branch feat/cyclone-spin-only, from 1e47faa)
+Supersedes the water sheets under 2026-11-07_recon-water/tailsitter/<payload>/<one bird>/water; the designs are unchanged.
+<payload>/<one bird>/water: uv run osprey recon-water --run runs/2026-11-07_recon-water/tailsitter/<payload> --mission <one bird> --airframe tailsitter --payload <payload> --out <this>/<payload>  (struts at 0.50 m)
+docs/img/recon-tailsitter-launch.png: copy of gimbal/sar-offshore/water/launch.png
