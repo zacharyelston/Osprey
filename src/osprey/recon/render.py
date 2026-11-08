@@ -410,3 +410,58 @@ def launch_sequence(p, d: dict, fl: dict, track: list, path: Path, W: int = 1800
                                   "wing-borne"),
                              (14, "at " + ",  ".join(labels) + f" after throttle-up; wing-borne {t_end:.1f} s, "
                                   f"{tr[-1, 1]:.0f} m downrange")])
+
+
+def _posed_cyclone(parts, R: np.ndarray, at) -> list:
+    for q in parts:
+        q.verts = q.verts @ R.T + np.asarray(at, float)
+    return parts
+
+
+def cyclone_modes(p, d: dict, cy, phi_spin_deg: float, path: Path, W: int = 1800, H: int = 760):
+    """The Cyclone in each mode, left to right over the sea: 1 B centred, A lifting; 2 spinning (its disc
+    drawn); 3 the spinning disc tilted to travel; 4 wing-borne, two arms up as the dihedral wing and one
+    down as the fin, flying toward the camera."""
+    from osprey.recon import cyclone_water
+
+    wt = cyclone_water.inputs()
+    kw = {"axis_frac": wt.axis_frac, "mount_m": wt.mount_m, "gimbal_drop_m": wt.gimbal_drop_m}
+    tilt = math.radians(10.0)
+    roty = np.array([[math.cos(tilt), 0, math.sin(tilt)], [0, 1, 0], [-math.sin(tilt), 0, math.cos(tilt)]])
+    wing = np.array([[0.0, 0.0, 1.0], [-1.0, 0.0, 0.0], [0.0, -1.0, 0.0]])   # x -> -y, y -> -z, z -> +x
+    span = 2 * geometry.build_cyclone(p, d, cy, 0.0, **kw)[0].verts[:, :2].__abs__().max() + 0.6
+    poses = [(0.0, np.eye(3), 2.2, False, "1 lift-off"), (phi_spin_deg, np.eye(3), 3.4, True, "2 spinning hover"),
+             (phi_spin_deg, roty, 4.0, True, "3 spinning travel"), (0.0, wing, 4.4, False, "4 wing-borne")]
+    assets, bodies = [], []
+    for k, (phi, Rm, z, disc, _) in enumerate(poses):
+        parts = _posed_cyclone(geometry.build_cyclone(p, d, cy, phi, spin_disc=disc, **kw), Rm, [0.0, k * span, z])
+        a, b = _drone_xml(f"c{k}", parts, np.zeros(3), _quat())
+        assets.append(a)
+        bodies.append(b)
+    centre = np.array([0.0, 1.5 * span, 3.4])
+    eye = centre + np.array([3.6 * span, -0.1 * span, 0.55 * span])             # broadside to the line
+    cam = _cam("m", eye, centre + np.array([0.0, 0.0, -0.3]), fovy=26)
+    img = _shoot(_world("sea", "".join(assets), "".join(bodies), cam, W, H), ["m"], W, H)["m"]
+    _save(img, path, labels=[(14, "the Cyclone's modes, left to right: " + ",  ".join(x[4] for x in poses)),
+                             (14, f"B centred for 1 and 4; turned {phi_spin_deg:.0f}° off centre to spin; 4 flies toward "
+                                  "the camera, two arms up as the wing, one down as the fin")])
+
+
+def cyclone_afloat(p, d: dict, cy, fl: dict, path: Path, W: int = 1600, H: int = 900):
+    """The Cyclone afloat at the draft recon/cyclone_water.py finds, standing on its arms' trailing edges,
+    A's props up."""
+    from osprey.recon import cyclone_water
+
+    wt = cyclone_water.inputs()
+    parts = geometry.build_cyclone(p, d, cy, 0.0, axis_frac=wt.axis_frac, mount_m=wt.mount_m,
+                                   gimbal_drop_m=wt.gimbal_drop_m)
+    parts = _posed_cyclone(parts, np.eye(3), [0.0, 0.0, fl["z_hub_m"] - fl["draft_m"]])
+    a, b = _drone_xml("cy", parts, np.zeros(3), _quat())
+    R = fl["R_m"]
+    centre = np.array([0.0, 0.0, 0.05])
+    eye = centre + np.array([1.9 * R, -1.6 * R, 0.55 * R])
+    cam = _cam("f", eye, centre, fovy=40)
+    img = _shoot(_world("sea", a, b, cam, W, H), ["f"], W, H)["f"]
+    _save(img, path, labels=[(14, f"afloat with B centred: standing on its three arms, {fl['draft_m'] * 100:.0f} cm deep, "
+                                  f"A's props {fl['prop_height_m'] * 100:.0f} cm up"),
+                             (14, f"metacentric height {fl['gm_m']:.1f} m: it rides the waves' slope")])

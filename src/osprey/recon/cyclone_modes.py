@@ -12,8 +12,9 @@ on it with it.
 | 4 wing-borne travel | forward: two arms up, the dihedral wing; one down, the fin | pushing forward; PWM the fine control, B the large | mode 1 turned horizontal |
 
 The moves, each with a guard (what has to be true first) and a cost (time, height, energy):
-- 1->2 at the clearance height: B pitched off centre over b_ramp_s while A holds the height and the spin builds.
-- 2->1 B back to centre over b_ramp_s, A taking the weight; then down in mode 1.
+- 1->2 at the clearance height: B pitched off centre while A holds the height and the spin builds; how fast,
+  from the blade elements (cyclone_dynamics), inside a budget of b_ramp_s.
+- 2->1 B back to centre, A taking the weight as the spin dies, the same way; then down in mode 1.
 - 2->3 the disc tilted, speeding up to mode 3's best-range speed; 3->2 slowing back to a hover.
 - 3->4 at height: B driven to centre as the spin dies, A takes the weight pushing up, and the bird pitches
   over to level, A now pushing forward, until wing-borne. A 2-D point mass sets the height and time.
@@ -32,7 +33,7 @@ from collections import deque
 from dataclasses import asdict, dataclass
 
 from osprey.params import _toml, ns
-from osprey.recon import cyclone, flight
+from osprey.recon import cyclone, cyclone_dynamics, flight
 from osprey.recon.params import RECON, payload_w
 
 G = 9.81
@@ -83,16 +84,20 @@ def travel_power(p, d: dict, cy, md, m: dict, v: float) -> float:
 
 
 def travel(p, d: dict, cy, md, m: dict) -> dict:
-    """Mode 3's speeds: the top (the retreating arm's stall, or A's rating) and the best range."""
+    """Mode 3's speeds: the top (mode 2's wind limit from the blade elements, cyclone_dynamics: the
+    retreating arm's stall or B's swing; or A's rating) and the best range."""
+    from osprey.recon import cyclone_dynamics
+
     h = cyclone.rotor(p, d, cy, m["mass_kg"])
-    v_stall_arm = cy.mu_max * h["v_tip_ms"]
+    edge = cyclone_dynamics.wind(p, d, cy, m)
+    v_stall_arm = edge["two_max_ms"]
     vv = [0.25 * i for i in range(1, int(v_stall_arm / 0.25) + 1)]
     pw = [travel_power(p, d, cy, md, m, v) for v in vv]
     ok = [(v, x) for v, x in zip(vv, pw) if x <= m["motor_peak_w"]]
     top = ok[-1][0] if ok else 0.0
     v_r, p_r = min(ok, key=lambda t: t[1] / t[0])
     return {"v_top_ms": top, "v_range_ms": v_r, "p_range_w": p_r, "p_hover_w": h["p_shaft_w"],
-            "limit": "the retreating arm" if top >= vv[-1] - 1e-9 else "A's rating"}
+            "limit": edge["two_limit"] if top >= vv[-1] - 1e-9 else "A's rating"}
 
 
 def _available(p, cy, shaft_w: float, u: float, props: int) -> float:
@@ -175,6 +180,7 @@ class Manager:
         self.tr = travel(p, d, self.cy, self.md, self.m)
         self.hover_w = cyclone.rotor(p, d, self.cy, self.m["mass_kg"])["p_shaft_w"]
         self.lift_w = cyclone.lift_power(p, self.cy, self.W, props=self.m["lift_props"])
+        self.spin = cyclone_dynamics.spin(p, d, self.cy, self.m)
         self.over = pitch(p, d, self.cy, self.md, self.m, self.tr["v_range_ms"], up=False)
         self.h34 = max(self.md.clearance_m, self.md.safety_height_m + self.over["height_lost_m"])
         w = cyclone._wing(p, d, self.cy)
@@ -197,6 +203,11 @@ class Manager:
             return f"spin only at the clearance height, {md.clearance_m:g} m; at {h:.1f} m"
         if (self.mode, to) == (2, 1) and h < md.clearance_m - 1e-6:
             return f"B back to centre only at the clearance height or above; at {h:.1f} m"
+        for key, part, verb in (((1, 2), "build", "builds"), ((2, 1), "die", "dies")):
+            tr = self.spin[part]
+            if (self.mode, to) == key and (not tr["done"] or tr["t_s"] > md.b_ramp_s):
+                return (f"the spin {verb} in {tr['t_s']:.1f} s, past B's {md.b_ramp_s:g} s" if tr["done"]
+                        else f"the spin never {verb}")
         if (self.mode, to) == (3, 4):
             if h < self.h34 - 1e-6:
                 return f"pitch over only from {self.h34:.0f} m; at {h:.1f} m"
@@ -223,9 +234,12 @@ class Manager:
         md, h = self.md, self.h
         key = (self.mode, to)
         if key == (1, 2):
-            self._add("B off centre, the spin builds", md.b_ramp_s, h, 0.0, max(self.lift_w, self.hover_w))
+            b = self.spin["build"]
+            self._add("B off centre, the spin builds", b["t_s"], h + b["dz_m"], 0.0, 0.0, energy=b["energy_j"])
         elif key == (2, 1):
-            self._add("B to centre, A takes the weight", md.b_ramp_s, h, 0.0, max(self.lift_w, self.hover_w), on_a=True)
+            b = self.spin["die"]
+            self._add("B to centre, A takes the weight as the spin dies", b["t_s"], h + b["dz_m"], 0.0, 0.0,
+                      energy=b["energy_j"], on_a=True)
         elif key == (2, 3):
             a = G * math.tan(math.radians(md.tilt_deg))
             v = self.tr["v_range_ms"]
@@ -237,9 +251,9 @@ class Manager:
                       travel_power(self.p, self.d, self.cy, md, self.m, self.v / 2))
         elif key == (3, 4):
             o = pitch(self.p, self.d, self.cy, md, self.m, self.v, up=False)
-            self._add("B to centre as the spin dies, pitch over to wing-borne", md.b_ramp_s + o["t_s"],
-                      h - o["height_lost_m"], o["v_ms"], 0.0,
-                      energy=self.lift_w * md.b_ramp_s / self.eta + o["energy_j"])
+            b = self.spin["die"]
+            self._add("B to centre as the spin dies, pitch over to wing-borne", b["t_s"] + o["t_s"],
+                      h - o["height_lost_m"], o["v_ms"], 0.0, energy=b["energy_j"] + o["energy_j"])
         elif key == (4, 3):
             en = entry(self.p, self.d, self.cy, md, self.m, self.v)
             self._add("forced pull-up, the inflow spins it up", en["t_s"], h + en["net_m"], 0.0, 0.0, energy=0.0)
@@ -366,12 +380,12 @@ def matrix(p, d: dict, cy, md, m: dict) -> list[dict]:
 
 def failures(p, d: dict, cy, md, m: dict) -> dict:
     """A motor out, mode by mode. Spinning, it seeds down; wing-borne, the forced move and the same; in
-    mode 1, three A motors can't lose one, and the time to fall from the clearance is shorter than B can
-    turn it into a spin. With A2, five of six props are left."""
+    mode 1, three A motors can't lose one, and the time to fall from the clearance is set against how fast
+    B can turn it into a spin. With A2, five of six props are left."""
     au = cyclone.autorotation(p, d, cy, m)
     fall_s = math.sqrt(2 * md.clearance_m / G)
     out = {"seed_ms": au["sink_ms"], "flare_ratio": au["flare_ratio"], "fall_s": fall_s,
-           "fall_ms": math.sqrt(2 * G * md.clearance_m), "b_ramp_s": md.b_ramp_s}
+           "fall_ms": math.sqrt(2 * G * md.clearance_m), "build_s": cyclone_dynamics.spin(p, d, cy, m)["build"]["t_s"]}
     W = m["mass_kg"] * G
     if m["a2"]:
         left = m["lift_props"] - 1
@@ -485,13 +499,13 @@ def report(a: dict, title: str) -> str:
     fa = A["failures"]
     lines += ["", f"Mode 1 is the exposure: {A['launch']['mode1_s'] + A['recover']['mode1_s']:.0f} s a sortie at or under "
               f"{md['clearance_m']:g} m with A alone carrying the weight. Three motors can't lose one, and a fall from {md['clearance_m']:g} m "
-              f"takes {fa['fall_s']:.1f} s, less than B's {md['b_ramp_s']:g} s turn into the spin: it hits at "
+              f"takes {fa['fall_s']:.1f} s, less than the {fa['build_s']:.1f} s B needs to turn it into a spin: it hits at "
               f"{fa['fall_ms']:.0f} m/s. With A2, five of six props are left to hold it.", "",
               "## A motor out, mode by mode", "",
               f"- **2 and 3, spinning:** at the burst, one motor holds the spinning hover; with none, it comes down like a "
               f"seed at {fa['seed_ms']:.1f} m/s, and the spin holds {fa['flare_ratio']:.1f}× the sink's energy to flare with.",
               "- **4, wing-borne:** a glider; the forced pull-up (4 → 3) leads to the same seed fall.",
               f"- **1, under {md['clearance_m']:g} m:** see above.", "",
-              "Not modelled: the spin dying and building as dynamics (fixed times), stability and control in each mode, "
-              "the authority of A's PWM and of B, wind in modes 1 and 2, and the deck's motion."]
+              "The spin building and dying, A's and B's authority, the wind in modes 1 and 2, and floating are in "
+              "`dynamics.md` and `water.md`. Not modelled: closed-loop stability in each mode, and the deck's motion."]
     return "\n".join(lines) + "\n"

@@ -463,8 +463,10 @@ def _tailsitter_water(name, p, d, o: Path, args):
 def cmd_recon_cyclone(args) -> int:
     """Recon as a Cyclone: the twin-boom one-bird rebuilt with three wing arms that spin as a rotor,
     against the tailsitter one-bird for the same cameras."""
-    from osprey.recon import cyclone, cyclone_modes
+    from osprey.recon import cyclone, cyclone_dynamics, cyclone_modes, cyclone_water
     from osprey.recon import figures as rfig
+    from osprey.recon import render as rrender
+    from osprey.recon.params import load
 
     payloads = ("gimbal", "dual") if args.payload == "all" else (args.payload,)
     base = Path(args.run) if args.run else ROOT / "runs" / "2026-11-06_recon-payloads"
@@ -487,6 +489,17 @@ def cmd_recon_cyclone(args) -> int:
         rfig.cyclone(a, f"Recon as a Cyclone, {pl}: {a['mass']['mass_kg']:.2f} kg re-sized for all seven jobs", o / "cyclone.png")
         (o / "modes.md").write_text(cyclone_modes.report(a["modes"], pl))
         rfig.cyclone_modes(a["modes"], f"The Cyclone's modes, {pl}", o / "modes.png")
+        (o / "dynamics.md").write_text(cyclone_dynamics.report(a["dynamics"], pl))
+        (o / "water.md").write_text(cyclone_water.report(a["water"], pl))
+        rfig.cyclone_spin(a["dynamics"], f"The Cyclone's spin building and dying, {pl}", o / "spin.png")
+        rfig.cyclone_wind(a["dynamics"], f"The Cyclone in the wind, {pl}", o / "wind.png")
+        rfig.cyclone_control(a["dynamics"], f"What A and B do, mode by mode, {pl}", o / "control.png")
+        rfig.cyclone_afloat(a["water"], load("sar-offshore", payload=pl).wing.t_over_c,
+                            f"The Cyclone afloat, standing on its arms, {pl}", o / "afloat.png")
+        pp = load("sar-offshore", payload=pl)
+        rrender.cyclone_modes(pp, a["design"], cyclone.inputs(), math.degrees(a["dynamics"]["pitch"]["phi_rad"]),
+                              o / "render-modes.png")
+        rrender.cyclone_afloat(pp, a["design"], cyclone.inputs(), a["water"]["afloat"], o / "render-afloat.png")
         h, ab, mo = a["hover"], a["abilities"], a["modes"]["A+A2" if a["mass"]["a2"] else "A"]
         print(f"{pl}: {a['mass']['mass_kg']:.2f} kg; hover {h['p_shaft_w']:.0f} W at {h['rpm']:.0f} rpm "
               f"(tailsitter {a['tailsitter']['hover_w']:.0f} W); motors off {ab['seed']['sink_ms']:.1f} m/s; launch "
