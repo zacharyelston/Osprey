@@ -256,3 +256,196 @@ def cyclone_modes(a: dict, title: str, path):
     fig.tight_layout(rect=(0, 0.05, 1, 1))
     fig.savefig(path, dpi=130)
     plt.close(fig)
+
+
+def cyclone_spin(a: dict, title: str, path):
+    """The spin building (1->2) and dying (2->1): the spin, B's twist, the arms' share of the weight and A
+    of its burst, against time."""
+    fig, axs = plt.subplots(2, 2, figsize=(12, 6.2), sharex="col")
+    for col, key, name in ((0, "build", "1 → 2: the spin builds"), (1, "die", "2 → 1: the spin dies")):
+        tr = np.array(a["spin"][key]["track"])
+        t = tr[:, 0]
+        ax, bx = axs[0, col], axs[1, col]
+        ax.plot(t, tr[:, 1], color=MODE_COLORS[2], lw=2, label="spin / hover's")
+        ax.set_ylabel("spin / hover's")
+        ax.set_ylim(-0.05, 1.25)
+        ax2 = ax.twinx()
+        ax2.plot(t, tr[:, 2], color="#444444", lw=1.6, ls="--", label="B's twist off centre")
+        ax2.set_ylabel("B off centre (°)")
+        ax2.set_ylim(-25, 95)
+        ax.set_title(f"{name}: {a['spin'][key]['t_s']:.2f} s, {a['spin'][key]['energy_j'] / 3600:.2f} Wh", fontsize=10)
+        bx.plot(t, tr[:, 4], color=MODE_COLORS[3], lw=2, label="the arms' thrust / weight")
+        bx.plot(t, tr[:, 5], color=MODE_COLORS[1], lw=2, label="A, of its burst")
+        bx.set_ylim(-0.1, 1.7)
+        bx.set_xlabel("time (s)")
+        bx.grid(alpha=0.3)
+        ax.grid(alpha=0.3)
+        if col == 0:
+            h1, l1 = ax.get_legend_handles_labels()
+            h2, l2 = ax2.get_legend_handles_labels()
+            ax.legend(h1 + h2, l1 + l2, fontsize=8, loc="center right")
+            bx.legend(fontsize=8, loc="center right")
+    fig.suptitle(title, fontsize=11)
+    fig.tight_layout()
+    fig.savefig(path, dpi=130)
+    plt.close(fig)
+
+
+def cyclone_wind(a: dict, title: str, path):
+    """The wind: mode 1's lean and A against it, mode 2's retreating arm and cyclic against their limits, and
+    what spinning faster buys."""
+    w = a["wind"]
+    fig, (ax, bx, cx) = plt.subplots(1, 3, figsize=(15, 4.4))
+    v = [r["v_ms"] for r in w["one"]]
+    ax.plot(v, [r["lean_deg"] for r in w["one"]], color=MODE_COLORS[1], lw=2, label="lean into the wind (°)")
+    ax2 = ax.twinx()
+    ax2.plot(v, [100 * r["a_frac"] for r in w["one"]], color="#444444", lw=1.6, ls="--", label="A, % of its burst")
+    ax2.axhline(100, color="#444444", lw=0.8)
+    ax2.set_ylim(0, 140)
+    ax2.set_ylabel("A, % of its burst")
+    ax.axvline(w["one_max_ms"], color=MODE_COLORS[1], lw=1, ls=":")
+    for k, sv in a["sea_winds"]:
+        ax.text(sv, 0.97, k, transform=ax.get_xaxis_transform(), ha="center", va="top", fontsize=7, color="#666666")
+    ax.set_xlabel("wind (m/s)")
+    ax.set_ylabel("lean (°)")
+    ax.set_title(f"Mode 1, three arms standing in the wind: holds to {w['one_max_ms']:.1f} m/s", fontsize=10)
+    h1, l1 = ax.get_legend_handles_labels()
+    h2, l2 = ax2.get_legend_handles_labels()
+    ax.legend(h1 + h2, l1 + l2, fontsize=8, loc="center left")
+    ax.grid(alpha=0.3)
+    two = w["two"]
+    vv = [r["v_ms"] for r in two]
+    bx.plot(vv, [r["alpha_max_deg"] for r in two], color=MODE_COLORS[2], lw=2, label="retreating arm's angle of attack")
+    bx.axhline(w["stall_deg"], color=MODE_COLORS[2], lw=1, ls=":", label=f"stall {w['stall_deg']:.1f}°")
+    bx.plot(vv, [r["cyclic_deg"] for r in two], color=MODE_COLORS[3], lw=2, label="B's cyclic")
+    bx.axhline(w["swing_deg"], color=MODE_COLORS[3], lw=1, ls=":", label=f"B's swing {w['swing_deg']:.1f}°")
+    bx.set_xlim(0, max(6.0, w["two_max_ms"] + 1))
+    bx.set_xlabel("wind (m/s)")
+    bx.set_ylabel("degrees")
+    bx.set_title(f"Mode 2, spinning: holds to {w['two_max_ms']:.2f} m/s, then {w['two_limit']}", fontsize=10)
+    bx.legend(fontsize=8, loc="lower right")
+    bx.grid(alpha=0.3)
+    kn = a["knob"]
+    cx.plot([r["hover_w"] for r in kn], [r["wind_ms"] for r in kn], "o-", color=MODE_COLORS[2], lw=2)
+    for r in kn:
+        fits = r["spin_peak_w"] <= a["rating_w"]
+        cx.annotate(f"{r['cl_mean']:.2f}{'' if fits else ' (bigger A)'}", (r["hover_w"], r["wind_ms"]),
+                    xytext=(6, -3), textcoords="offset points", fontsize=8, color="#222222" if fits else "#999999")
+    lo, hi = min(r["hover_w"] for r in kn), max(r["hover_w"] for r in kn)
+    cx.set_xlim(lo - 0.05 * (hi - lo), hi + 0.35 * (hi - lo))
+    cx.set_xlabel("spinning hover (W shaft)")
+    cx.set_ylabel("mode 2 wind limit (m/s)")
+    cx.set_title("Spinning faster: the arms' mean lift coefficient", fontsize=10)
+    cx.grid(alpha=0.3)
+    fig.suptitle(title, fontsize=11)
+    fig.tight_layout()
+    fig.savefig(path, dpi=130)
+    plt.close(fig)
+
+
+def cyclone_control(a: dict, title: str, path):
+    """What A and B do in each mode, drawn: mode 1 from above, mode 2's disc from above, mode 4 from ahead."""
+    au = a["authority"]
+    o, t, f = au["one"], au["two"], au["four"]["search"]
+    fig, axs = plt.subplots(1, 3, figsize=(15, 5.2))
+    arm = lambda ax, ang, col="#34495e", lw=6: ax.plot([0.15 * math.cos(ang), math.cos(ang)],  # noqa: E731
+                                                       [0.15 * math.sin(ang), math.sin(ang)], color=col, lw=lw,
+                                                       solid_capstyle="round")
+    angs = [math.radians(90 + 120 * k) for k in range(3)]
+    # Mode 1, from above: three A up, one more and two less tilts it; all three tilted by B yaws it.
+    ax = axs[0]
+    for k, g in enumerate(angs):
+        arm(ax, g)
+        ax.plot(math.cos(g), math.sin(g), "o", ms=16, color=MODE_COLORS[1], mec="k")
+        ax.annotate("+" if k == 0 else "−", (math.cos(g), math.sin(g)), ha="center", va="center", fontsize=13,
+                    fontweight="bold")
+    ax.add_patch(plt.Circle((0, 0), 0.15, color="#e67e22"))
+    ax.annotate("", xy=(1.25 * math.cos(math.radians(60)), 1.25 * math.sin(math.radians(60))),
+                xytext=(1.25 * math.cos(math.radians(120)), 1.25 * math.sin(math.radians(120))),
+                arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=-0.4", color="#444444", lw=1.5))
+    ax.text(0, -1.45, f"roll, pitch: A split, {o['tilt_nm']:.1f} N m, 20° in {o['tilt20_s']:.2f} s\n"
+            f"yaw: B tilts all three A {a['inputs']['b_yaw_deg']:g}°, {o['yaw_nm']:.1f} N m", ha="center", fontsize=9)
+    ax.set_title("1  lift-off: a tricopter, from above", fontsize=10)
+    # Mode 2, the disc from above: B's cyclic once a turn tilts it; A's PWM once a turn pushes it sideways.
+    bx = axs[1]
+    bx.add_patch(plt.Circle((0, 0), 1.0, color=MODE_COLORS[2], alpha=0.12))
+    for g in angs:
+        arm(bx, g, lw=5)
+    bx.add_patch(plt.Circle((0, 0), 0.15, color="#e67e22"))
+    bx.annotate("", xy=(0.35, 1.2), xytext=(0.35, 0.55), arrowprops=dict(arrowstyle="-|>", color=MODE_COLORS[3], lw=2.5))
+    bx.text(0.42, 0.85, "tilt", color=MODE_COLORS[3], fontsize=9)
+    bx.text(-1.15, -0.1, "push", color=MODE_COLORS[1], fontsize=9)
+    bx.annotate("", xy=(-1.15, -0.2), xytext=(-0.55, -0.2), arrowprops=dict(arrowstyle="-|>", color=MODE_COLORS[1], lw=2))
+    bx.annotate("", xy=(0.95, -0.55), xytext=(0.55, -0.95),
+                arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0.3", color="#444444", lw=1.2))
+    bx.text(0, -1.45, f"disc tilt: B's cyclic ±{t['b_swing_deg']:.1f}° at {t['rev_hz']:.1f} Hz, {t['tilt_dps']:.0f}°/s\n"
+            f"sideways: A's PWM once a turn, {t['a_side_n']:.2f} N", ha="center", fontsize=9)
+    bx.set_title("2  spinning: the disc from above", fontsize=10)
+    # Mode 4, from ahead: two wings up at the dihedral, the fin down; A split for pitch and yaw, B rolls.
+    cx = axs[2]
+    dih = math.radians(a.get("dihedral_deg", 30.0))
+    for g in (dih, math.pi - dih, -math.pi / 2):
+        arm(cx, g, col="#8172B2")
+    for g in (dih, math.pi - dih, -math.pi / 2):
+        cx.plot(math.cos(g), math.sin(g), "o", ms=14, color=MODE_COLORS[1], mec="k")
+    cx.add_patch(plt.Circle((0, 0), 0.15, color="#e67e22"))
+    cx.annotate("", xy=(0.45, 0.75), xytext=(-0.45, 0.75),
+                arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=-0.5", color=MODE_COLORS[3], lw=1.8))
+    cx.text(0, -1.45, f"pitch: A, the fin's motor against the wings' ({f['fin_share']:.0%} on the fin to trim)\n"
+            f"yaw: A, one wing's against the other, {f['yaw_nm']:.1f} N m\n"
+            f"roll: B twists all three arms, {f['roll_dps_5deg']:.0f}°/s for 5°", ha="center", fontsize=9)
+    cx.set_title("4  wing-borne: from ahead", fontsize=10)
+    for x in axs:
+        x.set_aspect("equal")
+        x.set_xlim(-1.5, 1.5)
+        x.set_ylim(-1.75, 1.4)
+        x.axis("off")
+    fig.suptitle(title, fontsize=11)
+    fig.tight_layout()
+    fig.savefig(path, dpi=130)
+    plt.close(fig)
+
+
+def cyclone_afloat(a: dict, t_over_c: float, title: str, path):
+    """Afloat, to scale: one arm's section standing chord-up with the hub, A's motor and prop, the camera and
+    the waterline; and from above, the waterplane's three strips."""
+    fl = a["afloat"]
+    fig, (ax, bx) = plt.subplots(1, 2, figsize=(13, 5.4), gridspec_kw={"width_ratios": [1, 1.25]})
+    c, h, zh, r0 = fl["chord_m"], fl["draft_m"], fl["z_hub_m"], fl["r0_m"]
+    x = (1 - np.cos(np.linspace(0, math.pi, 120))) / 2
+    yt = 5 * t_over_c * (0.2969 * np.sqrt(x) - 0.1260 * x - 0.3516 * x ** 2 + 0.2843 * x ** 3 - 0.1036 * x ** 4)
+    z = (1 - x) * c - h
+    ax.fill(np.r_[yt * c, -(yt * c)[::-1]], np.r_[z, z[::-1]], color="#ecf0f1", ec="#34495e", lw=1.4, zorder=3)
+    ax.add_patch(plt.Circle((0, zh - h), r0, fc="none", ec="#e67e22", lw=1.5, ls="--", zorder=2))
+    ax.text(-r0 - 0.01, zh - h + 0.6 * r0, "hub (behind)", ha="right", fontsize=8, color="#a04000")
+    ax.add_patch(plt.Circle((0, fl["camera_height_m"] + 0.02), 0.02, color="#222222", zorder=4))
+    top = c - h
+    ax.add_patch(plt.Rectangle((-0.015, top), 0.03, fl["prop_height_m"] - top, color="#222222", zorder=4))
+    ax.plot([-0.125, 0.125], [fl["prop_height_m"]] * 2, color="#222222", lw=3, zorder=4)
+    ax.axhspan(-0.25, 0, color="#2e86c1", alpha=0.25, zorder=1)
+    ax.axhline(0, color="#1b4f72", lw=1.2)
+    ax.axhline(0.30, color="#c0392b", lw=1, ls=":")
+    ax.text(0.14, 0.30, "props wanted here (30 cm)", va="bottom", fontsize=8, color="#c0392b")
+    ax.text(0.14, fl["prop_height_m"], f"A's prop, {fl['prop_height_m'] * 100:.0f} cm up", va="center", fontsize=9)
+    ax.text(0.14, -h / 2, f"draft {h * 100:.1f} cm of a {c * 100:.1f} cm chord", va="center", fontsize=9)
+    ax.text(-0.14, fl["camera_height_m"] + 0.02, f"camera {fl['camera_height_m'] * 100:+.0f} cm", va="center", ha="right",
+            fontsize=9)
+    ax.set_xlim(-0.35, 0.45)
+    ax.set_ylim(-0.2, 0.38)
+    ax.set_aspect("equal")
+    ax.set_xlabel("m")
+    ax.set_title("One arm and the hub, seen along the arm", fontsize=10)
+    R = fl["R_m"]
+    for g in (math.radians(90 + 120 * k) for k in range(3)):
+        bx.plot([r0 * math.cos(g), R * math.cos(g)], [r0 * math.sin(g), R * math.sin(g)], color="#1b4f72", lw=2.5)
+    bx.add_patch(plt.Circle((0, 0), r0, color="#e67e22"))
+    bx.set_aspect("equal")
+    bx.set_xlim(-1.15 * R, 1.15 * R)
+    bx.set_ylim(-0.75 * R, 1.15 * R)
+    bx.set_title(f"From above: the waterplane, three thin strips out to the tips. GM {fl['gm_m']:.1f} m, "
+                 f"roll period {fl['period_roll_s']:.2f} s", fontsize=10)
+    bx.axis("off")
+    fig.suptitle(title, fontsize=11)
+    fig.tight_layout()
+    fig.savefig(path, dpi=130)
+    plt.close(fig)

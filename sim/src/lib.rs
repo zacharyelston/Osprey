@@ -12,6 +12,7 @@ pub mod aircraft;
 pub mod cyclone;
 pub mod flight;
 pub mod num;
+pub mod rotor;
 pub mod tasks;
 pub mod water;
 
@@ -362,6 +363,199 @@ fn cyclone_pitch<'py>(py: Python<'py>, c: &Bound<'py, PyDict>) -> PyResult<Bound
     Ok(out)
 }
 
+fn blades(d: &Bound<'_, PyDict>) -> PyResult<rotor::Blades> {
+    Ok(rotor::Blades {
+        r: list(d, "r")?,
+        dr: list(d, "dr")?,
+        c: num(d, "c")?,
+        n: num(d, "N")?,
+        radius: num(d, "R")?,
+        r0: num(d, "r0")?,
+        rho: num(d, "rho")?,
+        cla: num(d, "cla")?,
+        cl_max: num(d, "cl_max")?,
+        a_stall: num(d, "a_stall")?,
+        blend: num(d, "blend")?,
+        cd0: num(d, "cd0")?,
+        kappa: num(d, "kappa")?,
+    })
+}
+
+fn lift(c: &Bound<'_, PyDict>) -> PyResult<cyclone::Lift> {
+    Ok(cyclone::Lift {
+        prop_diameter_m: num(c, "prop_diameter_m")?,
+        figure_of_merit: num(c, "figure_of_merit")?,
+        induced_factor: num(c, "induced_factor")?,
+    })
+}
+
+fn loads_dict<'py>(py: Python<'py>, ld: rotor::Loads) -> PyResult<Bound<'py, PyDict>> {
+    let out = PyDict::new(py);
+    out.set_item("T", ld.t)?;
+    out.set_item("Tr", ld.tr)?;
+    out.set_item("Q", ld.q)?;
+    out.set_item("roll", ld.roll)?;
+    out.set_item("pitch", ld.pitch)?;
+    out.set_item("H", ld.h)?;
+    out.set_item("alpha", ld.alpha)?;
+    out.set_item("ut", ld.ut)?;
+    Ok(out)
+}
+
+/// The Cyclone's arms' loads averaged over a turn (one evaluation).
+#[pyfunction]
+#[pyo3(signature = (bl, omega, theta, lam, v=0.0, a1=0.0, b1=0.0, n_psi=1))]
+#[allow(clippy::too_many_arguments)]
+fn rotor_loads<'py>(
+    py: Python<'py>,
+    bl: &Bound<'py, PyDict>,
+    omega: f64,
+    theta: f64,
+    lam: Vec<f64>,
+    v: f64,
+    a1: f64,
+    b1: f64,
+    n_psi: usize,
+) -> PyResult<Bound<'py, PyDict>> {
+    let b = blades(bl)?;
+    loads_dict(py, b.loads(omega, theta, &lam, v, a1, b1, n_psi))
+}
+
+/// The pitch that carries a weight at a spin rate: pitch, inflow ring by ring, and the loads there.
+#[pyfunction]
+fn rotor_hover<'py>(
+    py: Python<'py>,
+    bl: &Bound<'py, PyDict>,
+    weight_n: f64,
+    omega: f64,
+) -> PyResult<Bound<'py, PyDict>> {
+    let b = blades(bl)?;
+    let (th, lam, ld) = b.hover(weight_n, omega);
+    let out = PyDict::new(py);
+    out.set_item("theta", th)?;
+    out.set_item("lam", lam)?;
+    out.set_item("loads", loads_dict(py, ld)?)?;
+    Ok(out)
+}
+
+/// The spin building (1->2) or dying (2->1).
+#[pyfunction]
+fn rotor_transient<'py>(
+    py: Python<'py>,
+    bl: &Bound<'py, PyDict>,
+    c: &Bound<'py, PyDict>,
+) -> PyResult<Bound<'py, PyDict>> {
+    let b = blades(bl)?;
+    let rings = item(c, "rings")?
+        .extract::<Vec<Vec<f64>>>()?
+        .into_iter()
+        .map(|g| rotor::Ring {
+            r: g[0],
+            n: g[1],
+            p_each: g[2],
+        })
+        .collect();
+    let k = rotor::Transient {
+        lift: lift(c)?,
+        tip_prop_efficiency: num(c, "tip_prop_efficiency")?,
+        nacelle_cda: num(c, "nacelle_cda")?,
+        rings,
+        mass_kg: num(c, "mass_kg")?,
+        inertia: num(c, "inertia")?,
+        omega_h: num(c, "omega_h")?,
+        theta_h: num(c, "theta_h")?,
+        lam_h: list(c, "lam_h")?,
+        b_rate_rad_s: num(c, "b_rate_rad_s")?,
+        b_back_rad: num(c, "b_back_rad")?,
+        spun_down_frac: num(c, "spun_down_frac")?,
+        motor_efficiency: num(c, "motor_efficiency")?,
+        build: item(c, "build")?.extract::<bool>()?,
+        dt: num(c, "dt")?,
+    };
+    let o = rotor::transient(&b, &k);
+    let out = PyDict::new(py);
+    out.set_item("t", o.t)?;
+    out.set_item("energy_j", o.energy_j)?;
+    out.set_item("z", o.z)?;
+    out.set_item("z_min", o.z_min)?;
+    out.set_item("z_max", o.z_max)?;
+    out.set_item("done", o.done)?;
+    out.set_item("a_peak", o.a_peak)?;
+    out.set_item(
+        "track",
+        o.track.iter().map(|p| p.to_vec()).collect::<Vec<_>>(),
+    )?;
+    Ok(out)
+}
+
+/// Mode 2 against the wind until it can't hold station: the rows it held, the limit, and why.
+#[pyfunction]
+fn rotor_wind_sweep<'py>(
+    py: Python<'py>,
+    bl: &Bound<'py, PyDict>,
+    c: &Bound<'py, PyDict>,
+) -> PyResult<Bound<'py, PyDict>> {
+    let b = blades(bl)?;
+    let k = rotor::Wind {
+        omega: num(c, "omega")?,
+        theta_h: num(c, "theta_h")?,
+        lam_h: list(c, "lam_h")?,
+        weight_n: num(c, "weight_n")?,
+        hub_cda: num(c, "hub_cda")?,
+        nacelle_cda: num(c, "nacelle_cda")?,
+        tip_prop_efficiency: num(c, "tip_prop_efficiency")?,
+        stall_deg: num(c, "stall_deg")?,
+        swing_deg: num(c, "swing_deg")?,
+        rating_w: num(c, "rating_w")?,
+        v_max: num(c, "v_max")?,
+        step: num(c, "step")?,
+        n_psi: item(c, "n_psi")?.extract::<usize>()?,
+    };
+    let (rows, v2, why) = rotor::wind_sweep(&b, &k);
+    let out = PyDict::new(py);
+    let list_rows = pyo3::types::PyList::empty(py);
+    for r in rows {
+        let d = PyDict::new(py);
+        d.set_item("v_ms", r.v)?;
+        d.set_item("mu", r.mu)?;
+        d.set_item("tilt_deg", r.tilt_deg)?;
+        d.set_item("collective_deg", r.collective_deg)?;
+        d.set_item("cyclic_deg", r.cyclic_deg)?;
+        d.set_item("alpha_max_deg", r.alpha_max_deg)?;
+        d.set_item("shaft_w", r.shaft_w)?;
+        d.set_item("converged", r.converged)?;
+        list_rows.append(d)?;
+    }
+    out.set_item("rows", list_rows)?;
+    out.set_item("v_max_ms", v2)?;
+    out.set_item("why", why)?;
+    Ok(out)
+}
+
+/// The Cyclone lifting off the water: the time to clear it and the speed then.
+#[pyfunction]
+fn cyclone_water_launch<'py>(
+    py: Python<'py>,
+    c: &Bound<'py, PyDict>,
+) -> PyResult<Bound<'py, PyDict>> {
+    let (t, v) = rotor::water_launch(&rotor::WaterLaunch {
+        thrust_n: num(c, "thrust_n")?,
+        mass_kg: num(c, "mass_kg")?,
+        rho_w: num(c, "rho_w")?,
+        draft_m: num(c, "draft_m")?,
+        zs: list(c, "zs")?,
+        cum: list(c, "cum")?,
+        tension_n: num(c, "tension_n")?,
+        skin_cf: num(c, "skin_cf")?,
+        wetted_per_m: num(c, "wetted_per_m")?,
+        dt: num(c, "dt")?,
+    });
+    let out = PyDict::new(py);
+    out.set_item("t", t)?;
+    out.set_item("v", v)?;
+    Ok(out)
+}
+
 #[pymodule]
 fn osprey_sim(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(flight_simulate, m)?)?;
@@ -369,5 +563,10 @@ fn osprey_sim(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(tailsitter_launch, m)?)?;
     m.add_function(wrap_pyfunction!(cyclone_spin_up, m)?)?;
     m.add_function(wrap_pyfunction!(cyclone_pitch, m)?)?;
+    m.add_function(wrap_pyfunction!(rotor_loads, m)?)?;
+    m.add_function(wrap_pyfunction!(rotor_hover, m)?)?;
+    m.add_function(wrap_pyfunction!(rotor_transient, m)?)?;
+    m.add_function(wrap_pyfunction!(rotor_wind_sweep, m)?)?;
+    m.add_function(wrap_pyfunction!(cyclone_water_launch, m)?)?;
     Ok(())
 }

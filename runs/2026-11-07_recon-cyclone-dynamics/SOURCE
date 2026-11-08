@@ -1,0 +1,5 @@
+local, on 5b94236 (branch feat/cyclone-dynamics, from de9e6e0): the Cyclone's spin building and dying, A's and B's authority, the wind in modes 1 and 2, floating; the loops in Rust (sim/src/rotor.rs)
+Supersedes 2026-11-07_recon-cyclone-modes. The same modes, now with the spin's build and die stepped by blade elements (in place of a fixed 3 s), mode 3's top speed from mode 2's wind limit (in place of an advance ratio of 0.35), and the new sheets.
+<payload>: uv run osprey recon-cyclone --payload all --out <this>  (cyclone.md, modes.md, dynamics.md, water.md, cyclone.json; cyclone.png, modes.png, spin.png, wind.png, control.png, afloat.png, render-modes.png, render-afloat.png)
+  built from the twin-boom one-birds in runs/2026-11-06_recon-payloads/<payload>, compared against the tailsitter one-birds in runs/2026-11-07_recon-water/tailsitter/<payload> and their water sheets in runs/2026-11-07_recon-tailsitter-launch/<payload>
+docs/img/recon-cyclone.png, docs/img/recon-cyclone-modes.png and docs/img/recon-cyclone-{render-modes,render-afloat,spin,wind,control,afloat}.png: copies of the gimbal ones

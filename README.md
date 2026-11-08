@@ -369,13 +369,14 @@ the float plane. A Cyclone (`osprey recon-cyclone`, after Nick Rehm's spinning t
 run by a modes manager:
 1. lifting on its tip motors for the first and last 25 ft;
 2. a spinning hover on 2.2–2.6× less power;
-3. spinning travel at 7–8 m/s;
+3. spinning travel, slow: the retreating arm stalls at about 4 m/s;
 4. wing-borne flight with two arms up in dihedral and one down as a fin.
 
 It falls like a seed with the motors off. With the gimbal it matches the tailsitter, 2.95 kg against
 2.96. Optional mid-wing motors (A2) cover the one window where a motor out isn't survivable: the first
 and last 25 ft. The notebook, with the WingtraRAY as prior art, is
-[docs/float-launch](docs/float-launch/README.md).
+[docs/float-launch](docs/float-launch/README.md). The Cyclone has its own page, with renders: the spin
+building and dying, what A and B can control, the wind and floating, [docs/cyclone](docs/cyclone/README.md).
 
 ### Anti-piracy awareness
 
@@ -519,16 +520,17 @@ Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two works
 | [`design/scenarios/`](design/scenarios/) | `coastal-watch` (sea state 4), `mob` (sea state 3), `docking` |
 | [`design/recon/`](design/recon/) | Recon: the reference printed airframe, airframe variants (blended wing, crescent), payload variants, and the mission profiles (search, survey, inspect, escort) |
 | [`src/osprey/`](src/osprey/) | `frames`, `motion`, `optics`, `stabilize`, `occlusion`, `rig`, `tasking`, `calcs`, `figures`, `render/scene`, `cli` |
-| [`src/osprey/recon/`](src/osprey/recon/) | `tasks` (search, survey, inspect, escort), `search` (sweep width, POD), `flight` (3-DOF), `sizing` (OpenMDAO + OpenAeroStruct, trim and stability for flying wings), `fleet` (one bird, many jobs), `geometry` and `render` (the bird in MuJoCo), `plug` and `frame` (mould plugs, CNC ladder frames), `water` (afloat, take-off from the sea, landing loads), `tailsitter` (hover sizing, afloat upright, the water launch), `cyclone` (three wing arms spinning as a rotor), `cyclone_modes` (its modes, the moves between them, the manager), `awareness` (anti-piracy ranges), `figures` |
-| [`sim/`](sim/) | The sims' loops in Rust (PyO3): `flight` and `tasks` (the mission sim), `water` (take-off run, tailsitter launch), `cyclone` (spin-up, pitch moves) |
+| [`src/osprey/recon/`](src/osprey/recon/) | `tasks` (search, survey, inspect, escort), `search` (sweep width, POD), `flight` (3-DOF), `sizing` (OpenMDAO + OpenAeroStruct, trim and stability for flying wings), `fleet` (one bird, many jobs), `geometry` and `render` (the bird in MuJoCo), `plug` and `frame` (mould plugs, CNC ladder frames), `water` (afloat, take-off from the sea, landing loads), `tailsitter` (hover sizing, afloat upright, the water launch), `cyclone` (three wing arms spinning as a rotor), `cyclone_modes` (its modes, the moves between them, the manager), `cyclone_dynamics` (the spin building and dying, A's and B's authority, the wind), `cyclone_water` (afloat on its arms, the lift-off), `awareness` (anti-piracy ranges), `figures` |
+| [`sim/`](sim/) | The sims' loops in Rust (PyO3): `flight` and `tasks` (the mission sim), `water` (take-off run, tailsitter launch), `cyclone` (spin-up, pitch moves), `rotor` (the Cyclone's blade elements, spin moves, wind trims, water launch) |
 | [`runs/`](runs/README.md) | Kept runs, never edited after they are archived |
-| [`docs/`](docs/) | [Architecture](docs/architecture.md), [Recon](docs/recon.md), [remote runs](docs/remote-simulation.md), README figures |
+| [`docs/`](docs/) | [Architecture](docs/architecture.md), [Recon](docs/recon.md), [the Cyclone](docs/cyclone/README.md), [remote runs](docs/remote-simulation.md), README figures |
 
 ## Kept runs
 
 | Run | What it shows |
 |---|---|
-| [`2026-11-07_recon-cyclone-modes`](runs/2026-11-07_recon-cyclone-modes/) | Recon as a Cyclone flown by its four modes: every move's guard and cost, launch and recovery, A alone against A with A2, re-sized for all seven jobs |
+| [`2026-11-07_recon-cyclone-dynamics`](runs/2026-11-07_recon-cyclone-dynamics/) | The Cyclone's spin building and dying, A's and B's authority, the wind in modes 1 and 2, floating on its arms, with renders |
+| [`2026-11-07_recon-cyclone-modes`](runs/2026-11-07_recon-cyclone-modes/) | Superseded: the Cyclone's four modes with fixed-time spin moves and an assumed mode-3 top speed |
 | [`2026-11-07_recon-cyclone`](runs/2026-11-07_recon-cyclone/) | Superseded: the first Cyclone, with tricopter transitions and a flat Y wing |
 | [`2026-11-06_recon-wings`](runs/2026-11-06_recon-wings/) | Recon: the blended wing and crescent flying wing, each payload, seven jobs and capability matrices; awareness ranges; plugs and ladder frames for the flying wings |
 | [`2026-11-06_recon-payloads`](runs/2026-11-06_recon-payloads/) | Recon: seven jobs (search, survey, inspect, escort) for each payload (gimbal, side PTZ eyes), each one's sized airframe and flight, and both capability matrices |

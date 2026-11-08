@@ -431,3 +431,48 @@ def _tailsitter_parts(p, d: dict, y, le, c, lz) -> list[Part]:
             v, f = _tube([x0, 0.0, float(lz[0])], [x_bottom + L * 0.7, 0.0, zs], 0.007, 8)
             parts.append(Part(f"strut_{sign}_{x0:.2f}", "carbon", v, f))
     return parts
+
+
+def build_cyclone(p, d: dict, cy, phi_deg: float, *, axis_frac: float = 0.25, mount_m: float = 0.04,
+                  gimbal_drop_m: float = 0.07, spin_disc: bool = False) -> list[Part]:
+    """The Cyclone (recon/cyclone.py) in its own frame: z up the spin axis, the hub at the origin, three arms
+    120 degrees apart, each twisted by B phi_deg off centre (0: chord and A pointing up the spin axis; the
+    spin setting near 80: the chords nearly in the spin plane, leading edges going round), A's motor and
+    prop on each leading edge at the tip, the gimbal under the hub. spin_disc draws the disc it sweeps."""
+    from osprey.recon import cyclone
+
+    g = cyclone.geometry(p, d, cy)
+    c, r0, R = g["chord_m"], g["r0_m"], g["R_m"]
+    foil = naca4(0.0, 0.4, p.wing.t_over_c, 24)
+    phi = math.radians(phi_deg)
+    zhat = np.array([0.0, 0.0, 1.0])
+    parts = []
+    for k in range(cy.arms):
+        psi = math.radians(90 + 120 * k)
+        er = np.array([math.cos(psi), math.sin(psi), 0.0])
+        et = np.array([-math.sin(psi), math.cos(psi), 0.0])
+        ch = math.cos(phi) * zhat + math.sin(phi) * et                 # toward the leading edge
+        nn = -math.sin(phi) * zhat + math.cos(phi) * et
+        u, w = foil
+        sec = (axis_frac - u)[:, None] * c * ch + (w * c)[:, None] * nn
+        v, f = loft([r * er + sec for r in (r0, R)])
+        parts.append(Part(f"arm{k}", "shell0", v, f))
+        le = R * er + axis_frac * c * ch
+        v, f = _tube(le - 0.03 * ch, le + mount_m * ch, 0.014, 12)
+        parts.append(Part(f"motor{k}", "carbon", v, f))
+        hub = le + mount_m * ch
+        v, f = _tube(hub, hub + 0.003 * ch, cy.tri_prop_diameter_m / 2, 28)
+        parts.append(Part(f"disc{k}", "disc", v, f))
+        side = np.cross(ch, er)
+        v, f = _tube(hub - cy.tri_prop_diameter_m / 2 * side, hub + cy.tri_prop_diameter_m / 2 * side, 0.006, 8)
+        parts.append(Part(f"prop{k}", "prop", v, f))
+    v, f = _sphere([0.0, 0.0, 0.0], r0, 20)
+    parts.append(Part("hub", "pod", v, f))
+    v, f = _sphere([0.0, 0.0, -gimbal_drop_m + 0.03], 0.03, 14)
+    parts.append(Part("gimbal", "gimbal", v, f))
+    v, f = _sphere([0.022, 0.0, -gimbal_drop_m + 0.025], 0.012, 10)
+    parts.append(Part("lens", "lens", v, f))
+    if spin_disc:
+        v, f = _tube([0.0, 0.0, -0.002], [0.0, 0.0, 0.002], R, 64)
+        parts.append(Part("rotor", "disc", v, f))
+    return parts
