@@ -468,6 +468,10 @@ flowchart LR
 5. **Synthetic data.** `osprey render` drives a MuJoCo scene with the same motion model and writes, for
    every camera and frame, RGB, metric depth, a class mask and `labels.jsonl` with intrinsics and the
    camera-to-world pose. Real captures from the Phase 0 pod will use the same format.
+6. **Sims in Rust.** The time-stepping loops are a Rust extension, [`sim/`](sim/), that `uv sync` builds:
+   the Recon mission sim with its tasks, the take-off and launch runs, and the Cyclone's moves. Python
+   sets each one up and reads it back. The Rust sims give the same numbers as the Python ones they
+   replaced, held to a reference in `tests/data/sim_reference.json`.
 
 </details>
 
@@ -480,6 +484,8 @@ flowchart LR
 class mask (`self` is our own hull, `boat` the neighbour in the next slip).</sub>
 
 ## Quickstart
+
+`uv sync` builds the Rust sims in [`sim/`](sim/), so it needs a Rust toolchain ([rustup](https://rustup.rs)).
 
 ```bash
 uv sync
@@ -514,6 +520,7 @@ Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two works
 | [`design/recon/`](design/recon/) | Recon: the reference printed airframe, airframe variants (blended wing, crescent), payload variants, and the mission profiles (search, survey, inspect, escort) |
 | [`src/osprey/`](src/osprey/) | `frames`, `motion`, `optics`, `stabilize`, `occlusion`, `rig`, `tasking`, `calcs`, `figures`, `render/scene`, `cli` |
 | [`src/osprey/recon/`](src/osprey/recon/) | `tasks` (search, survey, inspect, escort), `search` (sweep width, POD), `flight` (3-DOF), `sizing` (OpenMDAO + OpenAeroStruct, trim and stability for flying wings), `fleet` (one bird, many jobs), `geometry` and `render` (the bird in MuJoCo), `plug` and `frame` (mould plugs, CNC ladder frames), `water` (afloat, take-off from the sea, landing loads), `tailsitter` (hover sizing, afloat upright, the water launch), `cyclone` (three wing arms spinning as a rotor), `cyclone_modes` (its modes, the moves between them, the manager), `awareness` (anti-piracy ranges), `figures` |
+| [`sim/`](sim/) | The sims' loops in Rust (PyO3): `flight` and `tasks` (the mission sim), `water` (take-off run, tailsitter launch), `cyclone` (spin-up, pitch moves) |
 | [`runs/`](runs/README.md) | Kept runs, never edited after they are archived |
 | [`docs/`](docs/) | [Architecture](docs/architecture.md), [Recon](docs/recon.md), [remote runs](docs/remote-simulation.md), README figures |
 

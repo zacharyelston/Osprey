@@ -108,57 +108,26 @@ def pitch(p, d: dict, cy, md, m: dict, v0: float, up: bool, dt: float = 0.01) ->
     """3->4 (up=False): from B centred, A pushing up, moving at v0, pitch over to level until wing-borne.
     4->1 (up=True): from level at v0, pitch up until A points up and the bird is down to a hover's drift.
     Either way A (and A2) push at whatever holds the height, up to their burst; where that isn't enough
-    the bird sinks, and that is the height lost. A 2-D point mass, a flat plate past the stall.
-    The pitch-up has to end hovering on A, so A's burst must hold the weight at the end."""
+    the bird sinks, and that is the height lost. A 2-D point mass, a flat plate past the stall, stepped in
+    Rust (sim/src/cyclone.rs). The pitch-up has to end hovering on A, so A's burst must hold the weight
+    at the end."""
+    import osprey_sim
+
     w = cyclone._wing(p, d, cy)
     S, clm = w["S_m2"], w["cl_max"]
     ar = w["span_m"] ** 2 / S
-    cla = 2 * math.pi * ar / (ar + 2)
-    a_stall = clm / cla
-    mk = m["mass_kg"]
-    W = mk * G
+    W = m["mass_kg"] * G
     v_wing = 1.2 * math.sqrt(2 * W / (flight.rho(0.0) * S * clm))
-    shaft = (m["motor_peak_w"] + m["a2_w"]) * cy.burst_factor
-    props = m["lift_props"]
-    lvl = math.radians(4.0)
-    theta = lvl if up else math.pi / 2
-    t = x = z = vz = energy = 0.0
-    vx = v0
-    z_min, short_s, end_ratio = 0.0, 0.0, 0.0
-    done = False
-    while t < 40:
-        theta = (min(theta + math.radians(md.pitch_rate_dps) * dt, math.pi / 2) if up
-                 else max(theta - math.radians(md.pitch_rate_dps) * dt, lvl))
-        sp = math.hypot(vx, vz)
-        gam = math.atan2(vz, vx) if sp > 0.1 else theta
-        a = theta - gam
-        cl = cla * a if abs(a) <= a_stall else 1.2 * math.sin(a) * math.cos(a)       # past the stall, a flat plate
-        cd = w["cd0"] + w["k"] * min(cl * cl, clm ** 2) + 1.2 * math.sin(a) ** 2
-        q = 0.5 * flight.rho(0.0) * sp * sp
-        L, D = q * S * cl, q * S * cd
-        lift_up = L * math.cos(gam) - D * math.sin(gam)
-        hold = (W - lift_up - mk * vz / 0.5) / max(math.sin(theta), 0.2)
-        u = sp * math.cos(a)                                    # the air along A's axis
-        avail = _available(p, cy, shaft, u, props)
-        T = min(max(hold, 0.0), avail)
-        short_s += dt if hold > avail else 0.0
-        end_ratio = W / avail if avail > 0 else math.inf
-        vx += (T * math.cos(theta) - D * math.cos(gam) - L * math.sin(gam)) / mk * dt
-        vz += (T * math.sin(theta) - D * math.sin(gam) + L * math.cos(gam) - W) / mk * dt
-        x += vx * dt
-        z += vz * dt
-        z_min = min(z_min, z)
-        energy += cyclone.lift_power(p, cy, T, u, props) / p.propulsion.motor_efficiency * dt
-        t += dt
-        if up and theta >= math.pi / 2 - 1e-9 and sp < 2.0:                 # hovering on A; the drift left is mode 1's
-            done = True
-            break
-        if not up and theta <= lvl + 1e-9 and sp >= v_wing and vz >= -0.5:
-            done = True
-            break
-    return {"t_s": t, "height_lost_m": -z_min, "distance_m": x, "v_ms": math.hypot(vx, vz), "v_wing_ms": v_wing,
-            "short_s": short_s, "hover_need": end_ratio, "energy_j": energy,
-            "ok": done and (not up or end_ratio <= 1.0 + 1e-6)}
+    r = osprey_sim.cyclone_pitch({
+        "prop_diameter_m": cy.tri_prop_diameter_m, "figure_of_merit": cy.tri_figure_of_merit,
+        "induced_factor": cy.induced_factor, "S_m2": S, "cl_max": clm, "cla": 2 * math.pi * ar / (ar + 2),
+        "cd0": w["cd0"], "k": w["k"], "mass_kg": m["mass_kg"], "v_wing": v_wing,
+        "shaft_w": (m["motor_peak_w"] + m["a2_w"]) * cy.burst_factor, "props": m["lift_props"],
+        "pitch_rate_rad_s": math.radians(md.pitch_rate_dps), "motor_efficiency": p.propulsion.motor_efficiency,
+        "v0": v0, "up": up, "dt": dt})
+    return {"t_s": r["t"], "height_lost_m": -r["z_min"], "distance_m": r["x"], "v_ms": r["v"], "v_wing_ms": v_wing,
+            "short_s": r["short_s"], "hover_need": r["end_ratio"], "energy_j": r["energy_j"],
+            "ok": r["done"] and (not up or r["end_ratio"] <= 1.0 + 1e-6)}
 
 
 def entry(p, d: dict, cy, md, m: dict, v0: float) -> dict:

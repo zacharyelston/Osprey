@@ -23,6 +23,9 @@ It leaves the task for home when the task's goal is met or its pattern ends,
 when the task time runs out, or when the battery reaches the energy to get
 home plus the reserve ("bingo").
 
+The loop runs in Rust (sim/src/flight.rs, with the tasks' stepping in
+sim/src/tasks.rs); this module sets it up and reads it back.
+
 World frame: x east, y north, metres; headings clockwise from north.
 """
 
@@ -102,113 +105,27 @@ def _wind(m) -> np.ndarray:
     return -m.wind_kn * KN * np.array([math.sin(a), math.cos(a)])
 
 
-def _wrap(a: float) -> float:
-    return (a + math.pi) % (2 * math.pi) - math.pi
-
-
 def simulate(p, ac: Aircraft, *, dt: float = 0.5, t_max: float = 3 * 3600.0,
              task_time_max: float | None = None) -> dict:
+    """Fly the mission: the task set up here, the loop in Rust (sim/src/flight.rs)."""
+    import osprey_sim
+
     m = p.mission
     wind = _wind(m)
     hb = math.radians(m.boat_heading_deg)
-    boat_v = m.boat_speed_kn * KN * np.array([math.sin(hb), math.cos(hb)])
     task = tasks.build(p, wind)
-    t_cap = m.task_time_max_s if task_time_max is None else task_time_max
-    speeds: dict[tuple[int, int], float] = {}
-
-    def range_speed(alt, headwind):
-        key = (int(round(alt / 10)), int(round(headwind * 2)))
-        if key not in speeds:
-            speeds[key] = ac.best_range_speed(key[0] * 10.0, key[1] / 2)
-        return speeds[key]
-
-    boat_mode = getattr(m, "boat_mode", "sail")
-    boat_speed = m.boat_speed_kn * KN
-
-    def boat_vel(t, boat):
-        """return/approach: head for the task, then heave to there drifting with
-        the water; sail: sail on; hold: stay at anchor."""
-        if boat_mode in ("return", "approach"):
-            to = task.where(t) - boat
-            dist = np.linalg.norm(to)
-            return boat_speed * to / dist if dist > 150 else task.drift
-        return boat_v if boat_mode == "sail" else np.zeros(2)
-    boat = np.zeros(2)
-    pos = np.zeros(2)
-    e0 = task.entry(0.0, pos)
-    h, psi, v = 2.0, math.atan2(e0[0], e0[1]), ac.v_search
-    energy = ac.energy_j
-    phase, t_task0, why = "outbound", None, "-"
-    rec = {k: [] for k in ("t", "x", "y", "h", "v", "phase", "energy", "progress", "power", "bank",
-                           "boat_x", "boat_y")}
-    t = 0.0
-    while t < t_max and phase not in ("recovered", "lost"):
-        if phase == "outbound":
-            target = task.entry(t, pos)
-            far = np.linalg.norm(target - pos) > 600
-            h_cmd = m.cruise_alt_m if far else task.alt_m
-            if np.linalg.norm(target - pos) < 30:
-                phase, t_task0 = "task", t
-        if phase == "task":
-            target = task.target(t, pos)
-            h_cmd = task.alt_m
-            # Bingo: the energy to get home along the line to the boat as it is now,
-            # against that line's headwind and the boat's own speed along it (away
-            # when it sails on, toward when it heads for the task), plus the reserve.
-            to_boat = boat - pos
-            home = float(np.linalg.norm(to_boat))
-            uh = to_boat / max(home, 1e-6)
-            head_home = -float(wind @ uh)
-            v_home = range_speed(m.cruise_alt_m, head_home)
-            away = float(boat_vel(t, boat) @ uh)
-            t_home = home / max(v_home - head_home - away, 1.0)
-            bingo = ac.power(v_home, m.cruise_alt_m) * t_home * (1 + m.reserve_frac)
-            reason = task.done() or ("time" if t - t_task0 > t_cap else "bingo" if energy <= bingo else None)
-            if reason:
-                phase, why = "return", reason
-        if phase == "return":
-            target = boat
-            h_cmd = m.cruise_alt_m if np.linalg.norm(boat - pos) > 400 else 15.0
-            if np.linalg.norm(boat - pos) < m.recovery_radius_m:
-                phase = "recovered"
-                continue
-
-        # Speed: task speed on the task, best range for the wind otherwise.
-        to = target - pos
-        dist = float(np.linalg.norm(to))
-        course = math.atan2(to[0], to[1]) if dist > 1e-6 else psi
-        u = np.array([math.sin(course), math.cos(course)])
-        head = -float(wind @ u)
-        v = ac.v_search if phase == "task" else range_speed(h, head)
-        # Wind triangle: air heading that makes good the course. `cross` is the
-        # wind's push to the right of the course; crab left into it.
-        cross = float(wind @ np.array([u[1], -u[0]]))
-        psi_d = course - math.asin(max(-1.0, min(1.0, cross / v)))
-        rate_max = G * math.tan(ac.bank_max_rad) / v
-        dpsi = max(-rate_max * dt, min(rate_max * dt, _wrap(psi_d - psi)))
-        psi = _wrap(psi + dpsi)
-        bank = math.atan(v * (dpsi / dt) / G)
-        n = 1 / math.cos(bank)
-        climb_max = max((ac.p_shaft_max_w * ac.eta_prop - ac.drag(v, h, n) * v) / ac.W, 0.0)
-        climb = max(-3.0, min(climb_max, (h_cmd - h) / 8.0))
-        pw = ac.power(v, h, n, climb)
-        vg = v * np.array([math.sin(psi), math.cos(psi)]) + wind
-        if phase == "task" and abs(h - task.alt_m) < 15:
-            task.look(pos, math.atan2(vg[0], vg[1]), t, dt, float(np.linalg.norm(vg)), h)
-        for k_, v_ in (("t", t), ("x", pos[0]), ("y", pos[1]), ("h", h), ("v", v), ("phase", phase),
-                       ("energy", energy), ("progress", task.progress), ("power", pw), ("bank", bank),
-                       ("boat_x", boat[0]), ("boat_y", boat[1])):
-            rec[k_].append(v_)
-        pos = pos + vg * dt
-        h = max(h + climb * dt, 0.0)
-        boat = boat + boat_vel(t, boat) * dt
-        energy -= pw * dt
-        if energy <= 0:
-            phase = "lost"
-        t += dt
-
-    out = {k: np.array(v_) for k, v_ in rec.items()}
-    out.update(task=task, wind=wind, outcome=phase, why=why)
+    ac_spec = {"mass_kg": ac.mass_kg, "S_m2": ac.S_m2, "cd0": ac.cd0, "k": ac.k, "cl_max": ac.cl_max,
+               "eta_prop": ac.eta_prop, "eta_motor": ac.eta_motor, "p_aux_w": ac.p_aux_w, "energy_j": ac.energy_j,
+               "p_shaft_max_w": ac.p_shaft_max_w, "v_search": ac.v_search, "bank_max_rad": ac.bank_max_rad}
+    mission = {"wind": wind.tolist(), "boat_v": (m.boat_speed_kn * KN * np.array([math.sin(hb), math.cos(hb)])).tolist(),
+               "boat_speed": m.boat_speed_kn * KN, "boat_mode": getattr(m, "boat_mode", "sail"),
+               "cruise_alt_m": m.cruise_alt_m, "reserve_frac": m.reserve_frac, "recovery_radius_m": m.recovery_radius_m,
+               "t_cap": m.task_time_max_s if task_time_max is None else task_time_max, "dt": dt, "t_max": t_max}
+    r = osprey_sim.flight_simulate({k: float(v) for k, v in ac_spec.items()}, mission, task.spec())
+    task.absorb(r.pop("task"))
+    out = {k: np.array(v) for k, v in r.items() if k not in ("outcome", "why", "phase")}
+    out["phase"] = np.array(PHASES)[np.array(r["phase"], dtype=int)]
+    out.update(task=task, wind=wind, outcome=PHASES[r["outcome"]], why=r["why"])
     if task.kind == "search":                              # what the search figures read
         out.update(grid=task.grid, sweep=task.sweep, plan=task.plan, datum0=task.datum0, drift=task.drift,
                    pod=out["progress"], passes=task.passes)

@@ -12,6 +12,7 @@ dependencies = [
     "numpy>=2.0",
     "openaerostruct>=2.12",
     "openmdao>=3.45",
+    "osprey-sim",
     "pillow>=11.0",
 ]
 
@@ -26,3 +27,9 @@ build-backend = "uv_build"
 dev = [
     "pytest>=8.3",
 ]
+
+[tool.uv.workspace]
+members = ["sim"]
+
+[tool.uv.sources]
+osprey-sim = { workspace = true }

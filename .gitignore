@@ -8,3 +8,6 @@ out/
 MUJOCO_LOG.TXT
 *_out/
 _site/
+
+# Rust build output
+sim/target/

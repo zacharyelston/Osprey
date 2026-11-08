@@ -1,0 +1,16 @@
+[package]
+name = "osprey-sim"
+version = "0.1.0"
+edition = "2021"
+description = "Osprey's simulation loops, called from the Python package"
+publish = false
+
+[lib]
+name = "osprey_sim"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pyo3 = { version = "0.30", features = ["abi3-py312"] }
+
+[profile.release]
+opt-level = 3

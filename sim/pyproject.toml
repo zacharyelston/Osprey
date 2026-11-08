@@ -1,0 +1,17 @@
+[project]
+name = "osprey-sim"
+version = "0.1.0"
+description = "Osprey's simulation loops in Rust; the osprey package sets them up and reads them back"
+requires-python = ">=3.12"
+
+[build-system]
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
+
+[tool.maturin]
+module-name = "osprey_sim"
+features = ["pyo3/extension-module"]
+
+[tool.uv]
+# Rebuild when the Rust changes, not only this file.
+cache-keys = [{ file = "pyproject.toml" }, { file = "Cargo.toml" }, { file = "src/**/*.rs" }]

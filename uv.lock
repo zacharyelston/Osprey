@@ -2,6 +2,12 @@ version = 1
 revision = 3
 requires-python = ">=3.12"
 
+[manifest]
+members = [
+    "osprey",
+    "osprey-sim",
+]
+
 [[package]]
 name = "certifi"
 version = "2026.10.23"
@@ -719,6 +725,7 @@ dependencies = [
     { name = "numpy" },
     { name = "openaerostruct" },
     { name = "openmdao" },
+    { name = "osprey-sim" },
     { name = "pillow" },
 ]
 
@@ -734,11 +741,17 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.0" },
     { name = "openaerostruct", specifier = ">=2.12" },
     { name = "openmdao", specifier = ">=3.45" },
+    { name = "osprey-sim", editable = "sim" },
     { name = "pillow", specifier = ">=11.0" },
 ]
 
 [package.metadata.requires-dev]
 dev = [{ name = "pytest", specifier = ">=8.3" }]
+
+[[package]]
+name = "osprey-sim"
+version = "0.1.0"
+source = { editable = "sim" }
 
 [[package]]
 name = "packaging"
