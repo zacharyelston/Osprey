@@ -151,7 +151,10 @@ def inertia(p, d: dict, cy, motor_kg: float) -> float:
 
 def spin_up(p, d: dict, cy, m: dict, dt: float = 0.002) -> dict:
     """From rest to the hover spin, motors at their peak: each tip prop's static thrust, falling
-    away as P / v as the tip speeds up, against the arms' drag. Lifts off at the hover spin."""
+    away as P / v as the tip speeds up, against the arms' drag. Lifts off at the hover spin. Stepped
+    in Rust (sim/src/cyclone.rs)."""
+    import osprey_sim
+
     hov = rotor(p, d, cy, m["mass_kg"])
     g = geometry(p, d, cy)
     rho = flight.rho(0.0)
@@ -160,12 +163,9 @@ def spin_up(p, d: dict, cy, m: dict, dt: float = 0.002) -> dict:
     a_prop = math.pi * (cy.tri_prop_diameter_m / 2) ** 2
     f_static = (cy.tri_figure_of_merit * p_each) ** (2 / 3) * (2 * rho * a_prop) ** (1 / 3)
     k_drag = hov["p_rotor_w"] / hov["omega_rads"] ** 3                    # torque grows with the spin squared
-    t, w = 0.0, 0.0
-    while w < hov["omega_rads"] and t < 60:
-        v = w * g["R_m"]
-        f = min(f_static, cy.tip_prop_efficiency * p_each / max(v, 1e-6))
-        w += (cy.arms * f * g["R_m"] - k_drag * w * w) / I * dt
-        t += dt
+    t = osprey_sim.cyclone_spin_up({"omega_h": hov["omega_rads"], "R_m": g["R_m"], "inertia": I, "p_each_w": p_each,
+                                    "f_static_n": f_static, "tip_prop_efficiency": cy.tip_prop_efficiency,
+                                    "k_drag": k_drag, "arms": cy.arms, "dt": dt})
     return {"t_s": t, "inertia_kgm2": I, "tip_static_n": f_static}
 
 

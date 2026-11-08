@@ -8,4 +8,5 @@
 - **Remote runs:** ML hosts run a `git archive` snapshot of a commit, never a working tree. See `docs/remote-simulation.md`.
 - **Recon:** the drone lives in `src/osprey/recon` with inputs in `design/recon`. Sizing is OpenMDAO + OpenAeroStruct; keep derivatives analytic or complex-step (no `abs()`, `max()` or branches on complex values) and check them with `check_totals`. OpenMDAO's work folders go to `out/openmdao`.
 - **Public repo:** never commit internal hostnames, logins, company domains or other projects' names; the compute hosts are `gpu1` and `gpu2`.
+- **Sims:** Python sets a sim up and reads it back; the loop runs in Rust in `sim/` (PyO3, built by `uv sync`). A new sim's time stepping goes in `sim/src`; when a sim is ported or changed, `tests/data/sim_reference.json` (`tests/sim_cases.py`) holds it to the numbers it gave before.
 - **Checks:** `uv run pytest` before any commit; `uv run osprey calc` exits 1 on a FAIL, which is a design finding, not a crash.

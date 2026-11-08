@@ -23,8 +23,11 @@ SHA=$(git rev-parse --short HEAD)
 git archive --format=tar HEAD -o /tmp/osprey-$SHA.tar
 RUN=$(ssh $HOST 'mkdir -p ~/osprey-sim && mktemp -d ~/osprey-sim/run-XXXXXX')
 scp /tmp/osprey-$SHA.tar $HOST:$RUN/source.tar
-ssh $HOST "cd $RUN && tar -xf source.tar && rm source.tar && echo $SHA > SOURCE_SHA && ~/.local/bin/uv sync --python 3.12"
+ssh $HOST "cd $RUN && tar -xf source.tar && rm source.tar && echo $SHA > SOURCE_SHA && PATH=\$HOME/.cargo/bin:\$PATH ~/.local/bin/uv sync --python 3.12"
 ```
+
+`uv sync` builds the Rust sims in `sim/`. Both hosts have rustup's Rust (1.99, checked 2026-11-07) in
+`~/.cargo/bin`, which a non-interactive `ssh` does not put on the `PATH`, hence the prefix.
 
 ## Sweep every scenario and rig (CPU)
 

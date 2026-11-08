@@ -13,8 +13,10 @@
 - escort: keep the boat's beams under watch. Circle the boat as it sails, at
   a set radius, for a set time.
 
-Each task gives the flight sim a place to fly to, a moving waypoint, a
-progress measure with a goal, and the track length the sizing loop plans for.
+Each task sets up what the flight sim needs: its patterns, its search grid
+and camera footprints, a progress measure with a goal, and the track length
+the sizing loop plans for. spec() hands that to the sim (sim/src/tasks.rs),
+which steps the waypoints and the grid; absorb() takes back where it ended.
 Positions are world x east, y north, metres, with the boat at the origin at
 launch.
 """
@@ -31,9 +33,22 @@ from osprey.motion import KN
 from osprey.recon import search
 
 
+PASSES_MAX = 24                   # search patterns set up for the sim, one per pass
+
+
 def _polar(range_m: float, bearing_deg: float) -> np.ndarray:
     b = math.radians(bearing_deg)
     return range_m * np.array([math.sin(b), math.cos(b)])
+
+
+def _sweep_spec(sw: search.Sweep) -> dict:
+    return {"along_m": sw.along_m, "p_pass": sw.p_pass, "rects": [list(map(float, r)) for r in sw.footprints()]}
+
+
+def _grid_spec(g: search.Grid) -> dict:
+    return {"x": g.x.ravel().tolist(), "y": g.y.ravel().tolist(), "prior": g.prior.ravel().tolist(),
+            "unfound": g.unfound.ravel().tolist(), "datum": g.datum.tolist(), "drift": g.drift.tolist(),
+            "nx": int(g.x.shape[1])}
 
 
 class Task:
@@ -48,21 +63,17 @@ class Task:
         """The task's centre at time t: where the boat heads, if it heads anywhere."""
         raise NotImplementedError
 
-    def entry(self, t: float, pos: np.ndarray) -> np.ndarray:
-        return self.where(t)
-
-    def target(self, t: float, pos: np.ndarray) -> np.ndarray:
-        raise NotImplementedError
-
-    def look(self, pos, track_rad, t, dt, v_ground, alt):
-        pass
-
     @property
     def progress(self) -> float:
         raise NotImplementedError
 
-    def done(self) -> str | None:
-        return "goal" if self.progress >= self.goal else None
+    def spec(self) -> dict:
+        """What the sim needs to step the task."""
+        return {"kind": self.kind, "alt_m": float(self.alt_m), "goal": float(self.goal),
+                "drift": [float(x) for x in self.drift]}
+
+    def absorb(self, state: dict):
+        """Where the sim left the task."""
 
     def info(self) -> dict:
         return {}
@@ -91,24 +102,27 @@ class SearchTask(Task):
     def where(self, t):
         return self.datum0 + self.drift * t
 
-    def target(self, t, pos):
-        tgt = self.where(t) + self.pattern[self.wp]
-        if np.linalg.norm(tgt - pos) < max(15.0, 0.6 * self.plan.spacing_m):
-            self.wp += 1
-            if self.wp >= len(self.pattern):
-                off = self.plan.spacing_m / 2 * np.array([1.0, 1.0])
-                self.pattern = search.expanding_square(self.plan.spacing_m, self.plan.half_size_m,
-                                                       self.up + 45 * self.passes) + off
-                self.passes += 1
-                self.wp = 1
-            tgt = self.where(t) + self.pattern[self.wp]
-        return tgt
+    def patterns(self) -> list[np.ndarray]:
+        """The expanding square for each pass: re-flown turned 45 degrees and offset half a spacing."""
+        off = self.plan.spacing_m / 2 * np.array([1.0, 1.0])
+        return [self.pattern] + [search.expanding_square(self.plan.spacing_m, self.plan.half_size_m, self.up + 45 * k)
+                                 + off for k in range(1, PASSES_MAX)]
 
-    def look(self, pos, track_rad, t, dt, v_ground, alt):
-        key = int(round(alt / 5) * 5)
-        if key not in self._sweeps:
-            self._sweeps[key] = search.sweep(self.p, key)
-        self.grid.look(pos, track_rad, t, dt, v_ground, self._sweeps[key])
+    def spec(self):
+        # The camera's footprint at every altitude the sim can look from: within 15 m of the search height,
+        # to the nearest 5 m.
+        keys = sorted({int(round(a / 5) * 5) for a in np.linspace(self.alt_m - 15, self.alt_m + 15, 601)})
+        for k in keys:
+            if k not in self._sweeps:
+                self._sweeps[k] = search.sweep(self.p, k)
+        return {**super().spec(), "datum0": self.datum0.tolist(), "spacing": float(self.plan.spacing_m),
+                "patterns": [pat.tolist() for pat in self.patterns()],
+                "sweeps": {k: _sweep_spec(self._sweeps[k]) for k in keys}, "grid": _grid_spec(self.grid)}
+
+    def absorb(self, state):
+        self.wp, self.passes = state["wp"], state["passes"]
+        self.pattern = self.patterns()[min(self.passes, PASSES_MAX) - 1]
+        self.grid.unfound = np.array(state["unfound"]).reshape(self.grid.unfound.shape)
 
     @property
     def progress(self):
@@ -160,29 +174,17 @@ class SurveyTask(Task):
     def where(self, t):
         return self.centre
 
-    def entry(self, t, pos):
-        return self.pattern[0]
+    def spec(self):
+        return {**super().spec(), "centre": self.centre.tolist(), "pattern": self.pattern.tolist(),
+                "sweep": _sweep_spec(self.sweep), "grid": _grid_spec(self.grid)}
 
-    def target(self, t, pos):
-        if np.linalg.norm(self.pattern[self.wp] - pos) < 25.0:
-            if self.wp + 1 < len(self.pattern):
-                self.wp += 1
-            else:
-                self.finished = True
-        return self.pattern[self.wp]
-
-    def look(self, pos, track_rad, t, dt, v_ground, alt):
-        if abs(alt - self.alt_m) < 15:
-            self.grid.look(pos, track_rad, t, dt, v_ground, self.sweep)
+    def absorb(self, state):
+        self.wp, self.finished = state["wp"], state["finished"]
+        self.grid.unfound = np.array(state["unfound"]).reshape(self.grid.unfound.shape)
 
     @property
     def progress(self):
         return self.grid.pod
-
-    def done(self):
-        if self.progress >= self.goal:
-            return "goal"
-        return "pattern" if self.finished else None
 
     def info(self):
         cam, pl = self.p.camera, self.p.payload
@@ -214,18 +216,12 @@ class InspectTask(Task):
     def where(self, t):
         return self.v0 + self.vel * t
 
-    def entry(self, t, pos):
-        d = pos - self.where(t)
-        return self.where(t) + self.r * d / max(np.linalg.norm(d), 1e-6)
+    def spec(self):
+        return {**super().spec(), "v0": self.v0.tolist(), "vel": self.vel.tolist(), "r": float(self.r),
+                "laps": float(self.laps)}
 
-    def target(self, t, pos):
-        d = pos - self.where(t)
-        th = math.atan2(d[1], d[0])
-        if self.theta is not None:
-            self.swept += abs((th - self.theta + math.pi) % (2 * math.pi) - math.pi)
-        self.theta = th
-        ahead = th + 0.5                                             # carrot 0.5 rad round the circle
-        return self.where(t) + self.r * np.array([math.cos(ahead), math.sin(ahead)])
+    def absorb(self, state):
+        self.swept, self.theta = state["swept"], state["theta"]
 
     @property
     def progress(self):
@@ -265,11 +261,12 @@ class EscortTask(InspectTask):
         self.t_now = 0.0
         self.swept, self.theta = 0.0, None
 
-    def target(self, t, pos):
-        if self.t_on is None:
-            self.t_on = t
-        self.t_now = t
-        return super().target(t, pos)
+    def spec(self):
+        return {**Task.spec(self), "v0": self.v0.tolist(), "vel": self.vel.tolist(), "r": float(self.r),
+                "duration": float(self.duration)}
+
+    def absorb(self, state):
+        self.swept, self.theta, self.t_on, self.t_now = state["swept"], state["theta"], state["t_on"], state["t_now"]
 
     @property
     def progress(self):

@@ -166,7 +166,9 @@ def resistance(p, u: float) -> float:
 def takeoff(p, d: dict, mass_kg: float, dt: float = 0.01) -> dict:
     """A take-off run on calm water at full power: run length, time, energy
     and the worst thrust margin (thrust less air drag and water resistance,
-    over weight)."""
+    over weight). The run is stepped in Rust (sim/src/water.rs)."""
+    import osprey_sim
+
     w, pr = p.water, p.propulsion
     W, S = mass_kg * G, d["S_m2"]
     rho = flight.rho(0.0)
@@ -174,25 +176,14 @@ def takeoff(p, d: dict, mass_kg: float, dt: float = 0.01) -> dict:
     v_lof = w.liftoff_frac * v_stall
     T0 = static_thrust(p)
     cd = d["cd0"] + w.kit_cda_m2 / S + d["k"] * w.cl_run ** 2
-    v = x = t = 0.0
-    worst, at = math.inf, 0.0
-    while v < v_lof and t < 120:
-        q = 0.5 * rho * v * v
-        T = min(T0, pr.prop_efficiency * pr.motor_peak_w / max(v, 1e-3))
-        on_water = max(W - q * S * w.cl_run, 0.0)
-        net = T - q * S * cd - on_water * resistance(p, v / v_lof)
-        if net / W < worst:
-            worst, at = net / W, v
-        if net <= 0:
-            break
-        v += net / mass_kg * dt
-        x += v * dt
-        t += dt
-    ok = v >= v_lof
+    r = osprey_sim.takeoff({"mass_kg": mass_kg, "S_m2": S, "v_lof": v_lof, "T0": T0, "cd": cd,
+                            "prop_efficiency": pr.prop_efficiency, "motor_peak_w": pr.motor_peak_w, "cl_run": w.cl_run,
+                            "r_hump": w.r_hump, "r_plane": w.r_plane, "hump_speed_frac": w.hump_speed_frac, "dt": dt})
+    ok = r["v"] >= v_lof
     return {"v_liftoff_ms": v_lof, "v_stall_ms": v_stall, "static_thrust_n": T0, "thrust_to_weight": T0 / W,
-            "run_m": x if ok else math.inf, "run_s": t if ok else math.inf,
-            "energy_wh": pr.motor_peak_w / pr.motor_efficiency * t / 3600, "margin_min": worst,
-            "margin_at_ms": at, "gets_off": ok and worst >= w.thrust_margin_min}
+            "run_m": r["x"] if ok else math.inf, "run_s": r["t"] if ok else math.inf,
+            "energy_wh": pr.motor_peak_w / pr.motor_efficiency * r["t"] / 3600, "margin_min": r["worst"],
+            "margin_at_ms": r["at"], "gets_off": ok and r["worst"] >= w.thrust_margin_min}
 
 
 def impact_factor(p, v_stall_ms: float, mass_kg: float) -> float:

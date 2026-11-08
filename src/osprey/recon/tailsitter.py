@@ -184,7 +184,10 @@ def _perimeter(pts: np.ndarray) -> float:
 
 
 def launch(p, d: dict, fl: dict | None = None, dt: float = 0.005) -> dict:
-    """Throttle up on the water, climb out, climb to the safe height, pitch over to wing-borne flight."""
+    """Throttle up on the water, climb out, climb to the safe height, pitch over to wing-borne flight.
+    Set up here from the meshes afloat; stepped in Rust (sim/src/water.rs)."""
+    import osprey_sim
+
     h, fp = p.hover, p.floats
     fl = fl or upright(p, d)
     m = d["mass_total_kg"]
@@ -192,88 +195,26 @@ def launch(p, d: dict, fl: dict | None = None, dt: float = 0.005) -> dict:
     T_max = h.thrust_to_weight * W
     rho_w = p.water.density_kgm3
     rs, Vs, Ps = _submerged_table(p, d, fl)
-    end_area = 4 * math.pi * fp.pod_radius_m ** 2
-    t = z = v = 0.0
-    worst_tension = 0.0
-    phase_t = {}
-    track = []                                           # (t, x, rise, pitch) every 0.05 s, for the pictures
-
-    def mark(x_, z_, th_):
-        if not track or t - track[-1][0] >= 0.05:
-            track.append((t, x_, z_, th_))
-    # 1. Out of the water: thrust ramps up; buoyancy, pod drag, the water they carry and surface tension.
-    while z < rs[-1] and t < 30:
-        T = T_max * min(t / h.spool_s, 1.0)
-        V = float(np.interp(z, rs, Vs))
-        perim = float(np.interp(z, rs, Ps))
-        tension = fp.surface_tension_npm * perim
-        worst_tension = max(worst_tension, tension)
-        drag = 0.5 * rho_w * fp.cd * end_area * v * abs(v) if V > 0 else 0.0
-        net = T + rho_w * G * V - W - drag - (tension if V > 0 else 0.0)
-        m_eff = m + fp.added_mass * rho_w * V
-        v = max(v + net / m_eff * dt, 0.0)
-        z += v * dt
-        t += dt
-        mark(0.0, z, math.pi / 2)
-    phase_t["clear_s"] = t
-    v_exit = v
-    # 2. Climb to the safe height, holding the climb speed (thrust trimmed to it).
-    while z < rs[-1] + h.safe_height_m and t < 60:
-        T = min(T_max, W + m * (h.climb_ms - v) / 0.3)
-        v += (T - W) / m * dt
-        z += v * dt
-        t += dt
-        mark(0.0, z, math.pi / 2)
-    phase_t["safe_s"] = t
-    # 3. Pitch over at a set rate from vertical to the cruise attitude, at full thrust, until wing-borne.
     S, b = d["S_m2"], d["span_m"]
     ar = b * b / S
     cla = 2 * math.pi * ar / (ar + 2)
-    a_stall = p.wing.cl_max / cla
     v_wing = 1.2 * math.sqrt(2 * W / (flight.rho(0.0) * S * p.wing.cl_max))
-    theta = math.pi / 2
-    theta_end = math.radians(4.0)
-    x, vx, vz = 0.0, 0.0, v
-    z_min = z
-    while t < 60:
-        theta = max(theta - math.radians(h.pitch_rate_dps) * dt, theta_end)
-        sp = math.hypot(vx, vz)
-        gam = math.atan2(vz, vx) if sp > 0.1 else math.pi / 2
-        a = theta - gam
-        cl = cla * a if abs(a) <= a_stall else 1.2 * math.sin(a) * math.cos(a)       # past the stall, a flat plate
-        cd = d["cd0"] + d["k"] * min(cl * cl, p.wing.cl_max ** 2) + 1.2 * math.sin(a) ** 2
-        q = 0.5 * flight.rho(z) * sp * sp
-        L, D = q * S * cl, q * S * cd
-        # Thrust: what holds a gentle climb (half the climb speed) through the pitch-over, the wing taking
-        # more of the weight as it speeds up; whatever that leaves drives it forward.
-        lift_up = L * math.cos(gam) - D * math.sin(gam)
-        hold = (W - lift_up + m * (0.5 * h.climb_ms - vz) / 0.5) / max(math.sin(theta), 0.2)
-        # The props' thrust falls away with the air along their axis: momentum theory's static thrust, then
-        # the propulsive efficiency times the peak power over the speed.
-        u = max(sp * math.cos(a), 0.1)
-        T_avail = min(T_max, p.propulsion.prop_efficiency * d.get("motor_peak_w", p.propulsion.motor_peak_w) / u)
-        T = min(max(hold, 0.3 * W), T_avail)
-        ax = T * math.cos(theta) - D * math.cos(gam) - L * math.sin(gam)
-        az = T * math.sin(theta) - D * math.sin(gam) + L * math.cos(gam) - W
-        vx += ax / m * dt
-        vz += az / m * dt
-        x += vx * dt
-        z += vz * dt
-        z_min = min(z_min, z)
-        t += dt
-        mark(x, z, theta)
-        if theta <= theta_end + 1e-9 and sp >= v_wing:
-            break
-    phase_t["wing_borne_s"] = t
-    track.append((t, x, z, theta))                       # the end, whatever the sampling
+    r = osprey_sim.tailsitter_launch({
+        "mass_kg": m, "T_max": T_max, "spool_s": h.spool_s, "rho_w": rho_w, "rs": rs.tolist(), "Vs": Vs.tolist(),
+        "Ps": Ps.tolist(), "surface_tension_npm": fp.surface_tension_npm, "cd_pod": fp.cd,
+        "end_area": 4 * math.pi * fp.pod_radius_m ** 2, "added_mass": fp.added_mass, "climb_ms": h.climb_ms,
+        "safe_height_m": h.safe_height_m, "S_m2": S, "cla": cla, "a_stall": p.wing.cl_max / cla,
+        "cl_max": p.wing.cl_max, "cd0": d["cd0"], "k": d["k"], "v_wing": v_wing,
+        "pitch_rate_rad_s": math.radians(h.pitch_rate_dps), "prop_efficiency": p.propulsion.prop_efficiency,
+        "motor_peak_w": d.get("motor_peak_w", p.propulsion.motor_peak_w), "dt": dt})
     hover_e = hover_power(p, W) / p.propulsion.motor_efficiency
-    return {"t_clear_s": phase_t["clear_s"], "t_safe_s": phase_t["safe_s"], "t_wing_borne_s": phase_t["wing_borne_s"],
-            "v_exit_ms": v_exit, "height_min_m": z_min - rs[-1], "v_wing_ms": v_wing, "distance_m": x,
-            "surface_tension_n": worst_tension, "surface_tension_of_weight": worst_tension / W,
+    return {"t_clear_s": r["clear_s"], "t_safe_s": r["safe_s"], "t_wing_borne_s": r["wing_borne_s"],
+            "v_exit_ms": r["v_exit"], "height_min_m": r["z_min"] - rs[-1], "v_wing_ms": v_wing, "distance_m": r["x"],
+            "surface_tension_n": r["worst_tension"], "surface_tension_of_weight": r["worst_tension"] / W,
             "buoyancy_n": rho_w * G * float(Vs[0]), "thrust_max_n": T_max, "weight_n": W,
-            "hover_power_w": hover_e, "energy_wh": hover_e * phase_t["wing_borne_s"] / 3600 * 1.3,
-            "ok": phase_t["wing_borne_s"] <= p.floats.launch_s_max and z_min - rs[-1] > 1.0,
-            "track": track}
+            "hover_power_w": hover_e, "energy_wh": hover_e * r["wing_borne_s"] / 3600 * 1.3,
+            "ok": r["wing_borne_s"] <= p.floats.launch_s_max and r["z_min"] - rs[-1] > 1.0,
+            "track": [tuple(x) for x in r["track"]]}
 
 
 def sail_arm(p, d: dict, fl: dict) -> float:
