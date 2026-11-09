@@ -35,16 +35,16 @@ move's guard holds. It charges every move's time, height and energy to the sorti
 ## The bird
 
 Each Cyclone is re-sized from the twin-boom one-bird until it does all seven jobs as a wing
-([`runs/2026-11-07_recon-cyclone-dynamics`](../../runs/2026-11-07_recon-cyclone-dynamics/)).
+([`runs/2026-11-09_recon-cyclone-arms`](../../runs/2026-11-09_recon-cyclone-arms/cyclone/)).
 
 | | Gimbal | A PTZ eye each side |
 |---|---|---|
-| Mass (tailsitter) | **2.95 kg** (2.96) | **2.30 kg** (2.22) |
+| Mass (tailsitter) | **2.93 kg** (2.96) | **2.30 kg** (2.22) |
 | Rotor, flying span | 2.18 m, 1.89 m | 1.70 m, 1.47 m |
-| A, rated | 426 W, 0.15 kg | 293 W, 0.12 kg |
-| Spinning hover (tailsitter) | 160 W at 209 rpm (410 W) | 122 W at 217 rpm (265 W) |
-| Launch + recovery (tailsitter) | 27 + 26 s, **5.4 Wh** (6.0) | 20 + 18 s, **2.9 Wh** (3.9) |
-| Wing-borne: stall, best L/D | 14.8 m/s, 8.0 | 12.1 m/s, 7.8 |
+| A, rated | 423 W, 0.15 kg | 293 W, 0.12 kg |
+| Spinning hover (tailsitter) | 159 W at 209 rpm (410 W) | 122 W at 217 rpm (265 W) |
+| Launch + recovery (tailsitter) | 15 + 17 s, **3.5 Wh** (6.0) | 14 + 14 s, **2.3 Wh** (3.9) |
+| Wing-borne: stall, best L/D | 14.7 m/s, 8.0 | 12.1 m/s, 7.8 |
 | Wing-borne: endurance, range | 1.7 h, 109 km | 1.0 h, 54 km |
 | Motors off | seeds down at 3.2 m/s | 3.7 m/s |
 
@@ -53,8 +53,8 @@ Each Cyclone is re-sized from the twin-boom one-bird until it does all seven job
 Each arm is a blade made of elements, with a symmetric section that lifts linearly up to its stall at 9°
 and acts as a flat plate beyond it. The air through the disc comes from momentum theory, worked out ring
 by ring. To carry the weight at the hover's 209 rpm, the arms sit 12.5° to the spin plane. The tips then
-meet the air at 6.2°, 2.9° under the stall. The blade elements' hover power, 81 W into the air, agrees
-with the rotor model's 76 W.
+meet the air at 6.2°, 2.9° under the stall. The blade elements' hover power, 80 W into the air, agrees
+with the rotor model's 75 W.
 
 The moves into and out of the spin are stepped through time
 ([`cyclone_dynamics.py`](../../src/osprey/recon/cyclone_dynamics.py), the loop in
@@ -70,8 +70,9 @@ The moves into and out of the spin are stepped through time
 - **Building takes 1.35 s and dying 1.63 s**, with the height held to within 6 cm. The spin builds about
   as fast as B can turn, so B's slew sets it, not A's power. The modes manager now charges these times;
   before, it assumed a flat 3 s, which stays as B's budget for the move.
-- Charged at their real length, the moves bring launch and recovery down from 6.0 to 5.4 Wh with the
-  gimbal, and from 3.5 to 2.9 Wh with the side eyes.
+- Charged at their real length, the moves brought launch and recovery down from 6.0 to 5.4 Wh with the
+  gimbal. Flying the pitch-over properly ([below](#the-pitch-over-from-3-to-4)) brings it to 3.5 Wh, and
+  2.3 Wh with the side eyes.
 - Mode 1 is still the exposed window. A fall from 25 ft takes 1.2 s, against the 1.3 s B needs to turn
   the bird into a spin.
 
@@ -82,11 +83,11 @@ The moves into and out of the spin are stepped through time
 | Mode | Axis | By | Can do (gimbal) |
 |---|---|---|---|
 | 1 | roll, pitch | A, one up and two down | tilts 20° in 0.23 s |
-| 1 | yaw | B, all three A tilted 15° | 8.2 N m |
+| 1 | yaw | B, all three A tilted 15° | 8.1 N m |
 | 2 | disc tilt | B's cyclic once a turn, at 3.5 Hz | ±2.9°, as far as the stall allows: tilts the disc at 45°/s |
 | 2 | sideways | A's PWM once a turn, ±30% | 0.4 N, about the push of a 0.8° lean |
 | 4 | pitch | A, the fin's motor against the wings' | trims with 36% of the thrust on the fin's motor |
-| 4 | yaw | A, one wing's motor against the other's | 4.6 N m at cruise thrust |
+| 4 | yaw | A, one wing's motor against the other's | 3.9 N m at cruise thrust |
 | 4 | roll | B, all three arms twisted the same way | 144°/s for 5° of twist |
 
 - **Mode 4 is your split: A's PWM gives the fine control, B the large corrections.** Pitch and yaw are
@@ -114,12 +115,12 @@ The moves into and out of the spin are stepped through time
 
 | Mean lift coefficient | rpm | Spinning hover | Mode 2 wind limit | Fits A's rating? |
 |---|---|---|---|---|
-| 0.55 (now) | 209 | 160 W | 4.25 m/s | yes |
-| 0.45 | 231 | 182 W | 7.0 m/s | yes |
-| **0.40** | 245 | 198 W | **8.75 m/s** | yes: 401 W peak against 426 W |
-| 0.35 | 262 | 220 W | 10.75 m/s | no: bigger motors |
+| 0.55 (now) | 209 | 159 W | 4.25 m/s | yes |
+| 0.45 | 231 | 180 W | 7.0 m/s | yes |
+| **0.40** | 244 | 196 W | **8.5 m/s** | yes: 398 W peak against 423 W |
+| 0.35 | 261 | 218 W | 10.75 m/s | no: bigger motors |
 
-At 0.40, the spinning hover costs 24% more power, but the mode 2 wind limit doubles. A is rated for
+At 0.40, the spinning hover costs 23% more power, but the mode 2 wind limit doubles. A is rated for
 mode 1's burst, not for the spin, so the motors don't change, and the same holds with the side eyes. Until
 then, in more than about 4 m/s of wind, recover by going **4 → 1** straight, since mode 1 holds station
 in 12 m/s.
@@ -137,8 +138,8 @@ in mode 1 ([`cyclone_water.py`](../../src/osprey/recon/cyclone_water.py)).
 |---|---|---|
 | Draft | 8.0 cm of a 13.7 cm chord | 8.8 cm of a 21.0 cm chord |
 | Sealed volume / displaced | 2.4× | 4.7× |
-| Metacentric height | **3.5 m** | 2.6 m |
-| Roll, heave periods | 0.27 s, 0.42 s | 0.27 s, 0.42 s |
+| Metacentric height | **3.6 m** | 2.7 m |
+| Roll, heave periods | 0.26 s, 0.42 s | 0.27 s, 0.42 s |
 | A's props above the water | **10 cm** (30 cm wanted) | 16 cm |
 | The camera | **5 cm under the water** | at the waterline |
 | Clear of the water on A's burst | 0.14 s | 0.14 s |
@@ -157,6 +158,88 @@ in mode 1 ([`cyclone_water.py`](../../src/osprey/recon/cyclone_water.py)).
 - **After a seed fall it lies flat**, with A's props in the water. B has to stand the arms up before it
   can launch, and that hasn't been modelled.
 
+## The pitch-over from 3 to 4
+
+Going wing-borne, the spin dies with B back at centre and A pointing up, and the bird pitches over until
+the wing carries it. The first model swung the nose down at a fixed 30°/s, with A pushing only enough to
+hold the height. It was level in under 3 s at mode 3's 4 m/s, a quarter of the speed the wing needs, so it
+dived to gain speed. That cost 17 m (gimbal) to 53 m (six arms, A half-way), and every launch climbed in
+mode 2 to that much above the 10 m safety height first.
+
+Now it is flown as a transition should be ([`sim/src/cyclone.rs`](../../sim/src/cyclone.rs)):
+
+- It starts from mode 3's climb, at 2 m/s up.
+- A runs at its burst throughout.
+- The bird tilts forward only as far as A's thrust and the wing's growing lift still hold the height,
+  never faster than 30°/s. The rest of the thrust speeds it up.
+- It is done at 1.2 times the stall, where the wing takes the weight and A throttles back.
+
+The gimbal bird is wing-borne in **3.2 s and 31 m, losing no height**. It now starts from the 10 m safety
+height instead of 27 m, so launch drops from 3.4 to 2.0 Wh. Recovery starts from the same height, so it
+drops too: launch and recovery together go from 5.4 to **3.5 Wh**, against the tailsitter's 6.0. Every
+combination in the sweep below also loses no height in the pitch-over.
+
+## How many arms, and where A goes
+
+![Each arms-and-A combination re-sized for all seven jobs: mass, launch and recovery energy, spinning hover, mode 2 wind, range, the spin building, one A out in mode 1, and mode 4 yaw, against the number of arms](../img/recon-cyclone-sweep.png)
+
+Three to six arms; A at the tip, three-quarters or half-way out; on every arm, or on every other arm with
+six. Each combination is re-sized for all seven jobs ([`cyclone_sweep.py`](../../src/osprey/recon/cyclone_sweep.py),
+[`runs/2026-11-09_recon-cyclone-arms`](../../runs/2026-11-09_recon-cyclone-arms/sweep/)).
+
+**In mode 4 the arms make the wing.** An arm more than 30° off vertical lifts; the rest are fins:
+
+| Arms | Mode 4 |
+|---|---|
+| 3 | two lifting at 30° dihedral, a fin straight down |
+| 4 | an X: all four lifting, at 45° |
+| 5 | four lifting, a fin straight down |
+| 6 | four lifting, 30° above and below level, a fin straight up and one straight down |
+
+The wing's area is the lifting arms', so with four or more each arm is about half the chord. Six arms fly
+mode 4 exactly like three: the same area, span and lift-to-drag, 8.0.
+
+![Six arms with A half-way out in each mode: in mode 4, four lift and two are fins, up and down](../img/recon-cyclone-render-six.png)
+
+<sub>Six arms, A half-way out, gimbal. In mode 4 (right) four arms lift at 30° either side of level and
+two are fins, one straight up and one straight down.</sub>
+
+The gimbal bird, best first by launch and recovery:
+
+| | Mass | Spinning hover | Mode 2 wind | Launch + recovery | Range | One A out in mode 1 |
+|---|---|---|---|---|---|---|
+| **4 arms, A half-way** | **2.68 kg** | **130 W** | **5.0 m/s** | **2.8 Wh** | 102 km | 0.98 × weight |
+| 5 arms, A half-way | 2.86 kg | 140 W | 4.75 m/s | 2.9 Wh | 103 km | 1.04 × |
+| 6 arms, A half-way | 3.13 kg | 156 W | 4.5 m/s | 3.1 Wh | 104 km | 1.08 × |
+| 6 arms, A at the tips | 3.15 kg | 214 W | 4.5 m/s | 3.3 Wh | 103 km | **1.29 ×** |
+| 3 arms, A half-way | 2.93 kg | 141 W | 4.25 m/s | 3.4 Wh | 109 km | 0.87 × |
+| 3 arms, A at the tips (now) | 2.93 kg | 159 W | 4.25 m/s | 3.5 Wh | **109 km** | 0.87 × |
+| 6 arms, A on every other arm | 3.10 kg | 153–172 W | 4.5 m/s | 3.8 Wh | 105 km | 0.87 × |
+
+The side eyes' bird ranks the same way: 4 or 5 arms with A half-way at 1.9–2.0 Wh, against 2.3 Wh now
+(`sweep/dual/sweep.md`).
+
+- **A further in pays when spinning.** Its nacelles go round slower: with three arms, at half-way they
+  cost 3 W in place of 20 W. A pushes a little less efficiently there (0.56 in place of 0.60), but that
+  costs less than the nacelles save: 141 W to hover in place of 159 W. The spin's inertia drops too, so B
+  tilts the disc faster: 69°/s in place of 45°/s.
+- **What A further in costs** is leverage. Mode 1 takes 0.25 s rather than 0.23 s to tilt 20°. Mode 4's
+  yaw from A falls from 3.9 to 2.1 N m with three arms. The wings' motors sit closer together, so a motor
+  out yaws it less, but the corrections are smaller too.
+- **Four arms, as an X, is the best fit.** It is the lightest at 2.68 kg. Its four 7 cm arms have 30%
+  less area than three 14 cm arms, and there is no fin, so it has less profile drag and needs 0.19 kg less
+  battery for the same seven jobs. Its lift-to-drag is about the same, 7.9 against 8.0, so the smaller
+  battery is why its range is 102 km against 109. It also spins on the least power and holds station
+  spinning in the most wind.
+- **Six arms buy redundancy, not efficiency.** It is 0.2 kg heavier than three, for the extra spars, B
+  servos and motors. With A at the tips it can lose one A in mode 1 and still climb, at 1.29 × the
+  weight. That is the exposed window for every three-arm design, which has 0.87 ×. With A half-way, six
+  arms still hold 1.08 ×. A on every other arm gives that back, with no gain.
+- **The catch with four or more arms is the chord**, about 7 cm in place of 14. Afloat they stand on
+  those chords, so A's props are only 5 cm above the water and the camera is 7–8 cm under it. And a 7 cm
+  section at these speeds runs at half the Reynolds number, which the sweep doesn't charge for: the
+  section's drag and stall are held at the 14 cm chord's.
+
 ## Not modelled yet
 
 - Closed-loop stability and control in each mode: the authority is here, but the controller isn't.
@@ -164,14 +247,18 @@ in mode 1 ([`cyclone_water.py`](../../src/osprey/recon/cyclone_water.py)).
 - Gust dynamics beyond the first moment, and the wind's lift on the arms in mode 1 as the bird leans.
 - The arms twisting from flat to standing in the water, waves breaking over the bird, and the hub's seals.
 - A de-spun camera mount: in modes 2 and 3 the camera spins with the bird and is blind.
+- The narrower arms' lower Reynolds number with four or more arms, and the non-planar wing's induced drag
+  (mode 4 is charged on its projected span alone).
 
 ## Run it
 
 ```bash
 uv run osprey recon-cyclone --payload all
+uv run osprey recon-cyclone-sweep --payload all     # three to six arms, A along them; about 10 min on 8 cores
 ```
 
 For each payload this writes `cyclone.md` (the bird and each mode's abilities), `modes.md` (every move's
 guard and cost), `dynamics.md` (spin, control, wind), `water.md` and `cyclone.json`, with every figure
-and render on this page. The blade elements, the spin's moves, the wind trims and the water launch run
+and render on this page; the sweep writes `sweep.md`, `sweep.json`, `sweep.png` and renders of six arms
+with A half-way and of the best. The blade elements, the spin's moves, the wind trims and the water launch run
 in Rust ([`sim/`](../../sim/)).

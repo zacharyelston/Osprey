@@ -1,0 +1,8 @@
+local, on 8c1aa80 (branch feat/cyclone-arms, from e47dc8b): the Cyclone with any number of arms and A anywhere along them, and the 3->4 pitch-over flown at A's burst from mode 3's climb
+Supersedes 2026-11-07_recon-cyclone-dynamics. The same Cyclone, now with the pitch-over losing no height (it sank 17 m), so launch starts it from the 10 m safety height; and the arms-and-A sweep.
+cyclone/<payload>: uv run osprey recon-cyclone --payload all --out <this>/cyclone  (cyclone.md, modes.md, dynamics.md, water.md, cyclone.json; cyclone.png, modes.png, spin.png, wind.png, control.png, afloat.png, render-modes.png, render-afloat.png)
+sweep/<payload>: uv run osprey recon-cyclone-sweep --payload all --workers 8 --out <this>/sweep  (sweep.json, sweep.md, sweep.png, render-six.png, render-best.png; render-*.txt name the combination drawn)
+  sweep.md rewritten on b318bf8 from the same sweep.json by cyclone_sweep.report, its footnote corrected for the new pitch-over; the numbers are unchanged
+  built from the twin-boom one-birds in runs/2026-11-06_recon-payloads/<payload>, compared against the tailsitter one-birds in runs/2026-11-07_recon-water/tailsitter/<payload> and their water sheets in runs/2026-11-07_recon-tailsitter-launch/<payload>
+docs/img/recon-cyclone.png, docs/img/recon-cyclone-modes.png and docs/img/recon-cyclone-{render-modes,render-afloat,spin,wind,control,afloat}.png: copies of the gimbal ones under cyclone/
+docs/img/recon-cyclone-sweep.png and docs/img/recon-cyclone-render-six.png: copies of the gimbal ones under sweep/
