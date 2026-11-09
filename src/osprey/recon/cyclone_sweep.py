@@ -119,9 +119,9 @@ def report(rows: list[dict], payload: str) -> str:
                      f"{r['die_s']:.2f} s | {r['tilt20_s']:.2f} s, {r['one_out_tw']:.2f} × weight | "
                      f"{r['tilt2_dps']:.0f}°/s | {r['pitch4_nm']:.2f} N m, {r['yaw4_nm']:.2f} N m, {r['bank30_s']:.2f} s | "
                      f"{r['prop_height_m'] * 100:.0f} cm, {r['camera_height_m'] * 100:+.0f} cm |")
-    lines += ["", "A is rated for the larger of the spinning peak and its share of mode 1's; the pitch-over from 3 to "
-              "4 is flown on that, so where the spin is cheap A is smaller, the pitch-over loses more height, and "
-              "the climb to start it costs more.", "", "Mode 2 wind: the strongest it holds station in spinning, until the retreating arm stalls, B's "
+    lines += ["", "A is rated for the larger of the spinning peak and its share of mode 1's. The pitch-over from 3 to "
+              "4 runs A at its burst, tilted forward only as far as the height holds, so none loses height in it: "
+              "each starts it from the safety height.", "", "Mode 2 wind: the strongest it holds station in spinning, until the retreating arm stalls, B's "
               "swing runs out, or A's rating. One A out in mode 1: the rest at their burst against the weight; above "
               "1 it can still climb. Mode 4 pitch: the least of the two ways A's thrust can be shifted between the "
               "motors above and below at the search speed, trim taken off.", ""]
