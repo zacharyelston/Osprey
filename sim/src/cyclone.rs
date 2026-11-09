@@ -77,6 +77,8 @@ pub struct Pitch {
     pub pitch_rate_rad_s: f64,
     pub motor_efficiency: f64,
     pub v0: f64,
+    /// 3->4: the climb it starts the pitch-over in.
+    pub vz0: f64,
     pub up: bool,
     pub dt: f64,
 }
@@ -92,10 +94,12 @@ pub struct PitchOut {
     pub done: bool,
 }
 
-/// 3->4 (up = false): from A pushing up, moving at v0, pitch over to level until wing-borne. 4->1
-/// (up = true): from level at v0, pitch up until A points up and the bird is down to a hover's drift.
-/// A pushes at what holds the height, up to its burst; where that isn't enough it sinks. A 2-D point mass,
-/// a flat plate past the stall.
+/// 3->4 (up = false): from A pushing up, moving at v0 and climbing at vz0, pitch over until wing-borne: A at
+/// its burst throughout, tilted forward only as far as its thrust and the wing's growing lift still hold the
+/// height (the climb let die away), no faster than the pitch rate; the rest of the thrust speeds it up. Done
+/// at v_wing (1.2 times the stall), where the wing can take the weight and A throttles back to cruise. 4->1 (up = true): from level at v0, pitch up at the
+/// pitch rate until A points up and the bird is down to a hover's drift, A pushing at what holds the height,
+/// up to its burst. Where A can't hold it, it sinks. A 2-D point mass, a flat plate past the stall.
 pub fn pitch(k: &Pitch) -> PitchOut {
     let a_stall = k.cl_max / k.cla;
     let mk = k.mass_kg;
@@ -104,18 +108,12 @@ pub fn pitch(k: &Pitch) -> PitchOut {
     let half_pi = std::f64::consts::FRAC_PI_2;
     let dt = k.dt;
     let mut theta = if k.up { lvl } else { half_pi };
-    let (mut t, mut x, mut z, mut vz, mut energy) = (0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64);
-    let mut vx = k.v0;
+    let (mut t, mut x, mut z, mut energy) = (0.0f64, 0.0f64, 0.0f64, 0.0f64);
+    let (mut vx, mut vz) = (k.v0, if k.up { 0.0 } else { k.vz0 });
     let (mut z_min, mut short_s, mut end_ratio) = (0.0f64, 0.0f64, 0.0f64);
     let mut done = false;
-    while t < 40.0 {
-        theta = if k.up {
-            (theta + k.pitch_rate_rad_s * dt).min(half_pi)
-        } else {
-            (theta - k.pitch_rate_rad_s * dt).max(lvl)
-        };
-        let sp = vx.hypot(vz);
-        let gam = if sp > 0.1 { vz.atan2(vx) } else { theta };
+    // The wing's lift and drag, and the lift's share upward, at a body angle, flying along gam at sp.
+    let forces = |theta: f64, sp: f64, gam: f64| {
         let a = theta - gam;
         let cl = if a.abs() <= a_stall {
             k.cla * a
@@ -125,11 +123,25 @@ pub fn pitch(k: &Pitch) -> PitchOut {
         let cd = k.cd0 + k.k * (cl * cl).min(k.cl_max * k.cl_max) + 1.2 * a.sin().powi(2);
         let q = 0.5 * rho(0.0) * sp * sp;
         let (lift, drag) = (q * k.s_m2 * cl, q * k.s_m2 * cd);
-        let lift_up = lift * gam.cos() - drag * gam.sin();
-        let hold = (w - lift_up - mk * vz / 0.5) / theta.sin().max(0.2);
-        let u = sp * a.cos();
+        (lift, drag, lift * gam.cos() - drag * gam.sin(), sp * a.cos())
+    };
+    while t < 40.0 {
+        let sp = vx.hypot(vz);
+        let gam = if sp > 0.1 { vz.atan2(vx) } else { theta };
+        if k.up {
+            theta = (theta + k.pitch_rate_rad_s * dt).min(half_pi);
+        } else {
+            let (_, _, lift_up, u) = forces(theta, sp, gam);
+            let avail = k.lift.available(k.shaft_w, u, k.props);
+            let need = (w - lift_up - mk * vz / 0.5) / avail.max(1e-9);
+            let want = need.clamp(lvl.sin(), 1.0).asin();
+            let step = k.pitch_rate_rad_s * dt;
+            theta = want.clamp(theta - step, theta + step).clamp(lvl, half_pi);
+        }
+        let (lift, drag, lift_up, u) = forces(theta, sp, gam);
         let avail = k.lift.available(k.shaft_w, u, k.props);
-        let thrust = hold.max(0.0).min(avail);
+        let hold = (w - lift_up - mk * vz / 0.5) / theta.sin().max(0.2);
+        let thrust = if k.up { hold.max(0.0).min(avail) } else { avail };
         if hold > avail {
             short_s += dt;
         }
@@ -149,7 +161,7 @@ pub fn pitch(k: &Pitch) -> PitchOut {
             done = true;
             break;
         }
-        if !k.up && theta <= lvl + 1e-9 && sp >= k.v_wing && vz >= -0.5 {
+        if !k.up && sp >= k.v_wing && vz >= -0.5 {
             done = true;
             break;
         }

@@ -108,7 +108,7 @@ def afloat(p, d: dict, cy=None, wt=None, m: dict | None = None) -> dict:
     # B holding each arm chord-up: the arm's buoyancy below B's axis and A's motor above it tip it over, the
     # arm's own weight below the axis rights it; the twist about the arm's axis is its own.
     va, za = arm_below(h)
-    per_rad = (rho_w * G * va * (z_hub - za) + m["motor_kg"] / N * G * (z_mot - z_hub)
+    per_rad = (rho_w * G * va * (z_hub - za) + m["motor_kg"] / g["a_count"] * G * (z_mot - z_hub)
                - g["arm_kg"] * G * (z_hub - z_arm))
     return {"mass_kg": M, "displaced_l": need * 1e3, "sealed_l": v_sealed * 1e3, "reserve": v_sealed / need,
             "sinks": sinks, "draft_m": h, "chord_m": c, "hub_wet": h > z_hub - r0, "prop_height_m": c + wt.mount_m - h,
@@ -126,7 +126,7 @@ def windage(p, d: dict, cy, wt, fl: dict, V: float) -> dict:
     two areas' centres; the drift where the keels' pull matches the wind's."""
     dy = cyclone_dynamics.inputs()
     above, below = fl["arm_m"] * (fl["chord_m"] - fl["draft_m"]), fl["arm_m"] * fl["draft_m"]
-    F = 0.5 * flight.rho(0.0) * V * V * dy.wind_cd * 1.5 * above
+    F = 0.5 * flight.rho(0.0) * V * V * dy.wind_cd * cy.arms / 2 * above
     W = fl["mass_kg"] * G
     heel = math.degrees(math.atan(F * fl["chord_m"] / 2 / (W * fl["gm_m"]))) if fl["gm_m"] > 0 else 90.0
     drift = V * math.sqrt(flight.rho(0.0) * above / (p.water.density_kgm3 * below)) if below > 0 else math.inf

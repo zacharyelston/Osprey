@@ -549,7 +549,8 @@ def test_cyclone_lift_off_seed_fall_flight_mode_and_transitions():
     assert au["flare_ratio"] == pytest.approx(au["spin_j"] / au["sink_j"]) and au["flared_g"] <= au["splash_g"]
     # Flight mode: two arms up at the dihedral, so the projected span and the tilted lift; all three motors forward.
     wing = cy_.aircraft(p, d, cy, m)
-    dih = math.radians(cy.dihedral_deg)
+    dih = math.radians(cy_.layout(cy)["dihedral_deg"])
+    assert cy_.layout(cy)["dihedral_deg"] == pytest.approx(30.0) and cy_.layout(cy)["fins"] == [0]
     assert wing.span_m == pytest.approx(2 * cy_.geometry(p, d, cy)["R_m"] * math.cos(dih))
     assert wing.cl_max == pytest.approx(cy.cl_max * math.cos(dih)) and wing.mass_kg == m["mass_kg"]
     assert wing.eta_prop == p.propulsion.prop_efficiency and wing.p_shaft_max_w == m["motor_peak_w"]
@@ -666,3 +667,37 @@ def test_cyclone_floats_standing_on_its_arms_and_lifts_straight_off():
     # Off the water edge first in a fraction of a second; the surface tension is a sliver of the weight.
     assert lr["t_clear_s"] < 1.0 and lr["v_exit_ms"] > 0 and lr["surface_tension_of_weight"] < 0.05
     assert a["sea"][0]["ok"]
+
+
+def test_cyclone_arms_and_a_station():
+    """Mode 4's wing from the number of arms, and A further in: cheaper nacelles, less leverage, less inertia."""
+    from osprey.params import ns
+    from osprey.recon import cyclone as cy_
+    from osprey.recon import cyclone_dynamics as cdy
+
+    p, d, cy, _, _ = _cyclone_bits()
+    with_ = lambda **kw: ns({**vars(cy), **kw})                                         # noqa: E731
+    lay = {n: cy_.layout(with_(arms=n)) for n in (3, 4, 5, 6)}
+    assert len(lay[3]["lift"]) == 2 and lay[3]["fins"] == [0]                            # the fin straight down
+    assert len(lay[4]["lift"]) == 4 and lay[4]["lift_frac"] == pytest.approx(math.sqrt(0.5))   # an X
+    assert len(lay[5]["lift"]) == 4 and len(lay[5]["fins"]) == 1
+    assert len(lay[6]["lift"]) == 4 and sorted(lay[6]["theta_deg"][i] for i in lay[6]["fins"]) == [0.0, 180.0]
+    assert lay[6]["lift_frac"] == pytest.approx(lay[3]["lift_frac"]) and lay[6]["dihedral_deg"] == pytest.approx(30.0)
+    # Six arms share the same lifting area, so each is half the chord; the wing flies the same.
+    six = with_(arms=6)
+    assert cy_.geometry(p, d, six)["chord_m"] == pytest.approx(cy_.geometry(p, d, cy)["chord_m"] / 2)
+    for k in ("S_m2", "span_m", "cl_max", "cd0", "k"):
+        assert cy_._wing(p, d, six)[k] == pytest.approx(cy_._wing(p, d, cy)[k])
+    with pytest.raises(ValueError):
+        cy_.a_count(with_(arms=5, a_every=2))
+    # A half-way out: slower round, so the nacelles cost an eighth; the prop pushes harder, a little less well.
+    mid = with_(a_station=0.5)
+    m = cy_.mass(p, d, cy)
+    h, hm = cy_.rotor(p, d, cy, m["mass_kg"]), cy_.rotor(p, d, mid, m["mass_kg"])
+    ra = cy_.geometry(p, d, mid)["a_r_m"]
+    assert hm["p_nacelle_w"] == pytest.approx(h["p_nacelle_w"] * (ra / cy_.geometry(p, d, cy)["R_m"]) ** 3)
+    assert hm["prop_efficiency"] < h["prop_efficiency"] == cy.tip_prop_efficiency
+    assert cy_.inertia(p, d, mid, m["motor_kg"]) < cy_.inertia(p, d, cy, m["motor_kg"])
+    assert cdy.rings(p, d, mid, m)[0][0] == pytest.approx(ra)
+    # Mode 4's moments from A: the least and most a total thrust gives over the motors' heights.
+    assert cdy._spread(3.0, 2.0, [-1.0, 0.5, 0.5]) == pytest.approx((-2.0 + 0.5, 1.0 + 0.5))

@@ -435,20 +435,22 @@ def _tailsitter_parts(p, d: dict, y, le, c, lz) -> list[Part]:
 
 def build_cyclone(p, d: dict, cy, phi_deg: float, *, axis_frac: float = 0.25, mount_m: float = 0.04,
                   gimbal_drop_m: float = 0.07, spin_disc: bool = False) -> list[Part]:
-    """The Cyclone (recon/cyclone.py) in its own frame: z up the spin axis, the hub at the origin, three arms
-    120 degrees apart, each twisted by B phi_deg off centre (0: chord and A pointing up the spin axis; the
-    spin setting near 80: the chords nearly in the spin plane, leading edges going round), A's motor and
-    prop on each leading edge at the tip, the gimbal under the hub. spin_disc draws the disc it sweeps."""
+    """The Cyclone (recon/cyclone.py) in its own frame: z up the spin axis, the hub at the origin, the arms
+    evenly apart (arm 0 along +y, which mode 4 turns straight down: cyclone.layout), each twisted by B phi_deg
+    off centre (0: chord and A pointing up the spin axis; the spin setting near 80: the chords nearly in the
+    spin plane, leading edges going round), A's motor and prop on the leading edge a_station along each arm
+    (or every other), the gimbal under the hub. spin_disc draws the disc it sweeps."""
     from osprey.recon import cyclone
 
     g = cyclone.geometry(p, d, cy)
-    c, r0, R = g["chord_m"], g["r0_m"], g["R_m"]
+    c, r0, R, ra = g["chord_m"], g["r0_m"], g["R_m"], g["a_r_m"]
+    lay = cyclone.layout(cy)
     foil = naca4(0.0, 0.4, p.wing.t_over_c, 24)
     phi = math.radians(phi_deg)
     zhat = np.array([0.0, 0.0, 1.0])
     parts = []
     for k in range(cy.arms):
-        psi = math.radians(90 + 120 * k)
+        psi = math.radians(lay["theta_deg"][k] - 90)
         er = np.array([math.cos(psi), math.sin(psi), 0.0])
         et = np.array([-math.sin(psi), math.cos(psi), 0.0])
         ch = math.cos(phi) * zhat + math.sin(phi) * et                 # toward the leading edge
@@ -457,7 +459,9 @@ def build_cyclone(p, d: dict, cy, phi_deg: float, *, axis_frac: float = 0.25, mo
         sec = (axis_frac - u)[:, None] * c * ch + (w * c)[:, None] * nn
         v, f = loft([r * er + sec for r in (r0, R)])
         parts.append(Part(f"arm{k}", "shell0", v, f))
-        le = R * er + axis_frac * c * ch
+        if k % cy.a_every:
+            continue
+        le = ra * er + axis_frac * c * ch
         v, f = _tube(le - 0.03 * ch, le + mount_m * ch, 0.014, 12)
         parts.append(Part(f"motor{k}", "carbon", v, f))
         hub = le + mount_m * ch

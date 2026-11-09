@@ -429,9 +429,14 @@ def cyclone_modes(p, d: dict, cy, phi_spin_deg: float, path: Path, W: int = 1800
     tilt = math.radians(10.0)
     roty = np.array([[math.cos(tilt), 0, math.sin(tilt)], [0, 1, 0], [-math.sin(tilt), 0, math.cos(tilt)]])
     wing = np.array([[0.0, 0.0, 1.0], [-1.0, 0.0, 0.0], [0.0, -1.0, 0.0]])   # x -> -y, y -> -z, z -> +x
-    span = 2 * geometry.build_cyclone(p, d, cy, 0.0, **kw)[0].verts[:, :2].__abs__().max() + 0.6
+    from osprey.recon import cyclone
+
+    R = cyclone.geometry(p, d, cy)["R_m"]
+    span = 2 * R + 0.6
+    top = max(math.cos(math.radians(t)) for t in cyclone.layout(cy)["theta_deg"])     # mode 4's highest arm
     poses = [(0.0, np.eye(3), 2.2, False, "1 lift-off"), (phi_spin_deg, np.eye(3), 3.4, True, "2 spinning hover"),
-             (phi_spin_deg, roty, 4.0, True, "3 spinning travel"), (0.0, wing, 4.4, False, "4 wing-borne")]
+             (phi_spin_deg, roty, 4.0, True, "3 spinning travel"),
+             (0.0, wing, 4.4 + (0.5 - top) * R, False, "4 wing-borne")]
     assets, bodies = [], []
     for k, (phi, Rm, z, disc, _) in enumerate(poses):
         parts = _posed_cyclone(geometry.build_cyclone(p, d, cy, phi, spin_disc=disc, **kw), Rm, [0.0, k * span, z])
@@ -442,9 +447,13 @@ def cyclone_modes(p, d: dict, cy, phi_spin_deg: float, path: Path, W: int = 1800
     eye = centre + np.array([3.6 * span, -0.1 * span, 0.55 * span])             # broadside to the line
     cam = _cam("m", eye, centre + np.array([0.0, 0.0, -0.3]), fovy=26)
     img = _shoot(_world("sea", "".join(assets), "".join(bodies), cam, W, H), ["m"], W, H)["m"]
+    lay = cyclone.layout(cy)
+    n_up = sum(1 for i in lay["lift"] if math.cos(math.radians(lay["theta_deg"][i])) > 0)
+    four = (f"{n_up} arms up as the wing, one down as the fin" if cy.arms == 3 else
+            f"{len(lay['lift'])} arms as the wing" + (f", {len(lay['fins'])} as fins" if lay["fins"] else ""))
     _save(img, path, labels=[(14, "the Cyclone's modes, left to right: " + ",  ".join(x[4] for x in poses)),
                              (14, f"B centred for 1 and 4; turned {phi_spin_deg:.0f}° off centre to spin; 4 flies toward "
-                                  "the camera, two arms up as the wing, one down as the fin")])
+                                  f"the camera, {four}")])
 
 
 def cyclone_afloat(p, d: dict, cy, fl: dict, path: Path, W: int = 1600, H: int = 900):

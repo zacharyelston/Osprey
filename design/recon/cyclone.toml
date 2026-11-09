@@ -13,16 +13,19 @@
 #      the dihedral wing, the third the fin, A pushing forward.
 
 [cyclone]
-arms = 3
+arms = 3                     # the blades; mode 4's wing, fins and dihedral follow from how many (cyclone.layout)
+a_station = 1.0              # A along each arm from the hub: 1 at the tip, 0.5 half-way
+a_every = 1                  # A on every arm (1), or on every other (2, an even number of arms)
 hub_radius_m = 0.08          # pod, bearings and the B servos
-hub_kg = 0.35                # replaces the twin-boom's 0.45 kg pod, booms, tail and servos
+hub_kg = 0.275               # pod and bearings; with three B servos, replaces the twin-boom's 0.45 kg pod, booms, tail and servos
+servo_kg = 0.025             # each B servo
 hub_cda_m2 = 0.008           # the pod and gimbal, no booms or tail
 
 # Mode 2 and 3, spinning: the arms are rotor blades.
 cl_mean = 0.55               # mean blade lift coefficient in the hover, under a symmetric section's stall
 cd_section = 0.018           # symmetric section at Re 100-200k
 induced_factor = 1.15        # momentum theory's induced power, times this for tip loss and uneven inflow
-tip_prop_efficiency = 0.60   # A pushing the arms round at the tip speed
+tip_prop_efficiency = 0.60   # A pushing the arms round at the tip speed; further in, by momentum theory's ratio
 nacelle_cda_m2 = 0.0008      # each A nacelle, whirled round at the tip speed
 thrust_to_weight = 1.6       # peak spinning thrust, as the tailsitter's
 autorotation_cd = 1.2        # drag coefficient on the disc, A off, spinning down like a seed
@@ -35,15 +38,16 @@ tri_thrust_to_weight = 1.3   # mode 1's peak: the weight, the climb, and the wat
 burst_factor = 1.5           # A can run at this times its rating for a mode-1 stint, if it is short enough
 tri_cda_m2 = 0.030           # hub plus three arms at odd angles to the flow
 specific_kg_per_kw = 0.22    # motor, ESC and prop per kW of rated shaft power (the tailsitter's)
-fixed_kg = 0.06              # mounts and wiring for the three A motors
+fixed_kg = 0.02              # mounts and wiring for each A motor
 
-# Mode 4: B forward, so the old spin axis points along the flight path. The three arms stand
-# in the plane across it: two up at the dihedral as the wing, one straight down as the fin.
+# Mode 4: B forward, so the old spin axis points along the flight path. The arms stand in the
+# plane across it: with three, two up at 30 degrees' dihedral as the wing, one straight down as
+# the fin; with six, four at 30 degrees either side of level as the wing, one up and one down.
+# An arm more than 30 degrees off vertical lifts; the others are fins (cyclone.layout).
 # A pushes forward; A's PWM is the fine control, B the large corrections. Spinning, the three
 # blades all have the same handedness; flying, the two wings must be mirror images. Twisting
 # an arm about its own axis can't turn one into the other, so the sections are symmetric and
 # each B servo sets its arm's angle of attack.
-dihedral_deg = 30.0          # the wings, with the arms 120 degrees apart and the fin straight down
 cl_max = 0.90                # symmetric section, against the cambered wing's 1.2 (each wing's own)
 cd_symmetric_extra = 0.004   # profile drag over the cambered section at the cruise lift
 k_factor = 1.05              # induced drag over a flat wing of the projected span: the fin and the hub

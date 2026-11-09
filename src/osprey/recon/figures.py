@@ -449,3 +449,40 @@ def cyclone_afloat(a: dict, t_over_c: float, title: str, path):
     fig.tight_layout()
     fig.savefig(path, dpi=130)
     plt.close(fig)
+
+
+STATION_COLORS = {1.0: "#4C72B0", 0.75: "#DD8452", 0.5: "#55A868"}
+
+
+def cyclone_sweep(rows: list[dict], title: str, path):
+    """The arms-and-A sweep: each measure against the number of arms, a line for each place A sits (solid on
+    every arm, dashed on every other); the design today ringed."""
+    ok = [r for r in rows if r.get("ok")]
+    panels = [("mass_kg", "Mass (kg)", None), ("off_wing_wh", "Launch + recovery (Wh)", None),
+              ("hover_w", "Spinning hover (W shaft)", None), ("wind2_ms", "Mode 2: wind it holds station in (m/s)", None),
+              ("range_km", "Mode 4: range on the battery (km)", None), ("build_s", "1->2: the spin building (s)", None),
+              ("one_out_tw", "Mode 1, one A out: thrust / weight", 1.0), ("yaw4_nm", "Mode 4: yaw from A (N m)", None)]
+    fig, axs = plt.subplots(2, 4, figsize=(17, 7.6))
+    for ax, (key, name, line) in zip(axs.flat, panels):
+        for every, ls, fill in ((1, "-", True), (2, "--", False)):
+            for st, col in STATION_COLORS.items():
+                pts = sorted((r["arms"], r[key]) for r in ok if r["a_station"] == st and r["a_every"] == every)
+                if not pts:
+                    continue
+                x, y = zip(*pts)
+                ax.plot(x, y, ls=ls, color=col, lw=1.8, marker="o", ms=7, mfc=col if fill else "white", mec=col,
+                        label=f"A {'at the tips' if st == 1.0 else f'{st:g} out'}" + ("" if every == 1 else ", every other arm"))
+        base = next(r for r in ok if r["arms"] == 3 and r["a_station"] == 1.0 and r["a_every"] == 1)
+        ax.plot([3], [base[key]], "o", ms=15, mfc="none", mec="#222222", mew=1.4)
+        if line is not None:
+            ax.axhline(line, color="#444444", lw=0.8, ls=":")
+        ax.set_xticks(list(sorted({r["arms"] for r in rows})))
+        ax.set_xlabel("arms")
+        ax.set_title(name, fontsize=10)
+        ax.grid(alpha=0.3)
+    h, lab = axs.flat[0].get_legend_handles_labels()
+    fig.legend(h, lab, loc="lower center", ncol=6, fontsize=9, frameon=False)
+    fig.suptitle(title + "  (ringed: the design today, 3 arms with A at the tips)", fontsize=12)
+    fig.tight_layout(rect=(0, 0.05, 1, 0.96))
+    fig.savefig(path, dpi=130)
+    plt.close(fig)

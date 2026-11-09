@@ -348,6 +348,7 @@ fn cyclone_pitch<'py>(py: Python<'py>, c: &Bound<'py, PyDict>) -> PyResult<Bound
         pitch_rate_rad_s: num(c, "pitch_rate_rad_s")?,
         motor_efficiency: num(c, "motor_efficiency")?,
         v0: num(c, "v0")?,
+        vz0: num(c, "vz0").unwrap_or(0.0),
         up: item(c, "up")?.extract::<bool>()?,
         dt: num(c, "dt")?,
     });
@@ -504,6 +505,8 @@ fn rotor_wind_sweep<'py>(
         hub_cda: num(c, "hub_cda")?,
         nacelle_cda: num(c, "nacelle_cda")?,
         tip_prop_efficiency: num(c, "tip_prop_efficiency")?,
+        a_radius: num(c, "a_radius")?,
+        a_count: num(c, "a_count")?,
         stall_deg: num(c, "stall_deg")?,
         swing_deg: num(c, "swing_deg")?,
         rating_w: num(c, "rating_w")?,
