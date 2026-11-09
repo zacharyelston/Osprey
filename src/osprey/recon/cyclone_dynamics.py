@@ -81,18 +81,19 @@ def rings(p, d: dict, cy, m: dict) -> list[tuple[float, int, float]]:
 
     g = cyclone.geometry(p, d, cy)
     over = cy.burst_factor if m["burst"] else 1.0
-    out = [(g["R_m"], cy.arms, m["motor_peak_w"] * over / cy.arms)]
+    n = g["a_count"]
+    out = [(g["a_r_m"], n, m["motor_peak_w"] * over / n)]
     if m["a2"]:
-        out.append((g["r0_m"] + cyclone_modes.inputs().a2_station * g["arm_m"], cy.arms, m["a2_w"] * over / cy.arms))
+        out.append((g["r0_m"] + cyclone_modes.inputs().a2_station * g["arm_m"], n, m["a2_w"] * over / n))
     return out
 
 
-def a_max(cy, shaft_w: float, u: float) -> float:
+def a_max(cy, shaft_w: float, u: float, eta: float | None = None) -> float:
     """One prop's thrust on a shaft power with the air coming at u along its axis: static from momentum
     theory and the figure of merit, falling as eta P / u (as cyclone.spin_up)."""
     a = math.pi * (cy.tri_prop_diameter_m / 2) ** 2
     static = (cy.tri_figure_of_merit * shaft_w) ** (2 / 3) * (2 * flight.rho(0.0) * a) ** (1 / 3)
-    return min(static, cy.tip_prop_efficiency * shaft_w / max(u, 1e-3))
+    return min(static, (eta or cy.tip_prop_efficiency) * shaft_w / max(u, 1e-3))
 
 
 # --------------------------------------------------------------------------- the spin building and dying
@@ -105,9 +106,10 @@ def transient(p, d: dict, cy, dy, m: dict, build: bool, dt: float = 0.005) -> di
     spin is under spun_down_frac of it. Stepped in Rust (sim/src/rotor.rs)."""
     bl, sp = blades(p, d, cy, dy), spin_pitch(p, d, cy, dy, m)
     I = cyclone.inertia(p, d, cy, m["motor_kg"])
+    eta = cyclone.rotor(p, d, cy, m["mass_kg"])["prop_efficiency"]
     r = osprey_sim.rotor_transient(bl, {
         "prop_diameter_m": cy.tri_prop_diameter_m, "figure_of_merit": cy.tri_figure_of_merit,
-        "induced_factor": cy.induced_factor, "tip_prop_efficiency": cy.tip_prop_efficiency,
+        "induced_factor": cy.induced_factor, "tip_prop_efficiency": eta,
         "nacelle_cda": cy.nacelle_cda_m2, "rings": [[float(a), float(b), float(c)] for a, b, c in rings(p, d, cy, m)],
         "mass_kg": m["mass_kg"], "inertia": I, "omega_h": sp["omega_rads"], "theta_h": sp["theta_rad"],
         "lam_h": sp["lam"].tolist(), "b_rate_rad_s": math.radians(dy.b_rate_dps),
@@ -126,7 +128,7 @@ _SPIN: dict = {}
 def spin(p, d: dict, cy, m: dict) -> dict:
     """The spin building (1->2) and dying (2->1) for a design, kept: the modes' manager asks often."""
     dy = inputs()
-    key = _key(d, m)
+    key = _key(d, m, cy)
     if key not in _SPIN:
         _SPIN[key] = {"build": transient(p, d, cy, dy, m, True), "die": transient(p, d, cy, dy, m, False)}
     return _SPIN[key]
@@ -148,14 +150,15 @@ def authority(p, d: dict, cy, dy, m: dict) -> dict:
     W = m["mass_kg"] * G
     rho = bl["rho"]
     rg = rings(p, d, cy, m)
-    _, n_a, p_a = rg[0]
+    r_a, n_a, p_a = rg[0]
 
-    # 1, a tricopter: one A up, the other two down, the height kept; B tilting all three A for yaw.
+    # 1, a multicopter: A's thrust split once round the ring for roll and pitch (n/2 of them pulling at the
+    # radius, as one up and two down for three), the height kept; B tilting every A the same way for yaw.
     t_hover = W / sum(n for _, n, _ in rg)
     t_max = a_max(cy, p_a, 0.0)
     a = min(t_max - t_hover, 2 * t_hover)
-    m1 = 1.5 * R * a
-    yaw1 = n_a * t_hover * math.sin(math.radians(dy.b_yaw_deg)) * R
+    m1 = n_a / 2 * r_a * a
+    yaw1 = n_a * t_hover * math.sin(math.radians(dy.b_yaw_deg)) * r_a
     one = {"t_hover_n": t_hover, "t_max_n": t_max, "tilt_nm": m1, "tilt_acc_dps2": math.degrees(m1 / I_t),
            "tilt20_s": 2 * math.sqrt(math.radians(20) / (m1 / I_t)), "yaw_nm": yaw1,
            "yaw_acc_dps2": math.degrees(yaw1 / I)}
@@ -173,45 +176,64 @@ def authority(p, d: dict, cy, dy, m: dict) -> dict:
     hov = cyclone.rotor(p, d, cy, m["mass_kg"])
     gain_a = 1 / math.sqrt(1 + (2 * math.pi * f_rev * dy.motor_tau_s) ** 2)
     dT = dy.pwm_depth * hov["tip_thrust_n"] * gain_a
-    side = N / 2 * dT * math.sin(sp["phi_rad"])
-    m_a = N / 2 * dT * math.cos(sp["phi_rad"]) * R
+    side = n_a / 2 * dT * math.sin(sp["phi_rad"])
+    m_a = n_a / 2 * dT * math.cos(sp["phi_rad"]) * r_a
     two = {"rev_hz": f_rev, "b_gain": gain_b, "b_swing_deg": swing, "stall_headroom_deg": headroom,
            "b_nm_per_deg": per_deg, "b_nm": m2, "h_kgm2s": H, "tilt_dps": math.degrees(m2 / H),
            "tilt10_s": 10 / math.degrees(m2 / H), "a_gain": gain_a, "a_side_n": side,
            "a_side_lean_deg": math.degrees(math.atan(side / W)), "a_nm": m_a, "a_tilt_dps": math.degrees(m_a / H)}
 
-    # 4, wing-borne: A's PWM for pitch (the fin's motor below the CG, the wings' above) and yaw (the wings'
-    # either side); B twisting all three arms the same way rolls it, against all three arms' damping.
+    # 4, wing-borne: A's PWM for pitch (the motors below the CG against those above) and yaw (one side's
+    # against the other's), the thrust summing to the drag; B twisting every arm the same way rolls it,
+    # against all the arms' damping.
     ac = cyclone.aircraft(p, d, cy, m)
     w = cyclone._wing(p, d, cy)
     ar = w["span_m"] ** 2 / w["S_m2"]
     cla3 = dy.cla * ar / (ar + 2)
+    lay = cyclone.layout(cy)
+    th = [math.radians(lay["theta_deg"][i]) for i in range(0, N, cy.a_every)]
+    ys, zs = [r_a * math.sin(t) for t in th], [r_a * math.cos(t) for t in th]
     four = {}
     for name, v in (("wing_borne", 1.2 * ac.v_stall(0.0)), ("search", d["v_search_ms"])):
         D = ac.drag(v, 0.0)
         trim = W * dy.static_margin * c
-        t_fin = (trim + D * R / 2) / (1.5 * R)
         thrust_max = cyclone._thrust(p, cy, m["motor_peak_w"], v)
+        # The thrust shifted along the height to trim, the least shift: T_i = D/n (1 + k z_i).
+        k = -trim * n_a / (D * sum(z * z for z in zs))
+        below = sum(D / n_a * (1 + k * z) for z in zs if z < -1e-9) / D
+        lo, hi = _spread(D, thrust_max / n_a, zs)
+        yaw = _spread(D, thrust_max / n_a, ys)[1]
         p_ss = v * math.radians(5.0) * (R * R - r0 * r0) / 2 / ((R ** 3 - r0 ** 3) / 3)
         damp = 0.5 * rho * v * c * cla3 * N * (R ** 3 - r0 ** 3) / 3
-        four[name] = {"v_ms": v, "drag_n": D, "trim_nm": trim, "fin_share": t_fin / D,
-                      "pitch_up_nm": D * R - trim, "pitch_down_nm": D * R / 2 + trim, "pitch_max_nm": thrust_max * R,
-                      "pitch_acc_dps2": math.degrees((D * R - trim) / I_t), "yaw_nm": D * R * math.cos(math.radians(30)),
-                      "yaw_acc_dps2": math.degrees(D * R * math.cos(math.radians(30)) / I_t),
+        four[name] = {"v_ms": v, "drag_n": D, "trim_nm": trim, "fin_share": below,
+                      "pitch_up_nm": -trim - lo, "pitch_down_nm": hi + trim, "pitch_max_nm": thrust_max * max(map(abs, zs)),
+                      "pitch_acc_dps2": math.degrees((-trim - lo) / I_t), "yaw_nm": yaw,
+                      "yaw_acc_dps2": math.degrees(yaw / I_t),
                       "roll_dps_5deg": math.degrees(p_ss), "roll_tau_s": I / damp,
                       "bank30_s": I / damp + 30 / math.degrees(p_ss)}
     return {"inertia_kgm2": I, "one": one, "two": two, "four": four, "motor_tau_s": dy.motor_tau_s,
             "b_rate_dps": dy.b_rate_dps}
 
 
+def _spread(total: float, each_max: float, arms: list[float]) -> tuple[float, float]:
+    """The least and most moment a thrust summing to total gives, each motor 0 to each_max, at these arms."""
+    def most(xs):
+        left, out = total, 0.0
+        for x in sorted(xs, reverse=True):
+            t = min(left, each_max)
+            out, left = out + t * x, left - t
+        return out
+    return -most([-x for x in arms]), most(arms)
+
+
 # --------------------------------------------------------------------------- wind
 
 def wind_one(p, d: dict, cy, dy, m: dict, V: float) -> dict:
-    """Mode 1 in a wind: the arms standing chord-up are three flat plates, their normal forces summing to
-    1.5 times one arm's along the wind (and no yaw, 120 degrees apart); A leans into it on its burst."""
+    """Mode 1 in a wind: the arms standing chord-up are flat plates, their normal forces summing to half the
+    arms' worth along the wind (1.5 arms' for three, and no yaw, evenly apart); A leans into it on its burst."""
     g = cyclone.geometry(p, d, cy)
     W = m["mass_kg"] * G
-    F = 0.5 * flight.rho(0.0) * V * V * dy.wind_cd * 1.5 * g["arm_m"] * g["chord_m"]
+    F = 0.5 * flight.rho(0.0) * V * V * dy.wind_cd * cy.arms / 2 * g["arm_m"] * g["chord_m"]
     tw = sum(n * a_max(cy, P, 0.0) for _, n, P in rings(p, d, cy, m)) / W
     return {"v_ms": V, "force_n": F, "lean_deg": math.degrees(math.atan(F / W)), "a_frac": math.hypot(W, F) / (tw * W),
             "ok": math.hypot(W, F) <= tw * W}
@@ -222,11 +244,12 @@ def wind_one_max(p, d: dict, cy, dy, m: dict) -> float:
     W = m["mass_kg"] * G
     tw = sum(n * a_max(cy, P, 0.0) for _, n, P in rings(p, d, cy, m)) / W
     F = W * math.sqrt(max(tw * tw - 1, 0.0))
-    return math.sqrt(2 * F / (flight.rho(0.0) * dy.wind_cd * 1.5 * g["arm_m"] * g["chord_m"]))
+    return math.sqrt(2 * F / (flight.rho(0.0) * dy.wind_cd * cy.arms / 2 * g["arm_m"] * g["chord_m"]))
 
 
-def _key(d: dict, m: dict) -> tuple:
-    return (m["mass_kg"], m["motor_peak_w"], m["a2_w"], m["motor_kg"], d["S_m2"], d["span_m"], d["spar_kg"], d["skin_kg"])
+def _key(d: dict, m: dict, cy) -> tuple:
+    return (m["mass_kg"], m["motor_peak_w"], m["a2_w"], m["motor_kg"], d["S_m2"], d["span_m"], d["spar_kg"], d["skin_kg"],
+            tuple(sorted(vars(cy).items())))
 
 
 _WIND: dict = {}
@@ -234,7 +257,7 @@ _WIND: dict = {}
 
 def wind(p, d: dict, cy, m: dict) -> dict:
     """wind_sweep for a design, kept: mode 3's top speed is mode 2's wind limit, asked for often."""
-    key = _key(d, m)
+    key = _key(d, m, cy)
     if key not in _WIND:
         _WIND[key] = wind_sweep(p, d, cy, inputs(), m)
     return _WIND[key]
@@ -254,7 +277,9 @@ def wind_sweep(p, d: dict, cy, dy, m: dict, v_max: float = 16.0, step: float = 0
     # edgewise air; the retreating arm's angle of attack over its outer half, the cyclic, the power through A.
     sw = osprey_sim.rotor_wind_sweep(bl, {
         "omega": sp["omega_rads"], "theta_h": sp["theta_rad"], "lam_h": sp["lam"].tolist(), "weight_n": m["mass_kg"] * G,
-        "hub_cda": cy.hub_cda_m2, "nacelle_cda": cy.nacelle_cda_m2, "tip_prop_efficiency": cy.tip_prop_efficiency,
+        "hub_cda": cy.hub_cda_m2, "nacelle_cda": cy.nacelle_cda_m2,
+        "tip_prop_efficiency": cyclone.rotor(p, d, cy, m["mass_kg"])["prop_efficiency"],
+        "a_radius": cyclone.geometry(p, d, cy)["a_r_m"], "a_count": float(cyclone.a_count(cy)),
         "stall_deg": stall, "swing_deg": swing, "rating_w": m["motor_peak_w"], "v_max": v_max, "step": step,
         "n_psi": 36})
     two, limit, v2 = sw["rows"], sw["why"], sw["v_max_ms"]
@@ -298,7 +323,7 @@ def assess(p, d: dict, cy=None, m: dict | None = None) -> dict:
     return {"pitch": {k: v for k, v in sp.items() if k != "lam"}, "spin": spin(p, d, cy, m), "authority": au,
             "wind": w, "knob": knob(p, d, cy, m), "inputs": vars(dy), "b_ramp_s": md.b_ramp_s,
             "rating_w": m["motor_peak_w"], "hover_w": cyclone.rotor(p, d, cy, m["mass_kg"])["p_shaft_w"],
-            "cl_mean": cy.cl_mean, "mu_ref": 0.35, "dihedral_deg": cy.dihedral_deg, "v_tip_ms": cyclone.rotor(p, d, cy, m["mass_kg"])["v_tip_ms"],
+            "cl_mean": cy.cl_mean, "mu_ref": 0.35, "dihedral_deg": cyclone.layout(cy)["dihedral_deg"], "v_tip_ms": cyclone.rotor(p, d, cy, m["mass_kg"])["v_tip_ms"],
             "sea_winds": list(zip(sorted(_toml(DESIGN / "sea.toml")["sea"]),
                                   load("sar-offshore", payload="gimbal", airframe="tailsitter").floats.wind_ms))}
 

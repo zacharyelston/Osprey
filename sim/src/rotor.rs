@@ -322,7 +322,8 @@ pub fn transient(bl: &Blades, k: &Transient) -> TransientOut {
         }
         push *= phi.sin();
         let fv = ld.t + up * phi.cos();
-        let nacelle = bl.n * 0.5 * bl.rho * (om * bl.radius).powi(2) * k.nacelle_cda * bl.radius;
+        let a = &k.rings[0];
+        let nacelle = a.n * 0.5 * bl.rho * (om * a.r).powi(2) * k.nacelle_cda * a.r;
         om = (om + (push - ld.q - nacelle) / k.inertia * dt).max(0.0);
         vz += (fv - w) / mk * dt;
         z += vz * dt;
@@ -366,6 +367,9 @@ pub struct Wind {
     pub hub_cda: f64,
     pub nacelle_cda: f64,
     pub tip_prop_efficiency: f64,
+    /// A's radius and how many: their nacelles go round there.
+    pub a_radius: f64,
+    pub a_count: f64,
     pub stall_deg: f64,
     pub swing_deg: f64,
     pub rating_w: f64,
@@ -492,8 +496,9 @@ pub fn wind_two(bl: &Blades, k: &Wind, v: f64, start: Option<&WindRow>) -> WindR
         }
     }
     let v_tip = om * bl.radius;
+    let v_a = om * k.a_radius;
     let nacelle =
-        bl.n * 0.5 * bl.rho * k.nacelle_cda * v_tip.powi(3) * (1.0 + 3.0 * (v / v_tip).powi(2));
+        k.a_count * 0.5 * bl.rho * k.nacelle_cda * v_a.powi(3) * (1.0 + 3.0 * (v / v_a).powi(2));
     WindRow {
         v,
         mu: v / v_tip,

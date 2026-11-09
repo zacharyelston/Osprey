@@ -508,11 +508,50 @@ def cmd_recon_cyclone(args) -> int:
     return 0
 
 
+def cmd_recon_cyclone_sweep(args) -> int:
+    """How many arms, and where A goes on them: every combination re-sized for all seven jobs."""
+    from osprey.params import ns
+    from osprey.recon import cyclone, cyclone_dynamics, cyclone_sweep
+    from osprey.recon import figures as rfig
+    from osprey.recon import render as rrender
+    from osprey.recon.params import load
+
+    payloads = ("gimbal", "dual") if args.payload == "all" else (args.payload,)
+    base = Path(args.run) if args.run else ROOT / "runs" / "2026-11-06_recon-payloads"
+    dst = Path(args.out) if args.out else OUT / "recon-cyclone-sweep"
+    for pl in payloads:
+        best = json.loads((base / pl / "matrix.json").read_text())["one_bird"]
+        d = json.loads((base / pl / best / "design.json").read_text())
+        rows = cyclone_sweep.sweep(d, pl, args.workers)
+        o = dst / pl
+        o.mkdir(parents=True, exist_ok=True)
+        (o / "sweep.json").write_text(json.dumps(rows, indent=1, default=float))
+        (o / "sweep.md").write_text(cyclone_sweep.report(rows, pl))
+        rfig.cyclone_sweep(rows, f"The Cyclone's arms and A, {pl}: each re-sized for all seven jobs", o / "sweep.png")
+        # In their modes: six arms with A half-way (or, if that doesn't fly, the six-arm one that spends least
+        # off the wing), and the one that spends least off the wing of all.
+        ok = [r for r in rows if r.get("ok")]
+        six = next((r for r in ok if (r["arms"], r["a_station"], r["a_every"]) == (6, 0.5, 1)), None) or min(
+            (r for r in ok if r["arms"] == 6), key=lambda r: r["off_wing_wh"])
+        pp = load("sar-offshore", payload=pl)
+        for r, name in ((six, "render-six.png"), (min(ok, key=lambda r: r["off_wing_wh"]), "render-best.png")):
+            cy = ns({**vars(cyclone.inputs()), "arms": r["arms"], "a_station": r["a_station"], "a_every": r["a_every"]})
+            dc = cyclone.resize(d, pl, cy)["design"]
+            m = cyclone.mass(pp, dc, cy)
+            sp = cyclone_dynamics.spin_pitch(pp, dc, cy, cyclone_dynamics.inputs(), m)
+            rrender.cyclone_modes(pp, dc, cy, math.degrees(sp["phi_rad"]), o / name)
+            (o / name).with_suffix(".txt").write_text(r["label"] + "\n")
+        for r in sorted((r for r in rows if r.get("ok")), key=lambda r: r["off_wing_wh"]):
+            print(f"{pl}: {r['label']}: {r['mass_kg']:.2f} kg, {r['off_wing_wh']:.1f} Wh off the wing, "
+                  f"mode 2 wind {r['wind2_ms']:.2f} m/s, range {r['range_km']:.0f} km")
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="osprey", description=__doc__)
     ap.add_argument("cmd", choices=["calc", "sim", "render", "all", "sweep", "recon-size", "recon-fly", "recon",
                                     "recon-render", "recon-plug", "recon-frame", "recon-water", "recon-awareness",
-                                    "recon-cyclone"])
+                                    "recon-cyclone", "recon-cyclone-sweep"])
     ap.add_argument("--scenario", default="coastal-watch", choices=SCENARIOS)
     ap.add_argument("--rig", default=None, choices=RIGS, help="override the scenario's rig")
     ap.add_argument("--out", default=None, help="output directory (absolute); default out/<scenario>/<rig>")
@@ -521,11 +560,11 @@ def main(argv=None) -> int:
     ap.add_argument("--scale", type=float, default=0.25, help="render: fraction of each camera's native resolution")
     ap.add_argument("--aims", choices=["scenario", "optimized"], default="scenario",
                     help="render: PTZ aims from the scenario file, or optimized for two-view docking coverage")
-    ap.add_argument("--workers", type=int, default=8, help="sweep: parallel processes")
+    ap.add_argument("--workers", type=int, default=8, help="sweep, recon-cyclone-sweep: parallel processes")
     ap.add_argument("--mission", default="sar-datum", help="recon: a design/recon/missions name, or all")
     ap.add_argument("--design", default=None, help="recon-fly: a design.json to fly instead of sizing one")
     ap.add_argument("--payload", default="gimbal", help="recon: gimbal, or a design/recon/payloads variant (dual); "
-                                                              "recon-cyclone also takes all")
+                                                              "recon-cyclone and recon-cyclone-sweep also take all")
     ap.add_argument("--airframe", default="twinboom", help="recon: twinboom, or a design/recon/airframes variant (bwb)")
     ap.add_argument("--water", action="store_true", help="recon: size and fly with the float kit aboard (recon/water.py)")
     ap.add_argument("--run", default=None, help="recon-render, -plug, -frame, -water: a run directory holding <mission>/design.json "
@@ -542,6 +581,8 @@ def main(argv=None) -> int:
         return cmd_recon_water(args)
     if args.cmd == "recon-cyclone":
         return cmd_recon_cyclone(args)
+    if args.cmd == "recon-cyclone-sweep":
+        return cmd_recon_cyclone_sweep(args)
     if args.cmd == "recon-awareness":
         return cmd_recon_awareness(args)
     if args.cmd.startswith("recon"):

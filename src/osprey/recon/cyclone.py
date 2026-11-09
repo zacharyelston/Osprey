@@ -52,15 +52,46 @@ def inputs():
     return ns(_toml(RECON / "cyclone.toml")["cyclone"])
 
 
+def layout(cy) -> dict:
+    """Mode 4: the arms in the plane across the flight path, at angles from straight up. Of the two ways to set
+    them, one arm straight down or the two either side of it, the one that lifts more for its arms. An arm more
+    than 30 degrees off vertical lifts, its lift tilted by its angle to level; the rest are fins. Three arms:
+    two up at 30 degrees as the wing, the fin down. Four: an X. Six: four 30 degrees either side of level, a fin
+    up and a fin down."""
+    N = cy.arms
+    best = None
+    for off in (180.0, 180.0 + 180.0 / N):
+        th = [(off + 360.0 * i / N) % 360.0 for i in range(N)]
+        s = [abs(math.sin(math.radians(t))) for t in th]
+        lift = [i for i in range(N) if s[i] > 0.5 + 1e-9]
+        merit = sum(s[i] for i in lift) / N
+        if best is None or merit > best["merit"] + 1e-9:
+            best = {"theta_deg": th, "lift": lift, "fins": [i for i in range(N) if i not in lift], "merit": merit,
+                    "lift_frac": sum(s[i] for i in lift) / len(lift), "span_frac": max(s),
+                    "dihedral_deg": max(90.0 - min(th[i], 360.0 - th[i]) for i in lift)}
+    return best
+
+
+def a_count(cy) -> int:
+    """How many A motors: one on every arm, or on every other."""
+    if cy.arms % cy.a_every:
+        raise ValueError(f"A on every {cy.a_every} of {cy.arms} arms")
+    return cy.arms // cy.a_every
+
+
 def geometry(p, d: dict, cy=None) -> dict:
-    """The rotor from the base bird's wing: arm length, radius, chord, disc, and the masses that change."""
+    """The rotor from the base bird's wing: arm length, radius, chord, disc, and the masses that change. The
+    design's wing area is mode 4's lifting arms', so with more arms each is narrower; each arm keeps the base
+    wing's spar per half (a narrower arm carries less, on a shallower spar), its skin its share of the area.
+    A sits a_station along each arm (or every other)."""
     cy = cy or inputs()
+    n_lift = len(layout(cy)["lift"])
     arm = d["span_m"] / 2
     R = cy.hub_radius_m + arm
-    chord = d["S_m2"] / d["span_m"]
-    wing_kg = d["spar_kg"] + d["skin_kg"]
+    chord = d["S_m2"] / (n_lift * arm)
     return {"arm_m": arm, "R_m": R, "r0_m": cy.hub_radius_m, "chord_m": chord, "disc_m2": math.pi * R * R,
-            "solidity": cy.arms * chord * arm / (math.pi * R * R), "arm_kg": wing_kg / 2}
+            "solidity": cy.arms * chord * arm / (math.pi * R * R), "arm_kg": d["spar_kg"] / 2 + d["skin_kg"] / n_lift,
+            "n_lift": n_lift, "a_r_m": cy.hub_radius_m + cy.a_station * arm, "a_count": a_count(cy)}
 
 
 def tri_power(p, cy, thrust_n: float, v: float = 0.0, h: float = 0.0, cda: float = 0.0) -> float:
@@ -68,7 +99,7 @@ def tri_power(p, cy, thrust_n: float, v: float = 0.0, h: float = 0.0, cda: float
     theory (Glauert's inflow, solved by iteration), the props' profile power from
     the hover figure of merit, and the drag of the airframe."""
     rho = flight.rho(h)
-    A = cy.arms * math.pi * (cy.tri_prop_diameter_m / 2) ** 2
+    A = a_count(cy) * math.pi * (cy.tri_prop_diameter_m / 2) ** 2
     D = 0.5 * rho * v * v * cda
     T = math.hypot(thrust_n, D)
     vh = math.sqrt(T / (2 * rho * A))
@@ -83,7 +114,7 @@ def lift_power(p, cy, thrust_n: float, u: float = 0.0, props: int | None = None)
     """Shaft power for A (and A2) pushing along their axes, B centred: momentum theory with the air
     coming at them at u along the axis (a climb; no credit taken for descending into the wake), and
     the props' profile power from the hover figure of merit."""
-    A = (props or cy.arms) * math.pi * (cy.tri_prop_diameter_m / 2) ** 2
+    A = (props or a_count(cy)) * math.pi * (cy.tri_prop_diameter_m / 2) ** 2
     vh = math.sqrt(thrust_n / (2 * flight.rho(0.0) * A))
     u = max(u, 0.0)
     return (cy.induced_factor * thrust_n * (u / 2 + math.sqrt(u * u / 4 + vh * vh))
@@ -91,64 +122,85 @@ def lift_power(p, cy, thrust_n: float, u: float = 0.0, props: int | None = None)
 
 
 def motors(p, d: dict, cy, mass_kg: float, a2: bool = False) -> dict:
-    """A (three motors, and A2's three if fitted): mass (kg) and rated shaft power in all (W). A is
+    """A (one motor an arm, or every other arm; and A2's as many if fitted): mass (kg) and rated shaft power in all (W). A is
     rated for the spinning peak, or for its share of mode 1's peak, whichever is more; A2 for its
     share of mode 1. Mode 1 runs over the rating, at the burst factor, if its stints are short enough."""
     from osprey.recon import cyclone_modes
 
     spin = rotor(p, d, cy, mass_kg, cy.thrust_to_weight * mass_kg * G)["p_shaft_w"]
     over = cy.burst_factor if cyclone_modes.burst_ok(cyclone_modes.inputs()) else 1.0
-    lift = lift_power(p, cy, cy.tri_thrust_to_weight * mass_kg * G, props=cy.arms * (2 if a2 else 1)) / over
+    lift = lift_power(p, cy, cy.tri_thrust_to_weight * mass_kg * G, props=a_count(cy) * (2 if a2 else 1)) / over
     a = max(spin, lift / 2 if a2 else lift)
     b = lift / 2 if a2 else 0.0
-    kg = cy.specific_kg_per_kw * (a + b) / 1000 + cy.fixed_kg + (cyclone_modes.inputs().a2_fixed_kg if a2 else 0.0)
+    kg = (cy.specific_kg_per_kw * (a + b) / 1000 + cy.fixed_kg * a_count(cy)
+          + (cyclone_modes.inputs().a2_fixed_kg if a2 else 0.0))
     return {"kg": kg, "a_w": a, "a2_w": b, "spin_peak_w": spin, "lift_peak_w": lift * over, "burst": over > 1}
 
 
 def mass(p, d: dict, cy=None, a2: bool | None = None) -> dict:
-    """The base bird with its pod, booms, tail and pusher swapped for the hub, a third arm and the
-    A motors (and A2, if a2, or if the modes' inputs pick it). The motors are sized for the mass
+    """The base bird with its pod, booms, tail, wing and pusher swapped for the hub, the arms with their B
+    servos and the A motors (and A2, if a2, or if the modes' inputs pick it). The motors are sized for the mass
     they lift, so iterate."""
     from osprey.recon import cyclone_modes
 
     cy = cy or inputs()
     a2 = cyclone_modes.inputs().a2 if a2 is None else a2
     g = geometry(p, d, cy)
-    base = d["mass_total_kg"] - p.body.mass_kg - p.propulsion.motor_kg + cy.hub_kg + g["arm_kg"]
+    base = (d["mass_total_kg"] - p.body.mass_kg - p.propulsion.motor_kg - d["spar_kg"] - d["skin_kg"] + cy.hub_kg
+            + cy.arms * (cy.servo_kg + g["arm_kg"]))
     m = base
     for _ in range(30):
         mo = motors(p, d, cy, m, a2)
         m = base + mo["kg"]
     return {"mass_kg": m, "motor_kg": mo["kg"], "motor_peak_w": mo["a_w"], "a2_w": mo["a2_w"], "a2": a2,
-            "lift_props": cy.arms * (2 if a2 else 1), "spin_peak_w": mo["spin_peak_w"],
+            "lift_props": a_count(cy) * (2 if a2 else 1), "spin_peak_w": mo["spin_peak_w"],
             "lift_peak_w": mo["lift_peak_w"], "burst": mo["burst"], "delta_kg": m - d["mass_total_kg"]}
 
 
+def prop_efficiency(cy, g: dict, p_rotor: float, omega: float) -> float:
+    """A pushing the arms round: tip_prop_efficiency at the tip. Further in, A goes round slower and must push
+    harder for the same power, so it is that times momentum theory's ideal efficiency there over the tip's."""
+    if cy.a_station == 1.0:
+        return cy.tip_prop_efficiency
+    a = math.pi * (cy.tri_prop_diameter_m / 2) ** 2
+    rho = flight.rho(0.0)
+
+    def ideal(r):
+        v = omega * r
+        return 2 / (1 + math.sqrt(1 + p_rotor / (g["a_count"] * v) / (0.5 * rho * a * v * v)))
+
+    return cy.tip_prop_efficiency * ideal(g["a_r_m"]) / ideal(g["R_m"])
+
+
 def rotor(p, d: dict, cy, mass_kg: float, thrust_n: float | None = None) -> dict:
-    """Spinning hover at a thrust (the weight unless given): spin rate, tip speed and power."""
+    """Spinning hover at a thrust (the weight unless given): spin rate, tip speed and power. A's nacelles are
+    whirled round at their own radius, and A pushes there."""
     g = geometry(p, d, cy)
     rho = flight.rho(0.0)
     T = mass_kg * G if thrust_n is None else thrust_n
     R, r0, c, N = g["R_m"], g["r0_m"], g["chord_m"], cy.arms
     omega = math.sqrt(6 * T / (rho * N * c * cy.cl_mean * (R ** 3 - r0 ** 3)))
     v_tip = omega * R
+    v_a = omega * g["a_r_m"]
     p_ideal = T ** 1.5 / math.sqrt(2 * rho * g["disc_m2"])
     p_induced = cy.induced_factor * p_ideal
     p_profile = rho * N * c * cy.cd_section * omega ** 3 * (R ** 4 - r0 ** 4) / 8
-    p_nacelle = N * 0.5 * rho * v_tip ** 3 * cy.nacelle_cda_m2
+    p_nacelle = g["a_count"] * 0.5 * rho * v_a ** 3 * cy.nacelle_cda_m2
     p_rotor = p_induced + p_profile + p_nacelle
-    shaft = p_rotor / cy.tip_prop_efficiency
-    return {"thrust_n": T, "omega_rads": omega, "rpm": omega * 60 / (2 * math.pi), "v_tip_ms": v_tip,
+    eta = prop_efficiency(cy, g, p_rotor, omega)
+    shaft = p_rotor / eta
+    return {"thrust_n": T, "omega_rads": omega, "rpm": omega * 60 / (2 * math.pi), "v_tip_ms": v_tip, "v_a_ms": v_a,
             "p_ideal_w": p_ideal, "p_induced_w": p_induced, "p_profile_w": p_profile, "p_nacelle_w": p_nacelle,
-            "p_rotor_w": p_rotor, "p_shaft_w": shaft, "figure_of_merit": p_ideal / shaft, "tip_thrust_n": p_rotor / v_tip / N}
+            "p_rotor_w": p_rotor, "p_shaft_w": shaft, "prop_efficiency": eta, "figure_of_merit": p_ideal / shaft,
+            "tip_thrust_n": p_rotor / v_a / g["a_count"]}
 
 
 def inertia(p, d: dict, cy, motor_kg: float) -> float:
-    """Spin inertia (kg m^2): three uniform arms from the hub out, and a motor at each tip."""
+    """Spin inertia (kg m^2): uniform arms from the hub out, and the motors at A's radius."""
     g = geometry(p, d, cy)
     R, r0 = g["R_m"], g["r0_m"]
     arm = g["arm_kg"] * (R ** 3 - r0 ** 3) / (3 * (R - r0))
-    return cy.arms * (arm + motor_kg / cy.arms * R * R)
+    return cy.arms * arm + motor_kg * g["a_r_m"] ** 2
 
 
 def spin_up(p, d: dict, cy, m: dict, dt: float = 0.002) -> dict:
@@ -161,13 +213,13 @@ def spin_up(p, d: dict, cy, m: dict, dt: float = 0.002) -> dict:
     g = geometry(p, d, cy)
     rho = flight.rho(0.0)
     I = inertia(p, d, cy, m["motor_kg"])
-    p_each = m["motor_peak_w"] / cy.arms
+    p_each = m["motor_peak_w"] / g["a_count"]
     a_prop = math.pi * (cy.tri_prop_diameter_m / 2) ** 2
     f_static = (cy.tri_figure_of_merit * p_each) ** (2 / 3) * (2 * rho * a_prop) ** (1 / 3)
     k_drag = hov["p_rotor_w"] / hov["omega_rads"] ** 3                    # torque grows with the spin squared
-    t = osprey_sim.cyclone_spin_up({"omega_h": hov["omega_rads"], "R_m": g["R_m"], "inertia": I, "p_each_w": p_each,
-                                    "f_static_n": f_static, "tip_prop_efficiency": cy.tip_prop_efficiency,
-                                    "k_drag": k_drag, "arms": cy.arms, "dt": dt})
+    t = osprey_sim.cyclone_spin_up({"omega_h": hov["omega_rads"], "R_m": g["a_r_m"], "inertia": I, "p_each_w": p_each,
+                                    "f_static_n": f_static, "tip_prop_efficiency": hov["prop_efficiency"],
+                                    "k_drag": k_drag, "arms": g["a_count"], "dt": dt})
     return {"t_s": t, "inertia_kgm2": I, "tip_static_n": f_static}
 
 
@@ -195,21 +247,21 @@ def smear_px(p, cy, omega: float) -> float:
 # --------------------------------------------------------------------------- flight mode and the transitions
 
 def _wing(p, d: dict, cy) -> dict:
-    """Flight mode's wing: the two upper arms at the dihedral, the fin arm adding its drag. Lift is
-    tilted by the dihedral, so the usable lift coefficient is each wing's times its cosine, and the
-    induced drag goes with the projected span."""
+    """Flight mode's wing: the lifting arms (cyclone.layout), the fins adding their drag. Each arm's lift
+    is tilted by its angle to level, so the usable lift coefficient is each wing's times the mean of their
+    cosines, and the induced drag goes with the projected span."""
     g = geometry(p, d, cy)
-    dih = math.radians(cy.dihedral_deg)
-    b = 2 * g["R_m"] * math.cos(dih)
+    lay = layout(cy)
+    b = 2 * g["R_m"] * lay["span_frac"]
     cd0_wing = d["cd0"] - p.body.cda_m2 / d["S_m2"]
-    return {"S_m2": d["S_m2"], "span_m": b, "cl_max": cy.cl_max * math.cos(dih),
-            "cd0": (cd0_wing + cy.cd_symmetric_extra) * cy.arms / 2 + cy.hub_cda_m2 / d["S_m2"],
+    return {"S_m2": d["S_m2"], "span_m": b, "cl_max": cy.cl_max * lay["lift_frac"],
+            "cd0": (cd0_wing + cy.cd_symmetric_extra) * cy.arms / g["n_lift"] + cy.hub_cda_m2 / d["S_m2"],
             "k": d["k"] * (d["span_m"] / b) ** 2 * cy.k_factor}
 
 
 def _thrust(p, cy, shaft_w: float, v: float) -> float:
-    """The three tip props pushing forward: static thrust from momentum theory, falling as eta P / v."""
-    A = cy.arms * math.pi * (cy.tri_prop_diameter_m / 2) ** 2
+    """A's props pushing forward: static thrust from momentum theory, falling as eta P / v."""
+    A = a_count(cy) * math.pi * (cy.tri_prop_diameter_m / 2) ** 2
     static = (cy.tri_figure_of_merit * shaft_w) ** (2 / 3) * (2 * flight.rho(0.0) * A) ** (1 / 3)
     return min(static, p.propulsion.prop_efficiency * shaft_w / max(v, 0.1))
 
@@ -275,7 +327,7 @@ def resize(d: dict, payload: str, cy=None, speeds=(1.0, 1.1, 1.2, 1.3, 1.4), tol
         for _ in range(30):
             m = mass(p, _scaled(p, d, sc, add), cy)["mass_kg"]
             S = 2 * n * m * G * lim.stall_margin ** 2 / (flight.rho(0.0) * vs ** 2 * cy.cl_max
-                                                         * math.cos(math.radians(cy.dihedral_deg)))
+                                                         * layout(cy)["lift_frac"])
             sc = max(1.0, S / d["S_m2"])
         return {**_scaled(p, d, sc, add), "v_search_ms": vs}
 
@@ -396,10 +448,11 @@ def assess(d: dict, payload: str, ts: dict, ts_water: dict) -> dict:
            "hover_peak": rotor(p, dc, cy, m["mass_kg"], cy.thrust_to_weight * m["mass_kg"] * G),
            "liftoff_w": m["lift_peak_w"], "modes": cyclone_modes.assess(p, dc, cy),
            "hover_wh": hover_j(p, dc, cy, m) / 3600, "abilities": abilities(p, dc, cy, m, d),
-           "spin_up": spin_up(p, dc, cy, m), "one_motor_w": m["motor_peak_w"] / cy.arms,
-           "one_motor_burst_w": m["motor_peak_w"] * cy.burst_factor / cy.arms,
+           "spin_up": spin_up(p, dc, cy, m), "one_motor_w": m["motor_peak_w"] / a_count(cy),
+           "one_motor_burst_w": m["motor_peak_w"] * cy.burst_factor / a_count(cy),
            "smear_px": smear_px(p, cy, hov["omega_rads"]),
-           "curves": cruise_curves(p, dc, cy, m, d, p.mission.cruise_alt_m), "cyclone": vars(cy),
+           "curves": cruise_curves(p, dc, cy, m, d, p.mission.cruise_alt_m),
+           "cyclone": vars(cy) | {"dihedral_deg": layout(cy)["dihedral_deg"]}, "layout": layout(cy),
            "dynamics": cyclone_dynamics.assess(p, dc, cy, m), "water": cyclone_water.assess(p, dc, cy, m),
            "stall_margin_min": p.limits.stall_margin, "bank_deg": p.limits.bank_max_deg}
     out["curves"]["base_v_search"], out["curves"]["v_search"] = d["v_search_ms"], dc["v_search_ms"]
@@ -423,7 +476,7 @@ def report(a: dict, title: str) -> str:
     lines = [f"# Recon as a Cyclone: {title}", "",
              "Three arms that are wings, after Nick Rehm's Cyclone-Rotor tricopter. It hovers only by spinning, the "
              "whole bird a rotor and its arms the blades. It flies with the arms twisted 90°, two up at "
-             f"{cy['dihedral_deg']:g}° dihedral as the wing and one down as the fin, all three tip motors pushing forward. "
+             f"{cy['dihedral_deg']:.0f}° dihedral as the wing and one down as the fin, all three tip motors pushing forward. "
              "The motors push up only for the few seconds it takes to pull clear of the water on a sea launch. Built "
              "from the twin-boom one-bird (each arm one of its wing halves, a third arm for the booms and tail, three "
              "tip motors for the pusher), then re-sized to do all seven jobs. REF inputs in "

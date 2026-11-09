@@ -259,7 +259,7 @@ manager's own launch and recovery, not a flat hover allowance.
 the two wings must be mirror images, and twisting an arm about its own axis can't turn one into the other.
 A symmetric section at a small angle of attack lifts either way, set by each arm's B servo.
 
-Re-sized to do all seven jobs, A alone ([`runs/2026-11-07_recon-cyclone-dynamics`](../../runs/2026-11-07_recon-cyclone-dynamics/)).
+Re-sized to do all seven jobs, A alone ([`runs/2026-11-09_recon-cyclone-arms`](../../runs/2026-11-09_recon-cyclone-arms/cyclone/)).
 The spin's building and dying, A's and B's authority, the wind and floating have their own page,
 [docs/cyclone](../cyclone/README.md).
 Recovery is vertical, so the 12 m/s stall limit for a catch doesn't apply; the search-speed margin over
@@ -267,32 +267,31 @@ the banked stall does:
 
 | | Gimbal | A PTZ eye each side |
 |---|---|---|
-| Do-everything Cyclone | **2.95 kg**, 2.18 m rotor, searching at 21 m/s | **2.30 kg**, 1.70 m rotor, chord ×1.57 |
+| Do-everything Cyclone | **2.93 kg**, 2.18 m rotor, searching at 21 m/s | **2.30 kg**, 1.70 m rotor, chord ×1.57 |
 | Against: tailsitter / float plane / plain twin-boom | 2.96 / 3.01 / 2.73 kg | 2.22 / 2.33 / 2.13 kg |
-| A, rated (tailsitter's motors) | 426 W, 0.15 kg (828 W, 0.22 kg) | 293 W, 0.12 kg (537 W, 0.16 kg) |
-| Launch + recovery (tailsitter) | 27 + 26 s, **5.4 Wh** (6.0) | 20 + 18 s, **2.9 Wh** (3.9) |
+| A, rated (tailsitter's motors) | 423 W, 0.15 kg (828 W, 0.22 kg) | 293 W, 0.12 kg (537 W, 0.16 kg) |
+| Launch + recovery (tailsitter) | 15 + 17 s, **3.5 Wh** (6.0) | 14 + 14 s, **2.3 Wh** (3.9) |
 
 What each mode can do:
 
 | | Gimbal | A PTZ eye each side |
 |---|---|---|
-| **1** hover on A | 432 W | 296 W |
-| **2** spinning hover (tailsitter's props) | **160 W** (410 W); 70 min on the battery | **122 W** (265 W); 39 min |
+| **1** hover on A | 428 W | 296 W |
+| **2** spinning hover (tailsitter's props) | **159 W** (410 W); 70 min on the battery | **122 W** (265 W); 39 min |
 | **2** climb, on the rating / at the burst | 6.1 / 10.1 m/s | 5.3 / 8.9 m/s |
 | **2** wind it can hold station in (tailsitter) | **4.2 m/s**, the retreating arm stalls (11.9) | 3.5 m/s (11.9) |
 | **1** wind it can hold station in | 12.5 m/s | 10.2 m/s |
-| **3** spinning travel | 4 m/s at 112 W, 25 km on the battery | 4 m/s at 89 W, 11 km |
-| **4** stall, best L/D (twin-boom) | 14.8 m/s, 8.0 (11.7 m/s, 12.2) | 12.1 m/s, 7.8 (12.0 m/s, 9.8) |
+| **3** spinning travel | 4 m/s at 111 W, 25 km on the battery | 4 m/s at 89 W, 11 km |
+| **4** stall, best L/D (twin-boom) | 14.7 m/s, 8.0 (11.7 m/s, 12.2) | 12.1 m/s, 7.8 (12.0 m/s, 9.8) |
 | **4** top speed, on the rating / at the burst | 29 / 33 m/s | 25 / 29 m/s |
 | **4** endurance, range on the battery (twin-boom) | 1.7 h, 109 km (2.8 h, 142 km) | 1.0 h, 54 km (1.2 h, 64 km) |
-| **3 → 4** start height, height lost | 27 m, 17 m | 17 m, 7 m |
+| **3 → 4** start height, height lost | 10 m, none: A at its burst, tilting only as far as the height holds | 10 m, none |
 | **4 → 3** net height | +6 m | +1 m |
 | **4 → 1**, tried | works from 10 m: 18 s to the deck, A at its burst the whole way | the same, 16 s |
 | **A off** | seeds down at 3.2 m/s; the spin holds 5.7× the sink's energy to flare | 3.7 m/s; 3.6× |
 
 **A or A2.** A2 (three more motors half-way along the arms, the same props) lifts on about 27% less power
-in mode 1, and with more thrust the pitch-over loses less height. That cuts launch and recovery from 5.4
-to 4.3 Wh (gimbal) and 2.9 to 1.9 Wh (side eyes). It costs 0.06 kg, which is more than that energy is
+in mode 1. That cuts launch and recovery from 3.5 to 2.9 Wh (gimbal) and 2.3 to 1.9 Wh (side eyes). It costs 0.06 kg, which is more than that energy is
 worth: 0.06 kg of battery holds about 10 Wh. What it really buys is the one window the rest of the
 design can't cover: **mode 1**. That is 16 s a sortie at or
 under 25 ft with A carrying the weight. Three motors can't lose one; a fall from 25 ft takes 1.2 s, less
@@ -300,16 +299,17 @@ than the 1.3 s B needs to turn it into a spin, and it hits at 12 m/s. With A2, f
 Everywhere else a motor out is a seed fall or a glide.
 
 What it says:
-- **With the modes flown as you set them, the gimbal Cyclone matches the tailsitter**: 2.95 kg against
-  2.96, and 5.4 Wh for launch and recovery against 6.0. The side-eye one is 0.1 kg heavier.
-- **Mode 1 is now the costly part of launch and recovery**: 432 W on A against 160 W spinning. The
-  first and last 25 ft take nearly half of the sortie's energy off the wing. The 3 → 4 pitch-over is the other
-  big cost, because the bird sinks until the wing takes over.
+- **With the modes flown as you set them, the gimbal Cyclone matches the tailsitter**: 2.93 kg against
+  2.96, and 3.5 Wh for launch and recovery against 6.0. The side-eye one is 0.1 kg heavier.
+- **Mode 1 is now the costly part of launch and recovery**: 428 W on A against 159 W spinning. The
+  first and last 25 ft take over half of the sortie's energy off the wing. The 3 → 4 pitch-over used to be
+  the other big cost, sinking 17 m until the wing took over; flown at A's burst it loses none
+  ([the pitch-over](../cyclone/README.md#the-pitch-over-from-3-to-4)).
 - **Spinning travel is slow**: the retreating arm stalls at about 4 m/s, so mode 3 tops out there (25 km
   on the gimbal bird's battery), and mode 2 can't hold station in more than about 4 m/s of wind. Spinning
   faster fixes it with the motors it has: [the wind](../cyclone/README.md#wind).
 - **4 → 1 works.** The pitch-up from 18 m/s loses almost no height and ends hovering on A at 0.77× its
-  burst. It is the quickest recovery (18 s against 26), and in a wind the one that works, since mode 1
+  burst. It takes 18 s against 17 s the usual way, and in a wind it is the one that works, since mode 1
   holds station in 12 m/s. But it keeps A at its burst low down for the whole of it, which is exactly the
   window a motor out can't be survived without A2.
 - **The cost is still the wing:** symmetric sections, dihedral and the fin's drag. Best L/D is 8 against

@@ -64,7 +64,7 @@ def spin_power(p, d: dict, cy, m: dict, vc: float = 0.0) -> float:
     vh = math.sqrt(T / (2 * flight.rho(0.0) * cyclone.geometry(p, d, cy)["disc_m2"]))
     vc = max(vc, 0.0)
     induced = cy.induced_factor * T * (vc / 2 + math.sqrt(vc * vc / 4 + vh * vh))
-    return (induced + h["p_profile_w"] + h["p_nacelle_w"]) / cy.tip_prop_efficiency
+    return (induced + h["p_profile_w"] + h["p_nacelle_w"]) / h["prop_efficiency"]
 
 
 def travel_power(p, d: dict, cy, md, m: dict, v: float) -> float:
@@ -80,7 +80,7 @@ def travel_power(p, d: dict, cy, md, m: dict, v: float) -> float:
     mu = v / h["v_tip_ms"]
     rotor = (cy.induced_factor * T * vi + (h["p_profile_w"] + h["p_nacelle_w"]) * (1 + md.profile_k * mu * mu)
              + 0.5 * rho * v ** 3 * cy.hub_cda_m2)
-    return rotor / cy.tip_prop_efficiency
+    return rotor / h["prop_efficiency"]
 
 
 def travel(p, d: dict, cy, md, m: dict) -> dict:
@@ -109,13 +109,15 @@ def _available(p, cy, shaft_w: float, u: float, props: int) -> float:
     return lo
 
 
-def pitch(p, d: dict, cy, md, m: dict, v0: float, up: bool, dt: float = 0.01) -> dict:
-    """3->4 (up=False): from B centred, A pushing up, moving at v0, pitch over to level until wing-borne.
-    4->1 (up=True): from level at v0, pitch up until A points up and the bird is down to a hover's drift.
-    Either way A (and A2) push at whatever holds the height, up to their burst; where that isn't enough
-    the bird sinks, and that is the height lost. A 2-D point mass, a flat plate past the stall, stepped in
-    Rust (sim/src/cyclone.rs). The pitch-up has to end hovering on A, so A's burst must hold the weight
-    at the end."""
+def pitch(p, d: dict, cy, md, m: dict, v0: float, up: bool, vz0: float = 0.0, dt: float = 0.01) -> dict:
+    """3->4 (up=False): from B centred, A pushing up, moving at v0 and climbing at vz0, pitch over until
+    wing-borne: A (and A2) at their burst throughout, tilted forward only as far as the thrust and the wing's
+    growing lift still hold the height, no faster than the pitch rate, the rest of the thrust speeding it
+    up. 4->1 (up=True): from level at v0, pitch up at the pitch rate until A points up and the bird is down
+    to a hover's drift, A pushing at whatever holds the height, up to its burst. Where A can't hold it the
+    bird sinks, and that is the height lost. A 2-D point mass, a flat plate past the stall, stepped in Rust
+    (sim/src/cyclone.rs). The pitch-up has to end hovering on A, so A's burst must hold the weight at the
+    end."""
     import osprey_sim
 
     w = cyclone._wing(p, d, cy)
@@ -129,7 +131,7 @@ def pitch(p, d: dict, cy, md, m: dict, v0: float, up: bool, dt: float = 0.01) ->
         "cd0": w["cd0"], "k": w["k"], "mass_kg": m["mass_kg"], "v_wing": v_wing,
         "shaft_w": (m["motor_peak_w"] + m["a2_w"]) * cy.burst_factor, "props": m["lift_props"],
         "pitch_rate_rad_s": math.radians(md.pitch_rate_dps), "motor_efficiency": p.propulsion.motor_efficiency,
-        "v0": v0, "up": up, "dt": dt})
+        "v0": v0, "vz0": vz0, "up": up, "dt": dt})
     return {"t_s": r["t"], "height_lost_m": -r["z_min"], "distance_m": r["x"], "v_ms": r["v"], "v_wing_ms": v_wing,
             "short_s": r["short_s"], "hover_need": r["end_ratio"], "energy_j": r["energy_j"],
             "ok": r["done"] and (not up or r["end_ratio"] <= 1.0 + 1e-6)}
@@ -181,7 +183,7 @@ class Manager:
         self.hover_w = cyclone.rotor(p, d, self.cy, self.m["mass_kg"])["p_shaft_w"]
         self.lift_w = cyclone.lift_power(p, self.cy, self.W, props=self.m["lift_props"])
         self.spin = cyclone_dynamics.spin(p, d, self.cy, self.m)
-        self.over = pitch(p, d, self.cy, self.md, self.m, self.tr["v_range_ms"], up=False)
+        self.over = pitch(p, d, self.cy, self.md, self.m, self.tr["v_range_ms"], up=False, vz0=self.md.climb2_ms)
         self.h34 = max(self.md.clearance_m, self.md.safety_height_m + self.over["height_lost_m"])
         w = cyclone._wing(p, d, self.cy)
         self.v4 = 1.2 * math.sqrt(2 * self.W / (flight.rho(0.0) * w["S_m2"] * w["cl_max"]))   # wing-borne, as flown
@@ -213,6 +215,8 @@ class Manager:
                 return f"pitch over only from {self.h34:.0f} m; at {h:.1f} m"
             if not self.over["ok"]:
                 return "the pitch-over never gets wing-borne"
+            if self.m["burst"] and self.over["t_s"] > md.burst_s_max:
+                return f"the pitch-over at A's burst, {self.over['t_s']:.0f} s, is past its {md.burst_s_max:g} s"
         if (self.mode, to) == (4, 3) and h < md.safety_height_m - 1e-6:
             return f"the forced move only from {md.safety_height_m:g} m; at {h:.1f} m"
         if (self.mode, to) == (4, 1):
@@ -250,7 +254,7 @@ class Manager:
             self._add("disc levelled, slowing", self.v / a, h, 0.0,
                       travel_power(self.p, self.d, self.cy, md, self.m, self.v / 2))
         elif key == (3, 4):
-            o = pitch(self.p, self.d, self.cy, md, self.m, self.v, up=False)
+            o = pitch(self.p, self.d, self.cy, md, self.m, self.v, up=False, vz0=md.climb2_ms)
             b = self.spin["die"]
             self._add("B to centre as the spin dies, pitch over to wing-borne", b["t_s"] + o["t_s"],
                       h - o["height_lost_m"], o["v_ms"], 0.0, energy=b["energy_j"] + o["energy_j"])
@@ -400,7 +404,7 @@ def assess(p, d: dict, cy=None, md=None) -> dict:
     """Both lift-off options (A alone, A with A2): the modes' abilities, the move matrix, the standard
     sortie, the tried 4->1 recovery, and a motor out."""
     cy, md = cy or cyclone.inputs(), md or inputs()
-    out = {"modes": vars(md), "stint_s": stint_s(md), "burst_ok": burst_ok(md), "dihedral_deg": cy.dihedral_deg}
+    out = {"modes": vars(md), "stint_s": stint_s(md), "burst_ok": burst_ok(md), "dihedral_deg": cyclone.layout(cy)["dihedral_deg"]}
     for key, a2 in (("A", False), ("A+A2", True)):
         m = cyclone.mass(p, d, cy, a2)
         la, rc = launch(p, d, cy, md, m), recover(p, d, cy, md, m)
