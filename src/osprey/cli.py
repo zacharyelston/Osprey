@@ -621,6 +621,8 @@ def main(argv=None) -> int:
         return cmd_recon_cyclone(args)
     if args.cmd == "recon-cyclone-sweep":
         return cmd_recon_cyclone_sweep(args)
+    if args.cmd == "recon-loiter":
+        return cmd_recon_loiter(args)
     if args.cmd == "recon-awareness":
         return cmd_recon_awareness(args)
     if args.cmd.startswith("recon"):
