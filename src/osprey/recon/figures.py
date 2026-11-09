@@ -486,3 +486,35 @@ def cyclone_sweep(rows: list[dict], title: str, path):
     fig.tight_layout(rect=(0, 0.05, 1, 0.96))
     fig.savefig(path, dpi=130)
     plt.close(fig)
+
+
+LOITER_COLORS = {"liftbody": "#4C72B0", "tandem": "#DD8452"}
+
+
+def loiter(rows: list[dict], path):
+    """The loiter sweep: take-off mass and the power on station against hours on station, a line for each
+    airframe (solid at the lower battery's specific energy, dashed at the higher)."""
+    from osprey.recon.loiter import label
+
+    ok = [r for r in rows if r.get("ok")]
+    whs = sorted({r["wh_per_kg"] for r in rows})
+    fig, axs = plt.subplots(1, 2, figsize=(12.5, 4.8))
+    for ax, (key, name) in zip(axs, (("mass_total_kg", "Take-off mass (kg)"), ("power_w", "Power on station (W)"))):
+        for a, col in LOITER_COLORS.items():
+            for wh, ls, fill in zip(whs, ("-", "--"), (True, False)):
+                pts = sorted((r["hours"], r["design"][key]) for r in ok if r["airframe"] == a and r["wh_per_kg"] == wh)
+                if not pts:
+                    continue
+                x, y = zip(*pts)
+                ax.plot(x, y, ls=ls, color=col, lw=1.8, marker="o", ms=7, mfc=col if fill else "white", mec=col,
+                        label=f"{label(a)}, {wh:.0f} Wh/kg")
+        ax.set_xlabel("hours on station")
+        ax.set_xticks(sorted({r["hours"] for r in rows}))
+        ax.set_title(name, fontsize=10)
+        ax.grid(alpha=0.3)
+    h, lab = axs[0].get_legend_handles_labels()
+    fig.legend(h, lab, loc="lower center", ncol=4, fontsize=9, frameon=False)
+    fig.suptitle("The loiter craft: each airframe sized for each time on station (missing points don't close)", fontsize=12)
+    fig.tight_layout(rect=(0, 0.07, 1, 0.95))
+    fig.savefig(path, dpi=130)
+    plt.close(fig)

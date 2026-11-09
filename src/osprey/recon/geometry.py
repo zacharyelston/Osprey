@@ -126,6 +126,8 @@ def build(p, d: dict, *, explode: float = 0.0) -> list[Part]:
     wing body: its upper and lower mould halves apart)."""
     if d.get("airframe") in ("bwb", "crescent"):
         return build_bwb(p, d, explode=explode)
+    if d.get("airframe") == "tandem":
+        return build_tandem(p, d, explode=explode)
     g, w = p.geometry, p.wing
     foil = naca4(g.airfoil_camber, g.airfoil_camber_pos, w.t_over_c)
     fo = w.fem_origin
@@ -479,4 +481,79 @@ def build_cyclone(p, d: dict, cy, phi_deg: float, *, axis_frac: float = 0.25, mo
     if spin_disc:
         v, f = _tube([0.0, 0.0, -0.002], [0.0, 0.0, 0.002], R, 64)
         parts.append(Part("rotor", "disc", v, f))
+    return parts
+
+
+def build_tandem(p, d: dict, *, explode: float = 0.0) -> list[Part]:
+    """The tandem tilt-body: the front wing low and the rear high and well aft, a slim pod between
+    them with the gimbal under it, and a fin carrying the rear wing. Four props on each wing's
+    leading edge; each nacelle runs aft under its wing into a streamlined float on a pylon, every
+    float's keel at the same level."""
+    g, h = p.geometry, p.hover
+    parts: list[Part] = []
+    foil = {}
+    for name, kind, tc in (("front", "shell0", p.wing.t_over_c), ("rear", "shell1", p.rear.t_over_c)):
+        s = d["surfaces"][name]
+        dd = {**d, **{k: s[k] for k in ("half_span_y_m", "le_x_m", "le_z_m", "chords_m", "twist_deg", "span_m")},
+              "t_over_c_cp": [tc]}
+        y, le, c, tw, _, lz = _stations(p, dd, 13)
+        u, z = naca4(g.airfoil_camber, g.airfoil_camber_pos, tc, 32)
+        for sign in (1, -1):
+            v, f = loft([_section(u, z, le[i], c[i], sign * y[i], tw[i], lz[i]) for i in range(len(y))])
+            parts.append(Part(f"{name}_{'L' if sign > 0 else 'R'}", kind, v, f))
+            v, f = _sphere([-le[-1] - 0.02, sign * (y[-1] + 0.004), lz[-1]], 0.010, 10)
+            parts.append(Part(f"light_{name}_{sign}", "red" if sign > 0 else "green", v, f))
+        foil[name] = (y, le, c, lz)
+    # The pod: a body of revolution, round nose, tapering tail.
+    fu = p.fuselage
+    L, R, x0, zc = fu.length_m, fu.diameter_m / 2, fu.nose_x_m, fu.axis_z_m
+    xs = np.linspace(0, 1, 20)
+    radius = R * np.where(xs < 0.25, np.sqrt(np.clip(1 - ((0.25 - xs) / 0.25) ** 2, 0.02, 1)),
+                          1 - 0.7 * (np.clip(xs - 0.45, 0, None) / 0.55) ** 1.5)
+    a = np.linspace(0, 2 * math.pi, 24, endpoint=False)
+    v, f = loft([np.stack([np.full_like(a, x0 - x * L), r * np.cos(a), zc + r * np.sin(a)], 1)
+                 for x, r in zip(xs, radius)])
+    parts.append(Part("pod", "pod", v, f))
+    # The fin from the pod's back up to the rear wing's root.
+    yr, ler, cr, lzr = foil["rear"]
+    cf = 0.8 * cr[0]
+    xf = -ler[0] - 0.1 * cr[0]
+    uf, zf_ = naca4(0, 0.4, 0.10, 24)
+    rings = [np.stack([xf - uf * cf, zf_ * cf, np.full_like(uf, zz)], 1) for zz in (zc, lzr[0] + 0.01)]
+    v, f = loft(rings)
+    parts.append(Part("fin", "tail", v, f))
+    # The gimbal under the pod at the CG.
+    xc = -d.get("cg_x_m", 0.5)
+    v, f = _sphere([xc, 0, zc - R - 0.6 * g.gimbal_radius_m], g.gimbal_radius_m)
+    parts.append(Part("gimbal", "gimbal", v, f))
+    v, f = _sphere([xc + g.gimbal_radius_m * 0.75, 0, zc - R - 0.6 * g.gimbal_radius_m - 0.01], g.gimbal_radius_m * 0.45)
+    parts.append(Part("lens", "lens", v, f))
+    # Props, nacelles and the nacelle floats.
+    nf = d.get("nacelle_floats", {"diameter_m": 0.08, "length_m": 0.56, "drop_m": p.nacelle_floats.drop_m})
+    rf, Lf, z_keel = nf["diameter_m"] / 2, nf["length_m"], -nf["drop_m"]
+    rp = h.prop_diameter_m / 2
+    for name in ("front", "rear"):
+        y, le, c, lz = foil[name]
+        for frac in h.prop_y_frac:
+            for sign in (1, -1):
+                yp = frac * d["surfaces"][name]["span_m"]
+                xle = -float(np.interp(yp, y, le))
+                zp = float(np.interp(yp, y, lz))
+                cp = float(np.interp(yp, y, c))
+                tag = f"{name}_{sign}_{frac:.2f}"
+                v, f = _tube([xle + 0.09, sign * yp, zp], [xle - 0.3 * cp, sign * yp, zp], 0.03, 14)
+                parts.append(Part(f"nacelle_{tag}", "carbon", v, f))
+                xd = xle + 0.10
+                v, f = _tube([xd, sign * yp, zp], [xd - 0.004, sign * yp, zp], rp, 40)
+                parts.append(Part(f"prop_disc_{tag}", "disc", v, f))
+                for blade in (0, math.pi):
+                    ang = 0.6 + blade + (0.8 if sign < 0 else 0.0)
+                    tip = np.array([0, math.cos(ang), math.sin(ang)]) * rp * 0.97
+                    v, f = _tube([xd - 0.002, sign * yp, zp], [xd - 0.002, sign * yp + tip[1], zp + tip[2]], 0.009, 8)
+                    parts.append(Part(f"blade_{tag}_{blade:.0f}", "prop", v, f))
+                v, f = _pod(xle - Lf + 0.05, sign * yp, z_keel, rf, Lf)
+                parts.append(Part(f"float_{tag}", "pod", v, f))
+                xs_ = xle - 0.35 * cp
+                v, f = _tube([xs_, sign * yp, zp], [xs_, sign * yp, z_keel + rf * 0.5], 0.008, 8)
+                parts.append(Part(f"pylon_{tag}", "carbon", v, f))
     return parts

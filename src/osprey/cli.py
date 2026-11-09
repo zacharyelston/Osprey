@@ -547,11 +547,49 @@ def cmd_recon_cyclone_sweep(args) -> int:
     return 0
 
 
+def cmd_recon_loiter(args) -> int:
+    """The loiter craft: the lifting body and the tandem tilt-body, each sized for each time on station
+    and battery (design/recon/loiter.toml), flown and floated; renders of the longest pair that both close."""
+    from osprey.recon import figures as rfig
+    from osprey.recon import loiter
+    from osprey.recon import render as rrender
+    from osprey.recon import water
+
+    o = Path(args.out) if args.out else OUT / "recon-loiter"
+    o.mkdir(parents=True, exist_ok=True)
+    if args.run:
+        rows = json.loads((Path(args.run) / "sweep.json").read_text())
+    else:
+        rows = loiter.sweep(args.workers)
+        (o / "sweep.json").write_text(json.dumps(rows, indent=1, default=float))
+    (o / "sweep.md").write_text(loiter.report(rows))
+    rfig.loiter(rows, o / "sweep.png")
+    for wh in sorted({r["wh_per_kg"] for r in rows}):
+        pr = loiter.pair(rows, wh)
+        if not pr:
+            continue
+        birds, floats = [], []
+        for r in pr:
+            p = loiter.load(r["airframe"], r["hours"], wh)
+            d = r["design"]
+            name = f"{r['airframe']}-{r['hours']:g}h-{wh:.0f}"
+            rrender.hero(p, d, o / f"hero-{name}.png")
+            rrender.threeview(p, d, o / f"threeview-{name}.png")
+            birds.append((p, d, f"{loiter.label(r['airframe'])}, {r['hours']:g} h"))
+            floats.append((p, d, r.get("afloat") or water.afloat(p, d), loiter.label(r["airframe"])))
+        rrender.lineup(birds, o / f"lineup-{wh:.0f}.png")
+        rrender.afloat(floats, o / f"afloat-{wh:.0f}.png")
+    for r in rows:
+        print(f"{loiter.label(r['airframe'])}, {r['hours']:g} h, {r['wh_per_kg']:.0f} Wh/kg: "
+              + (f"{r['design']['mass_total_kg']:.1f} kg" if r.get("ok") else f"doesn't close ({r.get('why', 'not recovered')})"))
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="osprey", description=__doc__)
     ap.add_argument("cmd", choices=["calc", "sim", "render", "all", "sweep", "recon-size", "recon-fly", "recon",
                                     "recon-render", "recon-plug", "recon-frame", "recon-water", "recon-awareness",
-                                    "recon-cyclone", "recon-cyclone-sweep"])
+                                    "recon-cyclone", "recon-cyclone-sweep", "recon-loiter"])
     ap.add_argument("--scenario", default="coastal-watch", choices=SCENARIOS)
     ap.add_argument("--rig", default=None, choices=RIGS, help="override the scenario's rig")
     ap.add_argument("--out", default=None, help="output directory (absolute); default out/<scenario>/<rig>")

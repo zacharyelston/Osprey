@@ -86,6 +86,8 @@ def cg(p, d: dict) -> np.ndarray:
     """Where the centre of gravity sits. A flying wing's comes from the sizing
     (the battery and payload's station, which carries nearly all the mass);
     the twin-boom balances at its spar."""
+    if d.get("airframe") == "tandem":
+        return np.array([-d["cg_x_m"], 0.0, p.fuselage.axis_z_m])       # in the pod, with the battery
     return np.array([-d["cg_x_m"], 0.0, 0.0]) if d.get("airframe") in ("bwb", "crescent") else np.zeros(3)
 
 
@@ -195,6 +197,8 @@ def impact_factor(p, v_stall_ms: float, mass_kg: float) -> float:
 
 def hull_length(p, d: dict) -> float:
     """The planing shoe's length: under the pod, or the blended wing's centre body."""
+    if d.get("airframe") == "tandem":
+        return d["nacelle_floats"]["length_m"]
     return d["root_chord_m"] if d.get("airframe") == "bwb" else p.geometry.pod_length_m
 
 

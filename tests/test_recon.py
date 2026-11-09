@@ -701,3 +701,55 @@ def test_cyclone_arms_and_a_station():
     assert cdy.rings(p, d, mid, m)[0][0] == pytest.approx(ra)
     # Mode 4's moments from A: the least and most a total thrust gives over the motors' heights.
     assert cdy._spread(3.0, 2.0, [-1.0, 0.5, 0.5]) == pytest.approx((-2.0 + 0.5, 1.0 + 0.5))
+
+
+def test_a_loiter_flies_its_time_on_station_however_fast():
+    """An escort's time model: the hours on station, plus out to the station and back, at any speed."""
+    from osprey.recon import loiter
+
+    p = loiter.load("liftbody", 3.0, 200.0)
+    mi = sizing.mission_inputs(p)
+    assert mi["task_s"] == pytest.approx(3 * 3600) and mi["dist_m"] == pytest.approx(p.mission.escort_radius_m)
+    prob, _ = sizing.build(p)
+    prob.run_model()
+    v, w = float(prob.get_val("v")[0]), mi["wind_ms"]
+    assert prob.get_val("perf.mission_time")[0] == pytest.approx(3 * 3600 + 2 * mi["dist_m"] / (v - w))
+    # The lifting body's room for its battery: the section's area along the span, less the battery and kit.
+    mesh = prob.get_val("wing.mesh")
+    c = mesh[-1, :, 0] - mesh[0, :, 0]
+    y = mesh[0, :, 1]
+    tc = prob.get_val("wing.t_over_c")
+    inside = 2e3 * np.sum(0.685 * tc * ((c[1:] + c[:-1]) / 2) ** 2 * np.diff(y))
+    assert prob.get_val("room.inside_l")[0] == pytest.approx(inside)
+    vol = p.volume
+    assert prob.get_val("room.room_l")[0] == pytest.approx(
+        vol.usable_frac * inside - p.propulsion.battery_kg / vol.battery_kg_per_l - vol.fixed_l)
+
+
+def test_tandem_sizes_two_wings_balanced_to_hover_and_floats_props_clear():
+    from osprey.recon import geometry, loiter, water
+
+    p = loiter.load("tandem", 2.0, 200.0)
+    prob, _ = sizing.build(p)
+    prob.run_model()
+    S = prob.get_val("AS_point_0.total_perf.front_S_ref")[0] + prob.get_val("AS_point_0.total_perf.rear_S_ref")[0]
+    assert prob.get_val("mass.S")[0] == pytest.approx(S, rel=1e-3)          # OpenAeroStruct's is the bent wing's
+    d = prob.check_totals(of=["total.mass"], wrt=["rear.geometry.span"], method="fd", out_stream=None)
+    v = d[("total.mass", "rear.geometry.span")]
+    assert np.asarray(v.get("J_rev", v.get("J_fwd"))).ravel()[0] == pytest.approx(np.asarray(v["J_fd"]).ravel()[0], rel=1e-3)
+    # The floats carry reserve x the weight between them, and grow with it.
+    a, b = sizing.nacelle_floats(p, 6.0), sizing.nacelle_floats(p, 12.0)
+    assert a["count"] * a["volume_l"] == pytest.approx(p.nacelle_floats.reserve * 6.0 / 1.025)
+    assert b["kg"] > a["kg"] and b["cda_m2"] > a["cda_m2"]
+    r = loiter.one(("tandem", 2.0, 200.0))
+    assert r["ok"], r.get("why")
+    dd = r["design"]
+    lo_cg, hi_cg = p.stability.cg_x_bounds_m
+    assert lo_cg - 1e-6 <= dd["cg_x_m"] <= hi_cg + 1e-6                   # the prop rows share the weight
+    assert dd["static_margin"] >= p.stability.static_margin_min - 1e-4 and abs(dd["cm_trim"]) < 1e-4
+    assert all(s["span_m"] >= 2.0 - 1e-6 for s in dd["surfaces"].values())
+    assert r["afloat"]["prop_clear_m"] >= p.water.prop_clearance_m - 0.01
+    for q in geometry.build(p, dd):
+        v_, f_ = q.verts, q.faces
+        assert np.einsum("ij,ij->i", v_[f_[:, 0]], np.cross(v_[f_[:, 1]], v_[f_[:, 2]])).sum() > 0, q.name
+    assert sum(q.kind == "disc" for q in geometry.build(p, dd)) == p.hover.props
