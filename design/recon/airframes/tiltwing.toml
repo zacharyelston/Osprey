@@ -1,0 +1,104 @@
+# Airframe variant: the loiter craft as a tandem tilt-wing, on the layout of a
+# quad tilt-wing model built in Onshape. Two wings, the rear 1.2 m behind the
+# front and a little above it, each turning on a spanwise shaft through bevel
+# gears; one prop a side on each, at 52 % of the semi-span. Each nacelle runs
+# inline, prop, motor, nacelle through the wing, then on behind the trailing
+# edge as a streamlined float. With the wings turned up for the hover the props
+# point up and the four float tails point down: it stands on them in the water,
+# its body level and dry, lifts straight off, then turns the wings forward and
+# flies on them. All four props pull in cruise.
+# Overlaid on design/recon/airframe.toml with `--airframe tiltwing`; sized for
+# hours on station by `osprey recon-loiter` (design/recon/loiter.toml).
+#
+# Two lifting surfaces are sized together in OpenAeroStruct, each with its own
+# spar; the CG sits between the pivots, trimmed and with a static margin.
+
+[layout]
+kind = "tandem"
+vtol = "tiltwing"
+label = "Tandem tilt-wing: two wings that turn up to hover, a prop a side on each, nacelles whose tails are floats"
+
+[wing]                     # the front wing
+num_y = 11
+num_x = 2
+span_m = 3.0
+cd0_extra = 0.003          # moulded finish, no panel joints
+root_chord_m = 0.22
+span_bounds_m = [2.0, 4.0]                # stows in panels to 4 m, as the lifting body's
+chord_scale_bounds = [0.4, 1.6]
+pivot_frac = 0.25          # the tilt shaft, at this fraction of the chord: the spar
+
+[rear]                     # the rear wing, x_m behind the front and z_m above it
+span_m = 3.0
+root_chord_m = 0.22
+t_over_c = 0.12
+span_bounds_m = [2.0, 4.0]
+chord_scale_bounds = [0.4, 1.6]
+x_m = 1.20                 # the model's stagger is half its span; 1.2 m keeps a 4 m craft's pod short
+z_m = 0.15                 # the model's wings are level; a gap keeps the rear out of the front's wake sheet
+
+[manufacture]
+method = "molded"          # moulded composite wings and pod, as the lifting body: no printer-bed limit on chord
+
+[skin]
+areal_kg_m2 = 0.35         # moulded glass/carbon skin over ribs, per wetted m², as the blended wing's
+rib_fraction = 0.25
+
+[stability]
+static_margin_min = 0.10   # of the front wing's mean chord
+cg_x_bounds_m = [0.55, 0.79]   # aft of the front wing's leading edge: between the pivots, so the two prop
+                               # pairs share the hover no worse than 60/40
+probe_alpha_deg = 1.0
+
+[spar]
+radius_bounds_m = [0.004, 0.020]
+wall_bounds_m = [0.0008, 0.003]   # no thinner than 0.8 mm: thinner, the search finds spars the coupled solve can't settle
+
+[fuselage]                 # the pod: battery, avionics, gimbal
+length_m = 1.70
+diameter_m = 0.20
+nose_x_m = 0.35            # ahead of the front wing's leading edge
+axis_z_m = 0.06            # above the front wing's plane: a low front wing, the rear on a short fin
+
+[body]
+mass_kg = 0.90             # the moulded pod and hatch, four elevon servos, the fin, wiring, and two tilt
+                           # drives at 0.15 kg (shaft, bevel gears, servo, bearings)
+cda_m2 = 0.005             # the pod and gimbal; the nacelles are added with their floats
+
+[nacelle_floats]           # each nacelle runs on behind the trailing edge as a float, inline with the chord
+count = 4
+reserve = 2.0              # the four floats alone carry this x the craft's weight, standing on them
+fineness = 7.0             # the float's length / diameter
+areal_kg_m2 = 0.35         # moulded skin, per wetted m²
+fittings_kg = 0.03         # each: motor mount, seals, drain plug
+drop_m = 0.0               # inline: no pylon
+cf = 0.0055                # turbulent skin friction at a 0.5-0.8 m float's Reynolds number
+nose_cda_m2 = 0.0003       # each: the motor end of the nacelle, ahead of the wing
+
+[avionics]
+mass_kg = 0.30             # autopilot, GNSS, a long-range radio and video link
+power_w = 10.0
+
+[hover]
+props = 4
+prop_diameter_m = 0.50
+figure_of_merit = 0.65
+thrust_to_weight = 1.5     # peak: control in gusts, and the climb off the water
+specific_kg_per_kw = 0.22  # motor, ESC and prop per kW of peak shaft power
+fixed_kg = 0.06            # mounts and wiring for four motors
+time_s = 60.0              # hover per sortie: the lift-off and transition, and the landing
+prop_y_frac = [0.26]       # one prop a side, at this fraction of its wing's span from the centreline (the model's 52 % of the semi-span)
+
+[propulsion]
+battery_kg = 3.0
+battery_bounds_kg = [0.3, 10.0]
+prop_efficiency = 0.66     # four big hover props turned into cruise, lightly loaded
+mass_guess_kg = 6.0
+
+[limits]
+stall_speed_max_ms = 15.0  # it lands on its props: no net or water landing to protect
+search_speed_bounds_ms = [8.0, 30.0]
+search_speed_init_ms = 13.0
+tip_bend_max = 0.10         # the tip's rise at the 3 g manoeuvre, of the semi-span
+manoeuvre_speed_ms = 21.0  # V_A: the 3 g manoeuvre and gusts here, about sqrt(3) x a 12 m/s stall,
+                           # not at the loiter speed, where it would stall first

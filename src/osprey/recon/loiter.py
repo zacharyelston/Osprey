@@ -4,9 +4,10 @@ problem and time to observe is. Two layouts, side by side:
 - liftbody: a blended lifting body, the battery inside its thick centre body,
   long outer panels and one pusher; it takes off from the water on a planing
   shoe and lands on it.
-- tandem: a tandem tilt-body after the Opener BlackFly, a jellybean hull and
-  a front and a rear wing with four props on each; it lifts off on its props
-  and lands on its belly.
+- tiltwing: a tandem tilt-wing, a front and a rear wing that turn up to hover,
+  a prop a side on each, and nacelles whose tails behind the wing are floats;
+  it stands on them in the water with its wings up, lifts straight off, and
+  turns the wings forward to fly.
 
 Each is sized for each time on station and battery (design/recon/loiter.toml)
 on the watch-passage job, an escort round the sailing boat, then flown through
@@ -44,7 +45,7 @@ def load(airframe: str, hours: float, wh_per_kg: float | None = None, payload: s
 
 
 def label(airframe: str) -> str:
-    return {"liftbody": "lifting body", "tandem": "tandem tilt-body"}[airframe]
+    return {"liftbody": "lifting body", "tiltwing": "tandem tilt-wing"}[airframe]
 
 
 def one(args) -> dict:
@@ -67,7 +68,8 @@ def one(args) -> dict:
             "ok": bool(d["converged"]) and s["outcome"] == "recovered" and bool(s["goal_met"])}
     m = d["mass_total_kg"]
     try:
-        out["afloat"] = water.afloat(p, d, m)
+        # The tilt-wing waits on the water standing on its float tails, wings up.
+        out["afloat"] = water.afloat(p, {**d, "wing_tilt_deg": 90.0} if tailsitter.vtol(p) else d, m)
     except Exception as e:                           # the design flies; say why it couldn't be floated
         out["afloat_why"] = f"{type(e).__name__}: {e}"
     if tailsitter.vtol(p):
@@ -121,6 +123,8 @@ def _afloat(r: dict) -> str:
         return r.get("afloat_why", "")
     prop = (f"props {fl['prop_clear_m'] * 100:.0f} cm clear" if fl["prop_clear_m"] >= 0
             else f"props {-fl['prop_clear_m'] * 100:.0f} cm in the water")
+    if r["airframe"] == "tiltwing":                  # standing on its float tails, wings up: the props are high
+        prop = f"standing on its float tails, the gimbal {fl['camera_clear_m'] * 100:.0f} cm clear"
     return f"{fl['reserve']:.1f}x reserve, trim {fl['trim_deg']:+.0f}°, {prop}"
 
 
@@ -138,9 +142,9 @@ def report(rows: list[dict]) -> str:
              f"of at most {li_battery_max():.0f} kg keeps the craft one or two people can handle from a boat.", "",
              "- **Lifting body** (`--airframe liftbody`): a blended wing body, the battery inside its thick centre body, "
              "one pusher; it takes off from the water on a planing shoe and lands on it.",
-             "- **Tandem tilt-body** (`--airframe tandem`): flown like the Opener BlackFly. Staggered wings, the front low "
-             "and the rear high and 1 m aft, four props on each, a slim pod between; it lifts off by pitching up onto "
-             "its props and lands on eight nacelle floats.", "",
+             "- **Tandem tilt-wing** (`--airframe tiltwing`): two wings, the rear 1.2 m aft, that turn up to hover; a "
+             "prop a side on each, and nacelles whose tails behind the wing are floats. It stands on them in the water "
+             "with its wings up and its pod dry, lifts straight off, and turns the wings forward to fly.", "",
              "## Take-off mass for each time on station", "",
              "| Hours on station | " + " | ".join(f"{label(a)}, {e:.0f} Wh/kg" for a in sw.airframes
                                                 for e in sw.battery_wh_per_kg) + " |",
@@ -170,7 +174,7 @@ def report(rows: list[dict]) -> str:
 
 def li_battery_max() -> float:
     from osprey.recon.params import load as load_recon
-    return load_recon("escort-flanks", airframe="tandem").propulsion.battery_bounds_kg[1]
+    return load_recon("escort-flanks", airframe="tiltwing").propulsion.battery_bounds_kg[1]
 
 
 def pair(rows: list[dict], wh: float) -> tuple[dict, dict] | None:
@@ -182,3 +186,84 @@ def pair(rows: list[dict], wh: float) -> tuple[dict, dict] | None:
         if all(r and r.get("ok") for r in rs):
             return tuple(rs)
     return None
+
+
+def stance(p, d: dict, mass_kg: float, tilt_deg: float = 3.0) -> dict:
+    """Standing on its float tails, wings up: how far the wings' trailing edges and the gimbal sit above the
+    calm water, and the metacentric height each way, from the centre of buoyancy's shift when tipped."""
+    from osprey.recon import geometry, tailsitter as ts, water
+
+    dd = {**d, "wing_tilt_deg": 90.0}
+    parts = geometry.build(p, dd)
+    sealed = [q for q in parts if q.kind in water.SEALED]
+    cg = water.cg(p, dd)
+    need = mass_kg / p.water.density_kgm3
+    out = {}
+    for axis, yaw in (("pitch", 0.0), ("roll", math.pi / 2)):
+        R0 = ts._rot_z(yaw)
+        ms0 = ts._posed(sealed, cg, R0)
+        h0 = ts._level(ms0, need)
+        x0 = water._below(ms0, h0)[1]
+        t = math.radians(tilt_deg)
+        ms1 = ts._posed(sealed, cg, ts._rot_y(t) @ R0)
+        x1 = water._below(ms1, ts._level(ms1, need))[1]
+        out[f"gm_{axis}_m"] = (x1 - x0) / math.sin(t)
+        if axis == "pitch":
+            h = h0
+    low = lambda kinds: min(float((q.verts - cg)[:, 2].min()) for q in parts if q.kind in kinds) - h
+    return {**out, "draft_m": h - min(float((q.verts - cg)[:, 2].min()) for q in sealed),
+            "wing_clear_m": low(("shell0", "shell1")), "camera_clear_m": low(water.CAMERAS)}
+
+
+def one_floats(args) -> dict:
+    """The tilt-wing re-sized with its float tails at one reserve and fineness, flown, and stood in the water."""
+    import warnings
+
+    from osprey.recon import flight, sizing
+
+    warnings.filterwarnings("ignore")
+    reserve, fineness = args
+    fl = inputs().floats
+    p = load("tiltwing", fl.hours, fl.battery_wh_per_kg)
+    p.nacelle_floats.reserve, p.nacelle_floats.fineness = reserve, fineness
+    out = {"reserve": reserve, "fineness": fineness}
+    try:
+        d, _ = sizing.size_and_fly(p)
+    except Exception as e:
+        return out | {"ok": False, "why": f"{type(e).__name__}: {e}"}
+    ac = flight.Aircraft.from_design(p, d)
+    s = flight.summary(p, ac, flight.simulate(p, ac, t_max=fl.hours * 3600 + 4 * 3600))
+    m = d["mass_total_kg"]
+    return out | {"ok": bool(d["converged"]) and s["outcome"] == "recovered" and bool(s["goal_met"]),
+                  "design": d, "flight": s, "floats": d["nacelle_floats"], "stance": stance(p, d, m)}
+
+
+def float_sweep(workers: int = 0) -> list[dict]:
+    fl = inputs().floats
+    jobs = [(r, f) for f in fl.fineness for r in fl.reserve]
+    if workers == 1:
+        return [one_floats(j) for j in jobs]
+    with ProcessPoolExecutor(max_workers=workers or None) as ex:
+        return list(ex.map(one_floats, jobs))
+
+
+def float_report(rows: list[dict]) -> str:
+    fl = inputs().floats
+    lines = ["# The tilt-wing's float tails: how small", "",
+             f"The tandem tilt-wing re-sized for {fl.hours:g} h on station at {fl.battery_wh_per_kg:.0f} Wh/kg with its four "
+             "float tails at each buoyancy reserve (their sealed volume over what the craft displaces) and fineness "
+             "(length over diameter), flown, and stood in calm water on them with its wings up (`loiter.stance`). "
+             "GM: the metacentric height, from the centre of buoyancy's shift when tipped 3°; positive is stable.", "",
+             "| Reserve | Fineness | Float, each | Floats' mass, drag area | Mass | On station | Draft | Wings' trailing edges "
+             "above the water | Gimbal | GM pitch, roll |", "|---|---|---|---|---|---|---|---|---|---|"]
+    for r in sorted(rows, key=lambda r: (r["fineness"], r["reserve"])):
+        if not r.get("ok"):
+            lines.append(f"| {r['reserve']:g} | {r['fineness']:g} | doesn't close: {r.get('why', 'not recovered')} | | | | | | | |")
+            continue
+        f, d, st = r["floats"], r["design"], r["stance"]
+        lines.append(f"| {r['reserve']:g} | {r['fineness']:g} | {f['volume_l']:.1f} l, {f['length_m'] * 100:.0f} x "
+                     f"{f['diameter_m'] * 100:.1f} cm | {f['kg']:.2f} kg, {f['cda_m2'] * 1e4:.0f} cm² | "
+                     f"{d['mass_total_kg']:.2f} kg | {d['power_w']:.0f} W | {st['draft_m'] * 100:.0f} cm | "
+                     f"{st['wing_clear_m'] * 100:.0f} cm | {st['camera_clear_m'] * 100:.0f} cm | "
+                     f"{st['gm_pitch_m']:.2f}, {st['gm_roll_m']:.2f} m |")
+    return "\n".join(lines) + "\n"

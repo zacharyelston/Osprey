@@ -488,7 +488,7 @@ def cyclone_sweep(rows: list[dict], title: str, path):
     plt.close(fig)
 
 
-LOITER_COLORS = {"liftbody": "#4C72B0", "tandem": "#DD8452"}
+LOITER_COLORS = {"liftbody": "#4C72B0", "tiltwing": "#DD8452"}
 
 
 def loiter(rows: list[dict], path):
@@ -516,5 +516,35 @@ def loiter(rows: list[dict], path):
     fig.legend(h, lab, loc="lower center", ncol=4, fontsize=9, frameon=False)
     fig.suptitle("The loiter craft: each airframe sized for each time on station (missing points don't close)", fontsize=12)
     fig.tight_layout(rect=(0, 0.07, 1, 0.95))
+    fig.savefig(path, dpi=130)
+    plt.close(fig)
+
+
+def loiter_floats(rows: list[dict], path):
+    """The float-tail sweep: the craft's mass, the floats' share of it and the wings' trailing edges above the water
+    against the floats' reserve, a line for each fineness."""
+    ok = [r for r in rows if r.get("ok")]
+    fins = sorted({r["fineness"] for r in rows})
+    cols = dict(zip(fins, ("#4C72B0", "#DD8452", "#55A868")))
+    panels = [(lambda r: r["design"]["mass_total_kg"], "Take-off mass (kg)", None),
+              (lambda r: r["design"]["power_w"], "Power on station (W)", None),
+              (lambda r: r["stance"]["wing_clear_m"] * 100, "Standing: wings' trailing edges above the water (cm)", 0.0),
+              (lambda r: min(r["stance"]["gm_pitch_m"], r["stance"]["gm_roll_m"]), "Standing: the lesser GM (m)", 0.0)]
+    fig, axs = plt.subplots(1, 4, figsize=(17, 4.4))
+    for ax, (fn, name, line) in zip(axs, panels):
+        for fi in fins:
+            pts = sorted((r["reserve"], fn(r)) for r in ok if r["fineness"] == fi)
+            if pts:
+                x, y = zip(*pts)
+                ax.plot(x, y, color=cols[fi], lw=1.8, marker="o", ms=7, label=f"fineness {fi:g}")
+        if line is not None:
+            ax.axhline(line, color="#444444", lw=0.8, ls=":")
+        ax.set_xlabel("floats' reserve (x what it displaces)")
+        ax.set_title(name, fontsize=10)
+        ax.grid(alpha=0.3)
+    h, lab = axs[0].get_legend_handles_labels()
+    fig.legend(h, lab, loc="lower center", ncol=3, fontsize=9, frameon=False)
+    fig.suptitle("The tilt-wing's float tails: each size re-sized for 4 h on station, then stood in calm water", fontsize=12)
+    fig.tight_layout(rect=(0, 0.08, 1, 0.93))
     fig.savefig(path, dpi=130)
     plt.close(fig)

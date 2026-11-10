@@ -178,7 +178,7 @@ def threeview(p, d: dict, path: Path, W: int = 1800, H: int = 640):
           labels=[(14, f"top: {d['span_m']:.2f} m span"),
                   (w3 + 14, {"bwb": "front: winglets, payload, pusher prop",
                              "crescent": "front: upswept tips, nose pod, pusher prop",
-                             "tandem": "front: staggered wings, eight props, nacelle floats"}.get(
+                             "tandem": "front: two wings, four props, float tails"}.get(
                       d.get("airframe"), "front: 3 deg dihedral, gimbal, pusher prop")),
                   (2 * w3 + 14, f"side: {L:.2f} m long")])
 

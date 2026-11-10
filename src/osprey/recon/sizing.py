@@ -25,7 +25,7 @@ SLSQP minimizes take-off mass subject to:
 - battery endurance >= mission time plus reserve;
 - for a lifting body, the battery fitting inside the wing.
 
-A tandem (the tilt-body loiter craft) is two lifting surfaces, front and
+A tandem (the tilt-wing loiter craft) is two lifting surfaces, front and
 rear, sized together: OpenAeroStruct's vortex lattice sees both, each has its
 own spar, and the craft is trimmed and kept stable between them.
 
@@ -457,6 +457,10 @@ def build(p, time_factor: float = 1.0) -> tuple[om.Problem, dict]:
     prob.driver = om.ScipyOptimizeDriver(optimizer="SLSQP", tol=1e-6, maxiter=200, disp=False)
     prob.setup(force_alloc_complex=True)
     prob.set_solver_print(level=-1)
+    if tandem(p):
+        # Two coupled wings: give each point's aerostructural loop more room to settle.
+        for k in range(len(points)):
+            m._get_subsystem(f"AS_point_{k}.coupled").nonlinear_solver.options["maxiter"] = 300
     return prob, mi
 
 
@@ -496,7 +500,7 @@ def optimize(p, time_factor: float = 1.0) -> dict:
             if k == len(starts) - 1:
                 raise
             continue
-        ok = bool(fail.success) if hasattr(fail, "success") else not fail
+        ok = (bool(fail.success) if hasattr(fail, "success") else not fail) and _feasible(prob)
         if ok:
             break
     g = lambda n, u=None: np.atleast_1d(prob.get_val(n, units=u)).astype(float)
@@ -579,6 +583,23 @@ def optimize(p, time_factor: float = 1.0) -> dict:
     return d
 
 
+def _feasible(prob, tol: float = 1e-3) -> bool:
+    """Every constraint holds at the driver's answer: SLSQP can report success from a point that doesn't."""
+    for name, meta in prob.model.get_constraints().items():
+        v = np.atleast_1d(prob.get_val(meta["source"], units=meta.get("units"))).astype(float)
+        if meta.get("indices") is not None:
+            v = v.ravel()[meta["indices"].as_array()]
+        ref = abs(meta.get("ref") or 1.0)
+        if meta.get("equals") is not None and np.any(np.abs(v - meta["equals"]) > tol * ref):
+            return False
+        lo, hi = meta.get("lower"), meta.get("upper")
+        if lo is not None and lo > -1e29 and np.any(v < lo - tol * ref):
+            return False
+        if hi is not None and hi < 1e29 and np.any(v > hi + tol * ref):
+            return False
+    return True
+
+
 def _names(p) -> list[str]:
     return ["front", "rear"] if tandem(p) else ["wing"]
 
@@ -589,9 +610,10 @@ def scaled_motors(p) -> bool:
 
 
 def nacelle_floats(p, mass_kg: float) -> dict:
-    """The tandem's eight nacelle floats, sized to carry reserve x its weight between them: each a
-    streamlined body of the given fineness, its skin mass and its drag (flat-plate friction on the
-    wetted area with a body form factor), plus its pylon."""
+    """The tilt-wing's nacelle floats, sized to carry reserve x its weight between them, standing on
+    them: each the nacelle's tail behind the trailing edge, a streamlined body of the given fineness;
+    its skin mass and its drag (flat-plate friction on the wetted area with a body form factor), plus
+    the motor end of the nacelle ahead of the wing."""
     nf = p.nacelle_floats
     vol = nf.reserve * mass_kg / p.water.density_kgm3 / nf.count
     dia = (4 * vol / (0.65 * math.pi * nf.fineness)) ** (1 / 3)           # prismatic coefficient 0.65
@@ -600,7 +622,7 @@ def nacelle_floats(p, mass_kg: float) -> dict:
     ff = 1 + 1.5 / nf.fineness**1.5 + 7 / nf.fineness**3
     return {"count": nf.count, "volume_l": vol * 1e3, "diameter_m": dia, "length_m": length, "drop_m": nf.drop_m,
             "kg": nf.count * (wet * nf.areal_kg_m2 + nf.fittings_kg),
-            "cda_m2": nf.count * (nf.cf * ff * wet + nf.pylon_cda_m2)}
+            "cda_m2": nf.count * (nf.cf * ff * wet + nf.nose_cda_m2)}
 
 
 def motors(p, mass_kg: float) -> tuple[float, float]:

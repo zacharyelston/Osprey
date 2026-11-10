@@ -726,30 +726,37 @@ def test_a_loiter_flies_its_time_on_station_however_fast():
         vol.usable_frac * inside - p.propulsion.battery_kg / vol.battery_kg_per_l - vol.fixed_l)
 
 
-def test_tandem_sizes_two_wings_balanced_to_hover_and_floats_props_clear():
+def test_tiltwing_sizes_two_wings_balanced_to_hover_and_stands_on_its_float_tails():
     from osprey.recon import geometry, loiter, water
 
-    p = loiter.load("tandem", 2.0, 200.0)
+    p = loiter.load("tiltwing", 2.0, 200.0)
     prob, _ = sizing.build(p)
     prob.run_model()
     S = prob.get_val("AS_point_0.total_perf.front_S_ref")[0] + prob.get_val("AS_point_0.total_perf.rear_S_ref")[0]
     assert prob.get_val("mass.S")[0] == pytest.approx(S, rel=1e-3)          # OpenAeroStruct's is the bent wing's
-    d = prob.check_totals(of=["total.mass"], wrt=["rear.geometry.span"], method="fd", out_stream=None)
+    d = prob.check_totals(of=["total.mass"], wrt=["rear.geometry.span"], method="cs", out_stream=None)
     v = d[("total.mass", "rear.geometry.span")]
-    assert np.asarray(v.get("J_rev", v.get("J_fwd"))).ravel()[0] == pytest.approx(np.asarray(v["J_fd"]).ravel()[0], rel=1e-3)
+    assert np.asarray(v.get("J_rev", v.get("J_fwd"))).ravel()[0] == pytest.approx(np.asarray(v["J_fd"]).ravel()[0], rel=1e-6)
     # The floats carry reserve x the weight between them, and grow with it.
     a, b = sizing.nacelle_floats(p, 6.0), sizing.nacelle_floats(p, 12.0)
     assert a["count"] * a["volume_l"] == pytest.approx(p.nacelle_floats.reserve * 6.0 / 1.025)
     assert b["kg"] > a["kg"] and b["cda_m2"] > a["cda_m2"]
-    r = loiter.one(("tandem", 2.0, 200.0))
+    r = loiter.one(("tiltwing", 2.0, 200.0))
     assert r["ok"], r.get("why")
     dd = r["design"]
     lo_cg, hi_cg = p.stability.cg_x_bounds_m
-    assert lo_cg - 1e-6 <= dd["cg_x_m"] <= hi_cg + 1e-6                   # the prop rows share the weight
+    assert lo_cg - 1e-6 <= dd["cg_x_m"] <= hi_cg + 1e-6                   # between the pivots: the props share the hover
     assert dd["static_margin"] >= p.stability.static_margin_min - 1e-4 and abs(dd["cm_trim"]) < 1e-4
     assert all(s["span_m"] >= 2.0 - 1e-6 for s in dd["surfaces"].values())
-    assert r["afloat"]["prop_clear_m"] >= p.water.prop_clearance_m - 0.01
-    for q in geometry.build(p, dd):
-        v_, f_ = q.verts, q.faces
-        assert np.einsum("ij,ij->i", v_[f_[:, 0]], np.cross(v_[f_[:, 1]], v_[f_[:, 2]])).sum() > 0, q.name
-    assert sum(q.kind == "disc" for q in geometry.build(p, dd)) == p.hover.props
+    fl = r["afloat"]                                                        # wings up, on the float tails: pod dry, level
+    assert fl["camera_clear_m"] > 0.1 and abs(fl["trim_deg"]) < 5
+    for tilt in (0.0, 90.0):
+        parts = geometry.build(p, {**dd, "wing_tilt_deg": tilt})
+        for q in parts:
+            v_, f_ = q.verts, q.faces
+            assert np.einsum("ij,ij->i", v_[f_[:, 0]], np.cross(v_[f_[:, 1]], v_[f_[:, 2]])).sum() > 0, q.name
+        assert sum(q.kind == "disc" for q in parts) == p.hover.props
+    up = geometry.build(p, {**dd, "wing_tilt_deg": 90.0})
+    discs = [q.verts[:, 2].mean() for q in up if q.kind == "disc"]
+    floats = [q.verts[:, 2].min() for q in up if q.name.startswith("float")]
+    assert min(discs) > max(floats) + 0.5 and max(floats) - min(floats) < 0.02    # props up, every float tail at one level

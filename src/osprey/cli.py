@@ -548,7 +548,7 @@ def cmd_recon_cyclone_sweep(args) -> int:
 
 
 def cmd_recon_loiter(args) -> int:
-    """The loiter craft: the lifting body and the tandem tilt-body, each sized for each time on station
+    """The loiter craft: the lifting body and the tandem tilt-wing, each sized for each time on station
     and battery (design/recon/loiter.toml), flown and floated; renders of the longest pair that both close."""
     from osprey.recon import figures as rfig
     from osprey.recon import loiter
@@ -557,6 +557,15 @@ def cmd_recon_loiter(args) -> int:
 
     o = Path(args.out) if args.out else OUT / "recon-loiter"
     o.mkdir(parents=True, exist_ok=True)
+    if args.floats:
+        rows = loiter.float_sweep(args.workers)
+        (o / "floats.json").write_text(json.dumps(rows, indent=1, default=float))
+        (o / "floats.md").write_text(loiter.float_report(rows))
+        rfig.loiter_floats(rows, o / "floats.png")
+        for r in rows:
+            print(f"floats {r['reserve']:g}x, fineness {r['fineness']:g}: "
+                  + (f"{r['design']['mass_total_kg']:.2f} kg" if r.get("ok") else f"doesn't close ({r.get('why')})"))
+        return 0
     if args.run:
         rows = json.loads((Path(args.run) / "sweep.json").read_text())
     else:
@@ -604,6 +613,7 @@ def main(argv=None) -> int:
     ap.add_argument("--payload", default="gimbal", help="recon: gimbal, or a design/recon/payloads variant (dual); "
                                                               "recon-cyclone and recon-cyclone-sweep also take all")
     ap.add_argument("--airframe", default="twinboom", help="recon: twinboom, or a design/recon/airframes variant (bwb)")
+    ap.add_argument("--floats", action="store_true", help="recon-loiter: sweep the tilt-wing's float tails instead")
     ap.add_argument("--water", action="store_true", help="recon: size and fly with the float kit aboard (recon/water.py)")
     ap.add_argument("--run", default=None, help="recon-render, -plug, -frame, -water: a run directory holding <mission>/design.json "
                                                 "(default out/recon); recon-cyclone: one holding <payload>/matrix.json "
