@@ -27,8 +27,6 @@ root_chord_m = 0.22
 span_bounds_m = [2.0, 4.0]                # stows in panels to 4 m, as the lifting body's
 chord_scale_bounds = [0.4, 1.6]
 pivot_frac = 0.25          # the tilt shaft, at this fraction of the chord: the spar
-fem_origin = 0.25          # so the spar's elastic axis is at the aerodynamic centre, not 5 % behind it (which twisted
-                           # the long wings toward divergence)
 
 [rear]                     # the rear wing, x_m behind the front and z_m above it
 span_m = 3.0
