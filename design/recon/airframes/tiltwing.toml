@@ -55,14 +55,14 @@ radius_bounds_m = [0.008, 0.020]  # no smaller than 8 mm, 0.8 mm wall: the tube 
 wall_bounds_m = [0.0008, 0.003]   # (the moulded skin's isn't counted), and a smaller one twists toward divergence
                                   # with the elastic axis behind the aerodynamic centre
 
-[fuselage]                 # the pod: battery, avionics, gimbal
-length_m = 1.70
-diameter_m = 0.20
-nose_x_m = 0.35            # ahead of the front wing's leading edge
-axis_z_m = 0.06            # above the front wing's plane: a low front wing, the rear on a short fin
+[fuselage]                 # the pod: battery, avionics, gimbal, and both wings' tilt shafts and drives
+length_m = 1.85            # past the rear shaft, to a fair tail
+diameter_m = 0.22          # deep enough for both shafts, the front 7.5 cm below its axis and the rear 7.5 cm above
+nose_x_m = 0.30            # ahead of the front wing's leading edge
+axis_z_m = 0.075           # above the front wing's plane: half the wings' gap
 
 [body]
-mass_kg = 0.90             # the moulded pod and hatch, four elevon servos, the fin, wiring, and two tilt
+mass_kg = 0.90             # the moulded pod and hatch, four elevon servos, wiring, and two tilt
                            # drives at 0.15 kg (shaft, bevel gears, servo, bearings)
 cda_m2 = 0.005             # the pod and gimbal; the nacelles are added with their floats
 

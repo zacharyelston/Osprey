@@ -493,13 +493,27 @@ def _tilt(parts: list[Part], xp: float, zp: float, tilt: float) -> list[Part]:
     return parts
 
 
+def _streamlined(x_front: float, x_back: float, y: float, z: float, r: float, nose: float = 0.15,
+                 full: float = 0.45, n: int = 24) -> tuple[np.ndarray, np.ndarray]:
+    """A streamlined body of revolution along x, from x_front back to x_back: a round nose over the first
+    `nose` of its length, full radius r to `full`, then tapering to a point."""
+    s = np.linspace(0, 1, n)
+    k = np.where(s < nose, np.sqrt(np.clip(1 - ((nose - s) / nose) ** 2, 0, 1)),
+                 np.where(s < full, 1.0, np.clip(1 - ((s - full) / (1 - full)) ** 2, 0, 1) ** 0.8))
+    k = np.maximum(k, 0.03)
+    a = np.linspace(0, 2 * math.pi, 20, endpoint=False)
+    return loft([np.stack([np.full_like(a, x_front + q * (x_back - x_front)), y + rr * r * np.cos(a),
+                           z + rr * r * np.sin(a)], 1) for q, rr in zip(s, k)])
+
+
 def build_tandem(p, d: dict, *, explode: float = 0.0) -> list[Part]:
-    """The tandem tilt-wing: the front wing low and the rear a little higher and well aft, a pod
-    between them with the gimbal under it, and a fin carrying the rear wing. A prop a side on each
-    wing; each nacelle runs inline from the prop through the wing and on behind the trailing edge as
-    a float. Each wing, with its nacelles and props, turns about its shaft by d["wing_tilt_deg"] (0
-    in cruise, 90 to hover or to stand on the float tails in the water); the rear floats are longer
-    by the wings' gap, so standing, all four reach the same water."""
+    """The tandem tilt-wing, after the quad tilt-wing model it is based on: a pod deep enough to carry both
+    wings' tilt shafts, the front wing below its axis and the rear above; each half-wing starts at the pod's
+    side and turns on its shaft. A prop a side on each wing; each nacelle is one streamlined body, spinner,
+    motor, through the wing at its full section and on behind the trailing edge, tapering, as a float. Each
+    wing, with its nacelles and props, turns about its shaft by d["wing_tilt_deg"] (0 in cruise, 90 to hover
+    or to stand on the float tails in the water); the rear floats are longer by the wings' gap, so standing,
+    all four reach the same water."""
     g, h = p.geometry, p.hover
     parts: list[Part] = []
     tilt = math.radians(d.get("wing_tilt_deg", 0.0))
@@ -507,17 +521,19 @@ def build_tandem(p, d: dict, *, explode: float = 0.0) -> list[Part]:
     rf, Lf = nf["diameter_m"] / 2, nf["length_m"]
     rp = h.prop_diameter_m / 2
     fu = p.fuselage
+    R, zc = fu.diameter_m / 2, fu.axis_z_m
     # Each row's floats carry its share of the weight, standing: the CG between the pivots sets it.
     piv = {n: -(d["surfaces"][n]["le_x_m"][-1] + p.wing.pivot_frac * d["surfaces"][n]["chords_m"][-1])
            for n in ("front", "rear")}
     front_share = (-d.get("cg_x_m", 0.6) - piv["rear"]) / (piv["front"] - piv["rear"])
     share = {"front": front_share, "rear": 1 - front_share}
-    root = {}
     for name, kind, tc in (("front", "shell0", p.wing.t_over_c), ("rear", "shell1", p.rear.t_over_c)):
         s_ = d["surfaces"][name]
         dd = {**d, **{k: s_[k] for k in ("half_span_y_m", "le_x_m", "le_z_m", "chords_m", "twist_deg", "span_m")},
               "t_over_c_cp": [tc]}
-        y, le, c, tw, _, lz = _stations(p, dd, 13)
+        y0, le0, c0, tw0, _, lz0 = _stations(p, dd, 25)
+        y = np.linspace(R + 0.01, y0[-1], 12)                  # from the pod's side to the tip
+        le, c, tw, lz = (np.interp(y, y0, q) for q in (le0, c0, tw0, lz0))
         u, z = naca4(g.airfoil_camber, g.airfoil_camber_pos, tc, 32)
         wing: list[Part] = []
         for sign in (1, -1):
@@ -531,14 +547,14 @@ def build_tandem(p, d: dict, *, explode: float = 0.0) -> list[Part]:
             xle = -float(np.interp(yp, y, le))
             zp = float(np.interp(yp, y, lz))
             cp = float(np.interp(yp, y, c))
+            r = max(rf * math.sqrt(2 * share[name]), 0.6 * tc * cp, 0.035)
+            x_nose, x_tail = xle + 0.16, xle - cp - Lf - extra
             for sign in (1, -1):
                 tag = f"{name}_{sign}_{frac:.2f}"
-                v, f = _tube([xle + 0.12, sign * yp, zp], [xle - 0.5 * cp, sign * yp, zp], 0.035, 14)
-                wing.append(Part(f"nacelle_{tag}", "carbon", v, f))
-                L = Lf + extra + 0.5 * cp                     # from mid-chord, on behind the trailing edge
-                v, f = _pod(xle - cp - Lf - extra, sign * yp, zp, max(rf * math.sqrt(2 * share[name]), 0.036), L)
+                # One body: spinner and motor ahead of the wing, full through it, the float tapering behind.
+                v, f = _streamlined(x_nose, x_tail, sign * yp, zp, r, nose=0.12, full=(0.16 + cp) / (x_nose - x_tail))
                 wing.append(Part(f"float_{tag}", "pod", v, f))
-                xd = xle + 0.13
+                xd = x_nose - 0.03
                 v, f = _tube([xd, sign * yp, zp], [xd - 0.004, sign * yp, zp], rp, 40)
                 wing.append(Part(f"prop_disc_{tag}", "disc", v, f))
                 for blade in (0, math.pi):
@@ -547,30 +563,16 @@ def build_tandem(p, d: dict, *, explode: float = 0.0) -> list[Part]:
                     v, f = _tube([xd - 0.002, sign * yp, zp], [xd - 0.002, sign * yp + tip[1], zp + tip[2]], 0.009, 8)
                     wing.append(Part(f"blade_{tag}_{blade:.0f}", "prop", v, f))
         xp = -(le[0] + p.wing.pivot_frac * c[0])
-        v, f = _tube([xp, -0.45 * fu.diameter_m, lz[0]], [xp, 0.45 * fu.diameter_m, lz[0]], 0.012, 10)
+        v, f = _tube([xp, -(R + 0.02), lz[0]], [xp, R + 0.02, lz[0]], 0.012, 10)
         parts.append(Part(f"shaft_{name}", "carbon", v, f))
         parts += _tilt(wing, xp, float(lz[0]), tilt)
-        root[name] = (le[0], c[0], lz[0])
-    # The pod: a body of revolution, round nose, tapering tail.
-    L, R, x0, zc = fu.length_m, fu.diameter_m / 2, fu.nose_x_m, fu.axis_z_m
-    xs = np.linspace(0, 1, 20)
-    radius = R * np.where(xs < 0.2, np.sqrt(np.clip(1 - ((0.2 - xs) / 0.2) ** 2, 0.02, 1)),
-                          1 - 0.7 * (np.clip(xs - 0.5, 0, None) / 0.5) ** 1.5)
-    a = np.linspace(0, 2 * math.pi, 24, endpoint=False)
-    v, f = loft([np.stack([np.full_like(a, x0 - x * L), r * np.cos(a), zc + r * np.sin(a)], 1)
-                 for x, r in zip(xs, radius)])
+    # The pod: round nose, full section past both shafts, then a fair tail.
+    v, f = _streamlined(fu.nose_x_m, fu.nose_x_m - fu.length_m, 0.0, zc, R, nose=0.15, full=0.75)
     parts.append(Part("pod", "pod", v, f))
-    # The fin from the pod's back up to the rear wing's shaft.
-    ler, cr, lzr = root["rear"]
-    cf = 0.8 * cr
-    xf = -ler - 0.05 * cr
-    uf, zf_ = naca4(0, 0.4, 0.10, 24)
-    v, f = loft([np.stack([xf - uf * cf, zf_ * cf, np.full_like(uf, zz)], 1) for zz in (zc, lzr + 0.01)])
-    parts.append(Part("fin", "tail", v, f))
-    # The gimbal under the pod at the CG.
+    # The gimbal half under the pod's belly, at the CG.
     xc = -d.get("cg_x_m", 0.6)
-    v, f = _sphere([xc, 0, zc - R - 0.6 * g.gimbal_radius_m], g.gimbal_radius_m)
+    v, f = _sphere([xc, 0, zc - R + 0.3 * g.gimbal_radius_m], g.gimbal_radius_m)
     parts.append(Part("gimbal", "gimbal", v, f))
-    v, f = _sphere([xc + g.gimbal_radius_m * 0.75, 0, zc - R - 0.6 * g.gimbal_radius_m - 0.01], g.gimbal_radius_m * 0.45)
+    v, f = _sphere([xc + g.gimbal_radius_m * 0.75, 0, zc - R + 0.3 * g.gimbal_radius_m - 0.01], g.gimbal_radius_m * 0.45)
     parts.append(Part("lens", "lens", v, f))
     return parts

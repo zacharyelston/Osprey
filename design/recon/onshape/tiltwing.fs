@@ -2,12 +2,13 @@ FeatureScript 3112;
 import(path : "onshape/std/common.fs", version : "3112.0");
 
 // Osprey Recon's loiter tilt-wing as one Onshape feature: two wings, the rear `stagger` behind the front
-// and `gap` above it, each turning about its shaft at `pivot` of the chord by `tilt` (0 in cruise, 90 to
-// hover or stand in the water); a prop a side on each at `propStation` of the span; each nacelle runs
-// inline from the prop through the wing and on behind the trailing edge as a float. The rear floats are
-// longer by the gap, so standing, all four reach the same water. Defaults are the 4 h design from
-// `osprey recon-loiter` (design/recon/airframes/tiltwing.toml). Frame: x aft from the front wing's
-// leading edge, y to port, z up; metres.
+// and `gap` above it, each half starting at the pod's side and turning on its shaft through the pod, at
+// `pivot` of the chord, by `tilt` (0 in cruise, 90 to hover or stand in the water). A two-bladed prop a
+// side on each wing at `propStation` of the span; each nacelle is one streamlined body, spinner and motor
+// ahead of the wing, full through it, then tapering behind the trailing edge as a float. The rear floats
+// are longer by the gap, so standing, all four reach the same water. The pod carries both shafts.
+// Defaults are the 4 h design from `osprey recon-loiter` (design/recon/airframes/tiltwing.toml).
+// Frame: x aft from the front wing's leading edge, y to port, z up; metres.
 
 const SPAN = { (meter) : [0.2, 3.184, 10] } as LengthBoundSpec;
 const SPAN_R = { (meter) : [0.2, 2.957, 10] } as LengthBoundSpec;
@@ -20,10 +21,10 @@ const GAP = { (meter) : [0.0, 0.15, 2] } as LengthBoundSpec;
 const PROP = { (meter) : [0.05, 0.5, 3] } as LengthBoundSpec;
 const FLOAT_D = { (meter) : [0.01, 0.094, 1] } as LengthBoundSpec;
 const FLOAT_L = { (meter) : [0.05, 0.661, 3] } as LengthBoundSpec;
-const POD_L = { (meter) : [0.2, 1.7, 5] } as LengthBoundSpec;
-const POD_D = { (meter) : [0.02, 0.2, 1] } as LengthBoundSpec;
-const POD_NOSE = { (meter) : [0, 0.35, 2] } as LengthBoundSpec;
-const POD_Z = { (meter) : [-0.5, 0.06, 0.5] } as LengthBoundSpec;
+const POD_L = { (meter) : [0.2, 1.85, 5] } as LengthBoundSpec;
+const POD_D = { (meter) : [0.02, 0.22, 1] } as LengthBoundSpec;
+const POD_NOSE = { (meter) : [0, 0.30, 2] } as LengthBoundSpec;
+const POD_Z = { (meter) : [-0.5, 0.075, 0.5] } as LengthBoundSpec;
 const TC = { (unitless) : [0.04, 0.12, 0.3] } as RealBoundSpec;
 const FRAC_PIVOT = { (unitless) : [0, 0.25, 1] } as RealBoundSpec;
 const FRAC_PROP = { (unitless) : [0.05, 0.26, 0.5] } as RealBoundSpec;
@@ -74,6 +75,7 @@ export const ospreyTiltWing = defineFeature(function(context is Context, id is I
     }
     {
         const foil = airfoil(0.02, 0.4, definition.tc, 24);
+        const y0 = definition.podD / 2 + 0.01 * meter;              // each half-wing starts at the pod's side
         const wings = [
                 { "name" : "front", "x" : 0 * meter, "z" : 0 * meter, "span" : definition.frontSpan,
                   "root" : definition.frontRoot, "tip" : definition.frontTip, "extra" : 0 * meter },
@@ -83,34 +85,40 @@ export const ospreyTiltWing = defineFeature(function(context is Context, id is I
         {
             const wid = id + w.name;
             const half = w.span / 2;
-            // Each half: a loft from the root section to the tip section.
+            const c0 = w.root + (w.tip - w.root) * y0 / half;
             for (var side in [1, -1])
             {
                 const sid = wid + (side > 0 ? "L" : "R");
-                section(context, sid + "root", 0 * meter, w.x, w.root, w.z, foil);
+                section(context, sid + "root", side * y0, w.x + (w.root - c0) * definition.pivot, c0, w.z, foil);
                 section(context, sid + "tip", side * half, w.x + (w.root - w.tip) * definition.pivot, w.tip, w.z, foil);
                 opLoft(context, sid + "loft", {
                             "profileSubqueries" : [qSketchRegion(sid + "root"), qSketchRegion(sid + "tip")],
                             "bodyType" : ToolBodyType.SOLID });
                 opDeleteBodies(context, sid + "sketches", { "entities" : qUnion([qCreatedBy(sid + "root", EntityType.BODY),
                                     qCreatedBy(sid + "tip", EntityType.BODY)]) });
-                // The nacelle, prop and float at the prop station.
+                // The nacelle: one body from the spinner to the float's tail, full through the wing.
                 const yp = side * definition.propStation * w.span;
                 const cp = w.root + (w.tip - w.root) * abs(yp) / half;
                 const xle = w.x + (w.root - cp) * definition.pivot;
-                const r = definition.floatD / 2;
-                revolved(context, sid + "nacelle", xle - 0.12 * meter, xle + 0.5 * cp, yp, w.z, 0.035 * meter);
-                revolved(context, sid + "float", xle + 0.5 * cp, xle + cp + definition.floatL + w.extra, yp, w.z, r);
-                fCylinder(context, sid + "prop", {
-                            "topCenter" : vector(xle - 0.13 * meter, yp, w.z),
-                            "bottomCenter" : vector(xle - 0.125 * meter, yp, w.z),
-                            "radius" : definition.prop / 2 });
+                const r = max(definition.floatD / 2, 0.6 * definition.tc * cp);
+                const xn = xle - 0.16 * meter;
+                const xt = xle + cp + definition.floatL + w.extra;
+                streamlined(context, sid + "nacelle", xn, xt, yp, w.z, r, 0.12, (0.16 * meter + cp) / (xt - xn));
+                // A two-bladed prop just behind the spinner's tip.
+                const hub = vector(xn + 0.03 * meter, yp, w.z);
+                for (var k in [0, 1])
+                {
+                    const a = (0.6 + k * PI) * radian;
+                    fCylinder(context, sid + ("blade" ~ k), {
+                                "topCenter" : hub + vector(0 * meter, cos(a) * definition.prop / 2, sin(a) * definition.prop / 2),
+                                "bottomCenter" : hub, "radius" : 0.012 * meter });
+                }
             }
-            // The tilt shaft, and the wing turned about it.
+            // The tilt shaft through the pod, and the wing turned about it.
             const xp = w.x + definition.pivot * w.root;
             fCylinder(context, wid + "shaft", {
-                        "topCenter" : vector(xp, 0.45 * definition.podD, w.z),
-                        "bottomCenter" : vector(xp, -0.45 * definition.podD, w.z),
+                        "topCenter" : vector(xp, definition.podD / 2 + 0.02 * meter, w.z),
+                        "bottomCenter" : vector(xp, -definition.podD / 2 - 0.02 * meter, w.z),
                         "radius" : 0.012 * meter });
             if (definition.tilt > 0.01 * degree)
             {
@@ -119,23 +127,18 @@ export const ospreyTiltWing = defineFeature(function(context is Context, id is I
                             "transform" : rotationAround(line(vector(xp, 0 * meter, w.z), vector(0, 1, 0)), definition.tilt) });
             }
         }
-        // The pod, the fin to the rear wing, and the gimbal.
-        revolved(context, id + "pod", -definition.podNose, definition.podL - definition.podNose, 0 * meter, definition.podZ,
-            definition.podD / 2);
-        const xr = definition.stagger + definition.pivot * definition.rearRoot;
-        fCylinder(context, id + "fin", {
-                    "topCenter" : vector(xr, 0 * meter, definition.gap),
-                    "bottomCenter" : vector(xr, 0 * meter, definition.podZ),
-                    "radius" : 0.02 * meter });
+        // The pod, full past both shafts, and the gimbal half under its belly.
+        streamlined(context, id + "pod", -definition.podNose, definition.podL - definition.podNose, 0 * meter, definition.podZ,
+            definition.podD / 2, 0.15, 0.75);
         opSphere(context, id + "gimbal", {                       // fSphere wants a vertex query; opSphere a vector
-                    "center" : vector(0.55 * meter, 0 * meter, definition.podZ - definition.podD / 2 - 0.027 * meter),
+                    "center" : vector(0.55 * meter, 0 * meter, definition.podZ - definition.podD / 2 + 0.0135 * meter),
                     "radius" : 0.045 * meter });
     }, {
         "tilt" : 0 * degree, "frontSpan" : 3.184 * meter, "frontRoot" : 0.195 * meter, "frontTip" : 0.195 * meter,
         "rearSpan" : 2.957 * meter, "rearRoot" : 0.243 * meter, "rearTip" : 0.195 * meter, "stagger" : 1.2 * meter,
         "gap" : 0.15 * meter, "tc" : 0.12, "pivot" : 0.25, "prop" : 0.5 * meter, "propStation" : 0.26,
-        "floatD" : 0.094 * meter, "floatL" : 0.661 * meter, "podL" : 1.7 * meter, "podD" : 0.2 * meter,
-        "podNose" : 0.35 * meter, "podZ" : 0.06 * meter });
+        "floatD" : 0.094 * meter, "floatL" : 0.661 * meter, "podL" : 1.85 * meter, "podD" : 0.22 * meter,
+        "podNose" : 0.30 * meter, "podZ" : 0.075 * meter });
 
 /** A NACA 4-digit section, (u, z) in chord units: the upper surface from the trailing edge to the leading edge,
  * and the lower from the leading edge back, sharing both end points (a sharp trailing edge on the camber line). */
@@ -192,23 +195,24 @@ function section(context is Context, id is Id, y is ValueWithUnits, le is ValueW
     skSolve(sk);
 }
 
-/** A streamlined body of revolution along x, from x0 to x1, at (y, z), of greatest radius r. */
-function revolved(context is Context, id is Id, x0 is ValueWithUnits, x1 is ValueWithUnits, y is ValueWithUnits,
-    z is ValueWithUnits, r is ValueWithUnits)
+/** A streamlined body of revolution along x, from x0 back to x1, at (y, z): a round nose over the first `nose` of
+ * its length, the full radius r to `full`, then tapering to a point. */
+function streamlined(context is Context, id is Id, x0 is ValueWithUnits, x1 is ValueWithUnits, y is ValueWithUnits,
+    z is ValueWithUnits, r is ValueWithUnits, nose is number, full is number)
 {
     const sk = newSketchOnPlane(context, id + "sketch", {
                 "sketchPlane" : plane(vector(0 * meter, y, 0 * meter), vector(0, -1, 0), vector(1, 0, 0)) });
     var pts = [];
-    const n = 16;
+    const n = 20;
     for (var i = 0; i <= n; i += 1)
     {
         const s = i / n;
-        var k = 0;
-        if (s < 0.35)
-            k = sqrt(max(1 - ((0.35 - s) / 0.35) ^ 2, 0));
-        else
-            k = max(1 - ((s - 0.35) / 0.65) ^ 2, 0);
-        pts = append(pts, vector(x0 + s * (x1 - x0), z + max(k, 0.02) * r));
+        var k = 1;
+        if (s < nose)
+            k = sqrt(max(1 - ((nose - s) / nose) ^ 2, 0));
+        else if (s > full)
+            k = max(1 - ((s - full) / (1 - full)) ^ 2, 0) ^ 0.8;
+        pts = append(pts, vector(x0 + s * (x1 - x0), z + max(k, 0.03) * r));
     }
     pts[0] = vector(x0, z);
     pts[n] = vector(x1, z);
