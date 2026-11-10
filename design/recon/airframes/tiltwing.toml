@@ -51,8 +51,9 @@ cg_x_bounds_m = [0.55, 0.79]   # aft of the front wing's leading edge: between t
 probe_alpha_deg = 1.0
 
 [spar]
-radius_bounds_m = [0.004, 0.020]
-wall_bounds_m = [0.0008, 0.003]   # no thinner than 0.8 mm: thinner, the search finds spars the coupled solve can't settle
+radius_bounds_m = [0.008, 0.020]  # no smaller than 8 mm, 0.8 mm wall: the tube is the model's only torsion
+wall_bounds_m = [0.0008, 0.003]   # (the moulded skin's isn't counted), and a smaller one twists toward divergence
+                                  # with the elastic axis behind the aerodynamic centre
 
 [fuselage]                 # the pod: battery, avionics, gimbal
 length_m = 1.70

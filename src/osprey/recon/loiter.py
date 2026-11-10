@@ -96,9 +96,14 @@ def sweep(workers: int = 0) -> list[dict]:
         return list(ex.map(one, jobs))
 
 
+def _unsettled(r: dict) -> bool:
+    """Not a design that fails its constraints: OpenAeroStruct's coupled solve didn't settle on the way."""
+    return any(k in r.get("why", "") for k in ("failed to converge", "solve_matrix"))
+
+
 def _cell(r: dict) -> str:
     if not r.get("ok"):
-        return "doesn't close"
+        return "solver didn't settle" if _unsettled(r) else "doesn't close"
     d = r["design"]
     return f"{d['mass_total_kg']:.1f} kg, {_spans(d)}"
 
@@ -153,7 +158,9 @@ def report(rows: list[dict]) -> str:
     for h in sw.hours:
         lines.append(f"| {h:g} h | " + " | ".join(_cell(by[(a, h, e)]) for a in sw.airframes
                                                    for e in sw.battery_wh_per_kg) + " |")
-    lines += ["", "\"Doesn't close\": no design meets every constraint with the battery inside its bounds.", ""]
+    lines += ["", "\"Doesn't close\": no design meets every constraint with the battery inside its bounds. \"Solver didn't "
+              "settle\": OpenAeroStruct's coupled wing-and-spar solve failed from every start, so the case is unknown, "
+              "not infeasible.", ""]
     for e in sw.battery_wh_per_kg:
         lines += [f"## Each design, {e:.0f} Wh/kg", "",
                   "| | Mass | Battery | Spans | L/D | Loiter | Back aboard | Launch and recovery | Afloat |",

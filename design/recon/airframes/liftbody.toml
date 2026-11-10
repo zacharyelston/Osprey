@@ -23,7 +23,8 @@ t_over_c_cp = [0.10, 0.13, 0.20]          # tip to root: the centre body is the 
 span_bounds_m = [1.5, 4.0]                # stows in panels; the same limit as the tandem's
 
 [spar]
-radius_bounds_m = [0.004, 0.025]
+radius_bounds_m = [0.008, 0.025]  # no smaller than 8 mm: the tube is the model's only torsion (the moulded skin's
+                                  # isn't counted), and a smaller one on a 4 m span twists toward divergence
 wall_bounds_m = [0.0005, 0.004]
 
 [stability]

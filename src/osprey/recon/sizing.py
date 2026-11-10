@@ -457,10 +457,13 @@ def build(p, time_factor: float = 1.0) -> tuple[om.Problem, dict]:
     prob.driver = om.ScipyOptimizeDriver(optimizer="SLSQP", tol=1e-6, maxiter=200, disp=False)
     prob.setup(force_alloc_complex=True)
     prob.set_solver_print(level=-1)
-    if tandem(p):
-        # Two coupled wings: give each point's aerostructural loop more room to settle.
+    if tandem(p) or getattr(lim, "tip_bend_max", None):
+        # The loiter craft's long wings (and the tandem's two): more room for each point's aerostructural loop,
+        # relaxed so it settles faster.
         for k in range(len(points)):
-            m._get_subsystem(f"AS_point_{k}.coupled").nonlinear_solver.options["maxiter"] = 300
+            nl = m._get_subsystem(f"AS_point_{k}.coupled").nonlinear_solver
+            nl.options["maxiter"] = 300
+            nl.options["use_aitken"] = True
     return prob, mi
 
 
