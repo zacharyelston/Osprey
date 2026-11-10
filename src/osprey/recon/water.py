@@ -198,7 +198,7 @@ def impact_factor(p, v_stall_ms: float, mass_kg: float) -> float:
 def hull_length(p, d: dict) -> float:
     """The planing shoe's length: under the pod, or the blended wing's centre body."""
     if d.get("airframe") == "tandem":
-        return d["nacelle_floats"]["length_m"]
+        return p.fuselage.length_m                                      # the V-keel hull
     return d["root_chord_m"] if d.get("airframe") == "bwb" else p.geometry.pod_length_m
 
 

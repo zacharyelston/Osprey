@@ -1,12 +1,15 @@
 # Airframe variant: the loiter craft as a tandem tilt-wing, on the layout of a
-# quad tilt-wing model built in Onshape. Two wings, the rear 1.2 m behind the
-# front and a little above it, each turning on a spanwise shaft through bevel
-# gears; one prop a side on each, at 52 % of the semi-span. Each nacelle runs
-# inline, prop, motor, nacelle through the wing, then on behind the trailing
-# edge as a streamlined float. With the wings turned up for the hover the props
-# point up and the four float tails point down: it stands on them in the water,
-# its body level and dry, lifts straight off, then turns the wings forward and
-# flies on them. All four props pull in cruise.
+# quad tilt-wing model built in Onshape. Two high wings, the rear 1.2 m behind
+# the front on a short pylon over the tail, each turning on a spanwise shaft
+# through bevel gears; one prop a side on each, at 52 % of the semi-span. Each
+# nacelle runs inline, prop, motor, nacelle through the wing, then on behind the
+# trailing edge as a streamlined float. The hull is a teardrop point down, a V
+# keel under a round top. On the water it floats on the keel with the wings
+# turned part way up: the props clear and the front float tails dip in as
+# outriggers either side, so it sits upright and the keel holds it straight;
+# tilt the wings forward and the props drive it along. Turned fully up the
+# props lift it straight off; it turns the wings forward and flies on them.
+# All four props pull in cruise.
 # Overlaid on design/recon/airframe.toml with `--airframe tiltwing`; sized for
 # hours on station by `osprey recon-loiter` (design/recon/loiter.toml).
 #
@@ -16,7 +19,7 @@
 [layout]
 kind = "tandem"
 vtol = "tiltwing"
-label = "Tandem tilt-wing: two wings that turn up to hover, a prop a side on each, nacelles whose tails are floats"
+label = "Tandem tilt-wing: two high wings that turn up to hover, a prop a side on each, a V-keel hull and float-tail outriggers"
 
 [wing]                     # the front wing
 num_y = 11
@@ -28,14 +31,15 @@ span_bounds_m = [2.0, 4.0]                # stows in panels to 4 m, as the lifti
 chord_scale_bounds = [0.4, 1.6]
 pivot_frac = 0.25          # the tilt shaft, at this fraction of the chord: the spar
 
-[rear]                     # the rear wing, x_m behind the front and z_m above it
+[rear]                     # the rear wing, x_m behind the front and z_m above it, on the pylon
 span_m = 3.0
 root_chord_m = 0.22
 t_over_c = 0.12
 span_bounds_m = [2.0, 4.0]
 chord_scale_bounds = [0.4, 1.6]
 x_m = 1.20                 # the model's stagger is half its span; 1.2 m keeps a 4 m craft's pod short
-z_m = 0.15                 # the model's wings are level; a gap keeps the rear out of the front's wake sheet
+z_m = 0.30                 # the pylon: at 15 cm the bent wings reached each other's wake sheets and the
+                           # coupled solve broke past 4 h; at 30 cm it closes 8 h. The pylon is the fin too
 
 [manufacture]
 method = "molded"          # moulded composite wings and pod, as the lifting body: no printer-bed limit on chord
@@ -55,21 +59,27 @@ radius_bounds_m = [0.008, 0.020]  # no smaller than 8 mm, 0.8 mm wall: the tube 
 wall_bounds_m = [0.0008, 0.003]   # (the moulded skin's isn't counted), and a smaller one twists toward divergence
                                   # with the elastic axis behind the aerodynamic centre
 
-[fuselage]                 # the pod: battery, avionics, gimbal, and both wings' tilt shafts and drives
-length_m = 1.85            # past the rear shaft, to a fair tail
-diameter_m = 0.22          # deep enough for both shafts, the front 7.5 cm below its axis and the rear 7.5 cm above
+[fuselage]                 # the hull: battery, avionics, gimbal, the front wing's tilt shaft and drive
+length_m = 1.85            # past the pylon, to a fair tail
+diameter_m = 0.22          # the beam; the round top over it is the same radius
 nose_x_m = 0.30            # ahead of the front wing's leading edge
-axis_z_m = 0.075           # above the front wing's plane: half the wings' gap
+axis_z_m = -0.03           # the beam just under the front wing's plane: a high wing, its roots at the hull's sides
+keel = 1.5                 # the V keel this x the half-beam below the beam: a 37 degree deadrise; deep
+                           # enough that the hull carries 60 % of the weight afloat with the wings clear
 
 [body]
-mass_kg = 0.90             # the moulded pod and hatch, four elevon servos, wiring, and two tilt
-                           # drives at 0.15 kg (shaft, bevel gears, servo, bearings)
-cda_m2 = 0.005             # the pod and gimbal; the nacelles are added with their floats
+mass_kg = 0.97             # the moulded hull and hatch, the pylon, four elevon servos, wiring, and two
+                           # tilt drives at 0.15 kg (shaft, bevel gears, servo, bearings)
+cda_m2 = 0.0065            # the hull with its keel, the pylon and its head, the gimbal; the nacelles are
+                           # added with their floats
 
 [nacelle_floats]           # each nacelle runs on behind the trailing edge as a float, inline with the chord
 count = 4
-reserve = 2.0              # the four floats alone carry this x the craft's weight, standing on them
-fineness = 7.0             # the float's length / diameter
+reserve = 0.6              # the four float tails, under water, would carry this x the craft's weight. Afloat
+                           # the front two dip in as outriggers and the keel carries 70 %; the rear two,
+                           # a pylon higher, stay dry
+fineness = 6.0             # the float's length / diameter
+stance_tilt_deg = 55.0     # the wings' tilt on the water: the props 15 cm clear of it, the front float tails in it
 areal_kg_m2 = 0.35         # moulded skin, per wetted m²
 fittings_kg = 0.03         # each: motor mount, seals, drain plug
 drop_m = 0.0               # inline: no pylon

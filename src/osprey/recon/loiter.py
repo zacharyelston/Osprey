@@ -68,8 +68,9 @@ def one(args) -> dict:
             "ok": bool(d["converged"]) and s["outcome"] == "recovered" and bool(s["goal_met"])}
     m = d["mass_total_kg"]
     try:
-        # The tilt-wing waits on the water standing on its float tails, wings up.
-        out["afloat"] = water.afloat(p, {**d, "wing_tilt_deg": 90.0} if tailsitter.vtol(p) else d, m)
+        # The tilt-wing waits on the water on its keel, wings part way up, the float tails dipped in.
+        out["afloat"] = water.afloat(p, {**d, "wing_tilt_deg": p.nacelle_floats.stance_tilt_deg}
+                                     if tailsitter.vtol(p) else d, m)
     except Exception as e:                           # the design flies; say why it couldn't be floated
         out["afloat_why"] = f"{type(e).__name__}: {e}"
     if tailsitter.vtol(p):
@@ -196,11 +197,14 @@ def pair(rows: list[dict], wh: float) -> tuple[dict, dict] | None:
 
 
 def stance(p, d: dict, mass_kg: float, tilt_deg: float = 3.0) -> dict:
-    """Standing on its float tails, wings up: how far the wings' trailing edges and the gimbal sit above the
-    calm water, and the metacentric height each way, from the centre of buoyancy's shift when tipped."""
+    """Afloat on its keel, the wings at their stance tilt and the float tails dipped in either side: how far
+    the wings' trailing edges, the props and the gimbal sit above the calm water, the share of the weight
+    the hull carries, and the metacentric height each way, from the centre of buoyancy's shift when tipped."""
+    import numpy as np
+
     from osprey.recon import geometry, tailsitter as ts, water
 
-    dd = {**d, "wing_tilt_deg": 90.0}
+    dd = {**d, "wing_tilt_deg": p.nacelle_floats.stance_tilt_deg}
     parts = geometry.build(p, dd)
     sealed = [q for q in parts if q.kind in water.SEALED]
     cg = water.cg(p, dd)
@@ -218,7 +222,10 @@ def stance(p, d: dict, mass_kg: float, tilt_deg: float = 3.0) -> dict:
         if axis == "pitch":
             h = h0
     low = lambda kinds: min(float((q.verts - cg)[:, 2].min()) for q in parts if q.kind in kinds) - h
+    hull = [q for q in sealed if q.name == "pod"]
+    hull_l = water._below(ts._posed(hull, cg, np.eye(3)), h)[0]
     return {**out, "draft_m": h - min(float((q.verts - cg)[:, 2].min()) for q in sealed),
+            "hull_share": hull_l / need, "prop_clear_m": low(("disc",)),
             "wing_clear_m": low(("shell0", "shell1")), "camera_clear_m": low(water.CAMERAS)}
 
 

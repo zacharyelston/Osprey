@@ -726,7 +726,7 @@ def test_a_loiter_flies_its_time_on_station_however_fast():
         vol.usable_frac * inside - p.propulsion.battery_kg / vol.battery_kg_per_l - vol.fixed_l)
 
 
-def test_tiltwing_sizes_two_wings_balanced_to_hover_and_stands_on_its_float_tails():
+def test_tiltwing_sizes_two_wings_balanced_to_hover_and_floats_on_its_keel():
     from osprey.recon import geometry, loiter, water
 
     p = loiter.load("tiltwing", 2.0, 200.0)
@@ -748,8 +748,10 @@ def test_tiltwing_sizes_two_wings_balanced_to_hover_and_stands_on_its_float_tail
     assert lo_cg - 1e-6 <= dd["cg_x_m"] <= hi_cg + 1e-6                   # between the pivots: the props share the hover
     assert dd["static_margin"] >= p.stability.static_margin_min - 1e-4 and abs(dd["cm_trim"]) < 1e-4
     assert all(s["span_m"] >= 2.0 - 1e-6 for s in dd["surfaces"].values())
-    fl = r["afloat"]                                                        # wings up, on the float tails: pod dry, level
-    assert fl["camera_clear_m"] > 0.1 and abs(fl["trim_deg"]) < 5
+    fl = r["afloat"]                                  # wings part way up, on the keel and the front float tails, level
+    assert fl["camera_clear_m"] > 0.1 and fl["prop_clear_m"] > 0.1 and abs(fl["trim_deg"]) < 5
+    st = loiter.stance(p, dd, dd["mass_total_kg"])
+    assert 0.5 < st["hull_share"] < 0.9 and st["gm_roll_m"] > 0.2 and st["gm_pitch_m"] > 0.2
     for tilt in (0.0, 90.0):
         parts = geometry.build(p, {**dd, "wing_tilt_deg": tilt})
         for q in parts:
@@ -757,6 +759,12 @@ def test_tiltwing_sizes_two_wings_balanced_to_hover_and_stands_on_its_float_tail
             assert np.einsum("ij,ij->i", v_[f_[:, 0]], np.cross(v_[f_[:, 1]], v_[f_[:, 2]])).sum() > 0, q.name
         assert sum(q.kind == "disc" for q in parts) == p.hover.props
     up = geometry.build(p, {**dd, "wing_tilt_deg": 90.0})
-    discs = [q.verts[:, 2].mean() for q in up if q.kind == "disc"]
-    floats = [q.verts[:, 2].min() for q in up if q.name.startswith("float")]
-    assert min(discs) > max(floats) + 0.5 and max(floats) - min(floats) < 0.02    # props up, every float tail at one level
+    for w in ("front", "rear"):                                             # each wing's props up, its float tails down
+        discs = [q.verts[:, 2].mean() for q in up if q.kind == "disc" and q.name.startswith(f"prop_disc_{w}")]
+        floats = [q.verts[:, 2].min() for q in up if q.name.startswith(f"float_{w}")]
+        assert min(discs) > max(floats) + 0.5
+    # Both wings high: the front's roots at the hull's sides over its beam, the rear on the pylon above it.
+    hull = next(q for q in up if q.name == "pod")
+    lo, hi = hull.verts[:, 2].min(), hull.verts[:, 2].max()
+    assert p.fuselage.axis_z_m < 0 < hi and lo == pytest.approx(p.fuselage.axis_z_m - p.fuselage.keel * p.fuselage.diameter_m / 2, abs=0.01)
+    assert next(q for q in up if q.name == "pylon").verts[:, 2].max() == pytest.approx(p.rear.z_m, abs=0.02)
