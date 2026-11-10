@@ -585,7 +585,9 @@ def cmd_recon_loiter(args) -> int:
             rrender.hero(p, d, o / f"hero-{name}.png")
             rrender.threeview(p, d, o / f"threeview-{name}.png")
             birds.append((p, d, f"{loiter.label(r['airframe'])}, {r['hours']:g} h"))
-            floats.append((p, d, r.get("afloat") or water.afloat(p, d), loiter.label(r["airframe"])))
+            # The tilt-wing floats with its wings part way up; draw it as the model floated it.
+            dw = {**d, "wing_tilt_deg": p.nacelle_floats.stance_tilt_deg} if r["airframe"] == "tiltwing" else d
+            floats.append((p, dw, r.get("afloat") or water.afloat(p, dw), loiter.label(r["airframe"])))
         rrender.lineup(birds, o / f"lineup-{wh:.0f}.png")
         rrender.afloat(floats, o / f"afloat-{wh:.0f}.png")
     for r in rows:

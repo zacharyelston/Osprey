@@ -12,17 +12,17 @@ import(path : "onshape/std/common.fs", version : "3112.0");
 // Defaults are the 4 h design from `osprey recon-loiter` (design/recon/airframes/tiltwing.toml).
 // Frame: x aft from the front wing's leading edge, y to port, z up; metres.
 
-const SPAN = { (meter) : [0.2, 3.184, 10] } as LengthBoundSpec;
-const SPAN_R = { (meter) : [0.2, 2.957, 10] } as LengthBoundSpec;
-const CHORD_FR = { (meter) : [0.02, 0.195, 2] } as LengthBoundSpec;
-const CHORD_FT = { (meter) : [0.02, 0.195, 2] } as LengthBoundSpec;
-const CHORD_RR = { (meter) : [0.02, 0.243, 2] } as LengthBoundSpec;
-const CHORD_RT = { (meter) : [0.02, 0.195, 2] } as LengthBoundSpec;
+const SPAN = { (meter) : [0.2, 2.961, 10] } as LengthBoundSpec;
+const SPAN_R = { (meter) : [0.2, 3.467, 10] } as LengthBoundSpec;
+const CHORD_FR = { (meter) : [0.02, 0.193, 2] } as LengthBoundSpec;
+const CHORD_FT = { (meter) : [0.02, 0.193, 2] } as LengthBoundSpec;
+const CHORD_RR = { (meter) : [0.02, 0.250, 2] } as LengthBoundSpec;
+const CHORD_RT = { (meter) : [0.02, 0.193, 2] } as LengthBoundSpec;
 const STAGGER = { (meter) : [0.1, 1.2, 10] } as LengthBoundSpec;
 const GAP = { (meter) : [0.0, 0.30, 2] } as LengthBoundSpec;
 const PROP = { (meter) : [0.05, 0.5, 3] } as LengthBoundSpec;
-const FLOAT_D = { (meter) : [0.01, 0.069, 1] } as LengthBoundSpec;
-const FLOAT_L = { (meter) : [0.05, 0.41, 3] } as LengthBoundSpec;
+const FLOAT_D = { (meter) : [0.01, 0.068, 1] } as LengthBoundSpec;
+const FLOAT_L = { (meter) : [0.05, 0.409, 3] } as LengthBoundSpec;
 const POD_L = { (meter) : [0.2, 1.85, 5] } as LengthBoundSpec;
 const POD_D = { (meter) : [0.02, 0.22, 1] } as LengthBoundSpec;
 const POD_NOSE = { (meter) : [0, 0.30, 2] } as LengthBoundSpec;
@@ -165,10 +165,10 @@ export const ospreyTiltWing = defineFeature(function(context is Context, id is I
                     "center" : vector(-definition.podNose + 0.0495 * meter, 0 * meter, definition.podZ + 0.45 * definition.podD / 2),
                     "radius" : 0.045 * meter });
     }, {
-        "tilt" : 0 * degree, "frontSpan" : 3.184 * meter, "frontRoot" : 0.195 * meter, "frontTip" : 0.195 * meter,
-        "rearSpan" : 2.957 * meter, "rearRoot" : 0.243 * meter, "rearTip" : 0.195 * meter, "stagger" : 1.2 * meter,
+        "tilt" : 0 * degree, "frontSpan" : 2.961 * meter, "frontRoot" : 0.193 * meter, "frontTip" : 0.193 * meter,
+        "rearSpan" : 3.467 * meter, "rearRoot" : 0.250 * meter, "rearTip" : 0.193 * meter, "stagger" : 1.2 * meter,
         "gap" : 0.30 * meter, "tc" : 0.12, "pivot" : 0.25, "prop" : 0.5 * meter, "propStation" : 0.26,
-        "floatD" : 0.069 * meter, "floatL" : 0.41 * meter, "podL" : 1.85 * meter, "podD" : 0.22 * meter,
+        "floatD" : 0.068 * meter, "floatL" : 0.409 * meter, "podL" : 1.85 * meter, "podD" : 0.22 * meter,
         "podNose" : 0.30 * meter, "podZ" : -0.03 * meter, "keel" : 1.5 });
 
 /** A NACA 4-digit section, (u, z) in chord units: the upper surface from the trailing edge to the leading edge,
