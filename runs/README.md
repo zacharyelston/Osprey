@@ -12,6 +12,7 @@ docs/remote-simulation.md).
 
 | Run | SHA | Host | What it shows |
 |---|---|---|---|
+| [2026-11-11_recon-puffin-sar](2026-11-11_recon-puffin-sar/) | e4d790a | local | The spar Puffin SAR build behind docs/puffin/build-spec.md: the screw layout with the SAR kit, swept forward 25° on 1.0 m props, 9.1 kg; mass, hover, cruise and the sar-datum and sar-offshore missions, floated with the rescue tube aboard and after; forward sweep 0-45°; the speed it meets the water at with all power lost |
 | [2026-11-11_recon-puffin](2026-11-11_recon-puffin/) | d14cca7 | local | The spar Puffin: a UAS-sized NASA Puffin tailsitter floated tail-down, the righting curves of the Puffin as drawn, a spar with fixed ballast and a spar with its battery on a screw, and the screw's travel against the wing's station, the dome's payload and ballast |
 | [2026-11-11_recon-loiter](2026-11-11_recon-loiter/) | 97ba4b5 | gpu1 | The loiter craft: a lifting body and a tandem tilt-wing (high wings, the rear on a pylon, a V-keel hull) sized for 2-12 h on station at 200 and 300 Wh/kg, flown and floated, with renders; the tilt-wing's float-tail sweep |
 | [2026-11-06_first-sweep](2026-11-06_first-sweep/) | 47ed25e | gpu1 | Every scenario x rig: calc reports, figures, looking-group timelines; `summary.md` |

@@ -8,6 +8,10 @@ design should move, not what to build.
 
 ![Righting curves of the Puffin as drawn, a spar with fixed ballast and a spar with its battery on a screw, knocked over onto its belly or back and onto a wingtip; and the screw layout floating upright](../img/recon-puffin-righting.png)
 
+**The build spec for the first article, the SAR UAS, is [build-spec.md](build-spec.md):** this spar with the SAR
+kit, its wing swept forward 25° on 1.0 m props, 9.1 kg; with its flight and mission budget, what losing power
+costs, and the test plan. The markets are in [markets.md](markets.md).
+
 ## The Puffin
 
 The Puffin is a 600 lb electric tailsitter with the pilot lying prone:

@@ -1,0 +1,2 @@
+local, on e4d790a (branch feat/puffin-sar-spec): the spar Puffin SAR build, forward-swept 25 deg on 1.0 m props; mass, hover, cruise and missions, floated with the drop pack aboard and after; the forward-sweep table and the power-loss fall
+uv run osprey recon-puffin-sar --workers 8 --out <this>  (sar.json, sar.md)
