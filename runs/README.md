@@ -12,6 +12,7 @@ docs/remote-simulation.md).
 
 | Run | SHA | Host | What it shows |
 |---|---|---|---|
+| [2026-11-11_recon-loiter](2026-11-11_recon-loiter/) | 97ba4b5 | gpu1 | The loiter craft: a lifting body and a tandem tilt-wing (high wings, the rear on a pylon, a V-keel hull) sized for 2-12 h on station at 200 and 300 Wh/kg, flown and floated, with renders; the tilt-wing's float-tail sweep |
 | [2026-11-06_first-sweep](2026-11-06_first-sweep/) | 47ed25e | gpu1 | Every scenario x rig: calc reports, figures, looking-group timelines; `summary.md` |
 | [2026-11-06_docking-render](2026-11-06_docking-render/) | 9af2de6 | gpu1 (EGL) | Sample of a 20 s docking render on mast5-spreaders: contact-sheet video, one frame's RGB/depth/class, all labels |
 | [2026-11-06_pods-fisheye-sweep](2026-11-06_pods-fisheye-sweep/) | 952d1da | gpu1 | Pods with a down-looking fisheye (the dropped design): calc reports for the three scenarios |
