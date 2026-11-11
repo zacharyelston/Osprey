@@ -389,6 +389,15 @@ a 40 cm girth at the waterline. With the battery on a screw (down the boom to fl
 self-rights at 7.5 kg on an ordinary tail, the props 31 cm clear. The notebook and an Onshape feature are in
 [docs/puffin](docs/puffin/README.md).
 
+### The Beet (first look)
+
+A flying buoy: a boat first. A circular RIB with a 360° glass observation cabin and a coaxial rotor on its mast,
+that floats and hops to 150 m before landing back on the water. `osprey beet` sizes 2, 4 and 6 seats four ways.
+Four seats come to 1,350 kg with a turboshaft, 1,580 kg as a turbo-generator hybrid and 1,950 kg with a piston
+genset. A battery-only hop runs away past about 10 minutes at the top: the genset buys the time. Floated and
+knocked over, the disc is very stiff upright but capsizes past 70-80° and floats upside down, cone cabin and keel
+pod or not. It needs a righting volume up high or a spar keel. See [docs/beet](docs/beet/README.md).
+
 ### The loiter craft (in progress)
 
 A larger Recon for watching the water round the boat for hours, where speed is not the problem and time
@@ -526,6 +535,7 @@ uv run osprey recon-cyclone-sweep --payload all             # Recon: the Cyclone
 uv run osprey recon-loiter --workers 8                      # Recon: the loiter craft, 2-12 h on station
 uv run osprey recon-puffin --workers 8                      # Recon: the spar Puffin, righting curves
 uv run osprey recon-awareness                               # Recon: anti-piracy ranges
+uv run osprey beet --workers 8                              # the Beet: a flying buoy, sized and floated
 ```
 
 Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two workstations, `gpu1` and
@@ -542,12 +552,13 @@ Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two works
 | [`design/targets.toml`](design/targets.toml) | Target classes and Johnson criteria |
 | [`design/rigs/`](design/rigs/) | `gecko5` (pods), `spreader-pairs` (dual mounts on the spreader tips), `mast5` (1 top + 4 round the mast), `mast5-spreaders`, `whole-boat` |
 | [`design/scenarios/`](design/scenarios/) | `coastal-watch` (sea state 4), `mob` (sea state 3), `docking` |
+| [`design/beet.toml`](design/beet.toml) | The Beet: craft, cabin geometry, the hop, four ways to power it, the cases and sweeps |
 | [`design/recon/`](design/recon/) | Recon: the reference printed airframe, airframe variants (blended wing, crescent), payload variants, and the mission profiles (search, survey, inspect, escort) |
-| [`src/osprey/`](src/osprey/) | `frames`, `motion`, `optics`, `stabilize`, `occlusion`, `rig`, `tasking`, `calcs`, `figures`, `render/scene`, `cli` |
+| [`src/osprey/`](src/osprey/) | `frames`, `motion`, `optics`, `stabilize`, `occlusion`, `rig`, `tasking`, `calcs`, `figures`, `render/scene`, `cli`, `beet` (the flying buoy, sized and floated) |
 | [`src/osprey/recon/`](src/osprey/recon/) | `tasks` (search, survey, inspect, escort), `search` (sweep width, POD), `flight` (3-DOF), `sizing` (OpenMDAO + OpenAeroStruct, trim and stability for flying wings), `fleet` (one bird, many jobs), `geometry` and `render` (the bird in MuJoCo), `plug` and `frame` (mould plugs, CNC ladder frames), `water` (afloat, take-off from the sea, landing loads), `tailsitter` (hover sizing, afloat upright, the water launch), `cyclone` (three wing arms spinning as a rotor), `cyclone_modes` (its modes, the moves between them, the manager), `cyclone_dynamics` (the spin building and dying, A's and B's authority, the wind), `cyclone_water` (afloat on its arms, the lift-off), `cyclone_sweep` (how many arms, where A goes), `loiter` (the loiter craft, hours on station), `puffin` (the spar Puffin's righting), `awareness` (anti-piracy ranges), `figures` |
 | [`sim/`](sim/) | The sims' loops in Rust (PyO3): `flight` and `tasks` (the mission sim), `water` (take-off run, tailsitter launch), `cyclone` (spin-up, pitch moves), `rotor` (the Cyclone's blade elements, spin moves, wind trims, water launch) |
 | [`runs/`](runs/README.md) | Kept runs, never edited after they are archived |
-| [`docs/`](docs/) | [Architecture](docs/architecture.md), [Recon](docs/recon.md), [the Cyclone](docs/cyclone/README.md), [the loiter craft](docs/loiter/README.md), [the spar Puffin](docs/puffin/README.md), [remote runs](docs/remote-simulation.md), README figures |
+| [`docs/`](docs/) | [Architecture](docs/architecture.md), [Recon](docs/recon.md), [the Cyclone](docs/cyclone/README.md), [the loiter craft](docs/loiter/README.md), [the spar Puffin](docs/puffin/README.md), [the Puffin's markets](docs/puffin/markets.md), [the Beet](docs/beet/README.md), [remote runs](docs/remote-simulation.md), README figures |
 
 ## Kept runs
 
