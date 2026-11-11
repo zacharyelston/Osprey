@@ -1,0 +1,137 @@
+# The Beet (osprey beet): a flying buoy. A circular RIB with a 360-degree glass observation cabin, its mass
+# low, and a coaxial rotor on a mast at the top. It is a boat first: it floats, and makes powered hops to height
+# before landing back on the water. Every number is a REF stand-in for a first look, not a design.
+#
+# Body frame: z up the axis from the keel (the bottom of the hull, not the keel pod), r out from the axis; metres.
+
+[craft]
+person_kg = 95.0           # an occupant with clothing and a small bag
+disc_loading_kgm2 = 30.0   # max weight over ONE rotor's disc (light helicopters 15-25; the R44 is about 14)
+k_coax = 1.16              # coaxial induced power against one rotor of the same disc
+figure_of_merit = 0.70     # a realistic light rotor
+power_margin = 1.30        # installed power over hover out of ground effect: climb, control, gusts
+rotor_frac = 0.065         # both rotors' blades and hubs, of max weight
+mast_frac = 0.040          # mast, swashplates, controls, upper structure
+hull_kgm2 = 18.0           # RIB tubes, floor and keel, per m^2 of planform
+dome_kgm2 = 9.0            # polycarbonate glazing and frames, per m^2 of surface
+seat_kg = 12.0
+interior_kg = 30.0
+systems_kg = 50.0          # avionics, wiring, flight controls: a fixed part
+systems_frac = 0.02        # and a part that grows with weight
+boat_drive_kg = 25.0       # electric thrusters for moving as a boat
+safety_kg = 15.0           # liferaft, lifejackets, flares
+water_density_kgm3 = 1025.0
+air_density_kgm3 = 1.225
+
+[geometry]                 # an annular cabin facing out round a central column, the glass a cone frustum
+seat_pitch_m = 0.70        # along the circle the seats face out from
+seat_ring_min_m = 0.90     # the seats' radius, at least
+legroom_m = 0.60           # from the seat ring to the glass at the floor
+cabin_top_ratio = 0.55     # the roof's radius over the floor's: below 1 the glass leans in, a cone
+cabin_top_min_m = 0.45
+floor_m = 0.30             # the cabin floor above the keel
+roof_m = 1.90              # the roof above the keel
+tube_d_m = 0.55            # the RIB tube
+tube_bottom_m = 0.08       # the tube's underside above the keel
+rotor_gap_min_m = 0.60     # the lower rotor above the roof, at least
+rotor_gap_frac = 0.12      # or this fraction of the rotor diameter
+coax_spacing_frac = 0.09   # upper rotor above the lower, of the diameter
+mast_r_m = 0.15
+keel_pod_m = 0.0           # a pod under the hull for the battery, genset and fuel: its depth below the keel
+keel_pod_r_m = 0.45
+
+[hop]                      # climb, look, come down
+height_m = 150.0
+climb_ms = 3.0
+view_min = 5.0
+descend_ms = 2.0           # slow: well under the vortex-ring onset at a quarter of the downwash
+on_water_s = 30.0          # lift-off and touchdown in hover near the water
+descent_power = 0.85       # of hover
+
+# How it is powered. Each is sized round the same hop.
+[power.battery-hop]
+label = "Battery hop: the battery flies the hop, a small genset recharges it afloat"
+eta_drive = 0.902          # motor and inverter 0.93, reduction gearbox 0.97
+drive_kw_per_kg = 2.5      # motors, inverters, gearboxes
+genset_of_hover = 0.25     # the genset, as a fraction of hover power
+gen_kw_per_kg = 1.0        # piston engine, generator, cooling: electric output
+sfc_kg_kwh = 0.30          # fuel per kWh out of the genset
+recharges = 4              # fuel carried for this many recharges
+batt_wh_kg = 180.0
+batt_kw_kg = 1.0           # pack power; a high-power pack does 2-3
+batt_eta = 0.95
+reserve = 1.30             # battery energy over the hop's
+
+[power.gen-hover]
+label = "Hybrid, piston: the genset carries the hover, the battery the peaks and a landing if the genset stops"
+eta_drive = 0.902
+drive_kw_per_kg = 2.5
+genset_of_hover = 1.0
+gen_kw_per_kg = 1.0
+sfc_kg_kwh = 0.30
+hover_fuel_min = 30.0      # fuel for this much hover
+peak_min = 2.0             # the battery tops the genset up to installed power for this long
+land_s = 90.0              # and can land from the top of the hop on its own
+batt_wh_kg = 180.0
+batt_kw_kg = 1.0
+batt_eta = 0.95
+reserve = 1.30
+
+[power.turbogen]
+label = "Hybrid, turbine: the same with a turbo-generator, lighter and thirstier"
+eta_drive = 0.902
+drive_kw_per_kg = 2.5
+genset_of_hover = 1.0
+gen_kw_per_kg = 3.0
+sfc_kg_kwh = 0.45
+hover_fuel_min = 30.0
+peak_min = 2.0
+land_s = 90.0
+batt_wh_kg = 180.0
+batt_kw_kg = 1.0
+batt_eta = 0.95
+reserve = 1.30
+
+[power.turbine]
+label = "Turbine baseline: a turboshaft through a coaxial gearbox, no battery"
+eta_drive = 0.97
+drive_kw_per_kg = 1.8      # turboshaft and main gearbox together
+sfc_kg_kwh = 0.42          # fuel per shaft kWh
+hover_fuel_min = 30.0
+
+# The boats sized. "people" are aboard, "crewed" false is the uncrewed buoy with a sensor payload.
+[cases.beet-2]
+label = "Beet-2"
+people = 2
+
+[cases.beet-4]
+label = "Beet-4"
+people = 4
+
+[cases.beet-6]
+label = "Beet-6: the most paying passengers a small uninspected boat may carry in the US"
+people = 6
+
+[cases.buoy]
+label = "Beet buoy: uncrewed, a 20 kg sensor mast"
+people = 0
+crewed = false
+payload_kg = 20.0
+cabin = { r_base = 0.35, r_top = 0.15, roof = 0.9 }
+hull_r_m = 0.75
+tube_d_m = 0.25
+
+# The calibration: momentum theory against a known helicopter.
+[r44]
+mass_kg = 1134.0
+rotor_m = 10.06
+tail_rotor = 1.10          # tail rotor's share on top of the main rotor's
+mcp_kw = 153.0             # Raven I, max continuous
+takeoff_kw = 168.0         # 5 min
+
+[sweep]
+disc_loading_kgm2 = [15.0, 20.0, 30.0, 40.0]
+view_min = [2.0, 5.0, 10.0, 15.0]
+batt_kw_kg = [1.0, 2.0, 3.0]
+cabin_top_ratio = [1.0, 0.55, 0.35]
+keel_pod_m = [0.0, 0.5, 1.0]
