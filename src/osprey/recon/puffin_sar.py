@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import math
 
+from concurrent.futures import ProcessPoolExecutor
+
 from osprey.params import _toml
 from osprey.recon import puffin
 from osprey.recon.params import RECON
@@ -92,7 +94,82 @@ def floated() -> dict:
     return {"aboard": puffin.one(s["layout"], li), "dropped": puffin.one(s["layout"], li, wing_kg=wing - s["drop_pack_kg"])}
 
 
-def report(b: dict, f: dict) -> str:
+def hover_w(mass_kg: float, prop_d_m: float, s: dict | None = None) -> float:
+    s = s or inputs()
+    disc = 2 * math.pi * prop_d_m**2 / 4
+    return (mass_kg * G) ** 1.5 / math.sqrt(2 * s["air_density_kgm3"] * disc) / s["figure_of_merit"] / s["motor_eta"]
+
+
+def _sweep_job(sweep_deg: float) -> dict:
+    li = puffin.inputs()
+    s, fs = li["sar"], li["sar"]["forward_sweep"]
+    c = puffin.layout(s["layout"], li, sweep_deg=sweep_deg)
+    shift = puffin.tip_shift(c)
+    root = fs["mean_le_m"] - shift / 2                  # the mean chord stays put
+    plane = root + shift + 0.12                         # the props' plane, up from the tail
+    q = plane / c["length_m"]
+    r_hull = puffin.spar_radius(c, q) if 0 <= q <= 1 else 0.0
+    d_max = min(c["span_m"] - fs["prop_gap_m"], 2 * (c["span_m"] / 2 - r_hull - fs["prop_gap_m"]))
+    d = min(d_max, fs["prop_max_m"])
+    prop_kg = fs["prop_ref_kg"] * (d / fs["prop_ref_m"]) ** 2
+    r = puffin.one(s["layout"], li, sweep_deg=sweep_deg, wing_le_m=root, prop_diameter_m=d, prop_kg=prop_kg)
+    r.update(sweep_deg=sweep_deg, root_le_m=root, tip_shift_m=shift, prop_plane_m=plane, hull_r_at_props_m=r_hull,
+             prop_d_m=d, prop_d_max_m=d_max, hover_w=hover_w(r["mass_kg"], d, s),
+             hover_same_props_w=hover_w(r["mass_kg"], fs["prop_ref_m"], s),
+             disc_loading_kgm2=r["mass_kg"] / (2 * math.pi * d * d / 4),
+             props_clear_15_m=r["props_clear_m"] - d / 2 * math.sin(math.radians(15)))
+    return r
+
+
+def forward_sweep(workers: int = 0) -> list[dict]:
+    """The SAR build with its wing swept forward, the mean chord fixed: the battery's travel, the props' clearance
+    and size, and the righting."""
+    degs = inputs()["forward_sweep"]["sweep_deg"]
+    if workers == 1:
+        return [_sweep_job(d) for d in degs]
+    with ProcessPoolExecutor(max_workers=workers or None) as ex:
+        return list(ex.map(_sweep_job, degs))
+
+
+def fall(b: dict, sweep_rows: list[dict]) -> list[dict]:
+    """Total power lost in flight: the speed it meets the water at, tail-first, for each way of slowing it."""
+    li = puffin.inputs()
+    s, f = li["sar"], li["sar"]["fall"]
+    c = puffin.layout(s["layout"], li)
+    rho, m = s["air_density_kgm3"], b["mass_kg"]
+    big = max(sweep_rows, key=lambda r: r["prop_d_m"]) if sweep_rows else None
+
+    def v_term(cda: float, mass: float = m) -> float:
+        return math.sqrt(2 * mass * G / (rho * cda))
+
+    body = f["hull_cd_tail_first"] * math.pi * c["diameter_m"] ** 2 / 4 + f["edge_cda_m2"]
+    rows = [{"how": "nothing: it falls boom first", "v": v_term(body), "adds_kg": 0.0}]
+    for label, d in (("the props windmilling", c["prop_diameter_m"]),
+                     *((("the longest props windmilling", big["prop_d_m"]),) if big else ())):
+        disc = 2 * math.pi * d * d / 4
+        rows.append({"how": f"{label} ({d:.2f} m)", "v": v_term(body + f["windmill_cd"] * disc), "adds_kg": 0.0})
+    for label, d in (("autorotating, collective pitch", c["prop_diameter_m"]),
+                     *((("autorotating, the longest props", big["prop_d_m"]),) if big else ())):
+        disc = 2 * math.pi * d * d / 4
+        v_h = math.sqrt(m * G / (2 * rho * disc))
+        omega = f["tip_speed_ms"] / (d / 2)
+        fs = s["forward_sweep"]
+        ke = 2 * 0.5 * (fs["prop_ref_kg"] * (d / fs["prop_ref_m"]) ** 2 * (d / 2) ** 2 / 3) * omega**2
+        v = f["autorotation_vh"] * v_h
+        v_flare = math.sqrt(max(v * v - 2 * ke / m, 0.0))
+        rows.append({"how": f"{label} ({d:.2f} m), then a flare", "v": v, "v_flare": v_flare, "adds_kg": 0.0,
+                     "note": "variable-pitch hubs on both props"})
+    area = math.pi * f["chute_d_m"] ** 2 / 4
+    rows.append({"how": f"a {f['chute_d_m']:g} m parachute", "v": v_term(body + f["chute_cd"] * area, m + f["chute_kg"]),
+                 "adds_kg": f["chute_kg"]})
+    for r in rows:
+        r["drop_m"] = r["v"] ** 2 / (2 * G)
+        if "v_flare" in r:
+            r["drop_flare_m"] = r["v_flare"] ** 2 / (2 * G)
+    return rows
+
+
+def report(b: dict, f: dict, sw: list[dict] | None = None, fl: list[dict] | None = None) -> str:
     s = inputs()
     a, d = f["aboard"], f["dropped"]
     lines = ["# The spar Puffin, SAR build: mass, power and missions", "",
@@ -133,4 +210,32 @@ def report(b: dict, f: dict) -> str:
                      f"{mm['can_search_mark_min']:.0f} min | "
                      + (f"{mm['afloat_h']:.0f} h |" if mm["mark_ok"] else "none: the search runs the pack down |")
                      + f" {mm['can_search_back_min']:.0f} min |")
+    if sw:
+        lines += ["", "## Forward sweep", "",
+                  "The wing swept forward with its mean chord where the SAR layout has it, so the neutral point stays "
+                  "put: the tips and props go up the hull, the root down. Up the hull the props sit beside the narrowing "
+                  "dome, so they can be longer (to the hull with a gap, or tip to tip, or the cap). Hover power with "
+                  "those props, and with the original 0.76 m props for comparison. The SAR build itself flies 25° "
+                  "and 1.0 m props, a little short of the longest.", "",
+                  "| Sweep | Root LE | Props' plane | Longest props | Disc loading | Hover | Hover, 0.76 m props | Mass | "
+                  "Battery travel | Props clear | Clear, rolled 15° | GZ at 15° | Least GZ | Rights itself |",
+                  "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+        for r in sw:
+            lines.append(f"| {r['sweep_deg']:.0f}° | {r['root_le_m'] * 100:.0f} cm | {r['prop_plane_m'] * 100:.0f} cm | "
+                         f"{r['prop_d_m']:.2f} m | {r['disc_loading_kgm2']:.1f} kg/m² | {r['hover_w']:.0f} W | "
+                         f"{r['hover_same_props_w']:.0f} W | {r['mass_kg']:.2f} kg | {r['travel_m'] * 100:.0f} cm | "
+                         f"{r['props_clear_m'] * 100:.0f} cm | {r['props_clear_15_m'] * 100:.0f} cm | "
+                         f"{r['gz15_m'] * 100:+.1f} cm | {min(r['least_gz_belly_m'], r['least_gz_wingtip_m']) * 100:+.1f} cm | "
+                         f"{'yes' if r['rights'] else 'no'} |")
+    if fl:
+        lines += ["", "## Power lost in flight", "",
+                  "With the screw unpowered the battery runs down the boom and the craft pitches up to tail-first. With "
+                  "the motors still running that is only its hover attitude, and it lands. With all power gone it falls "
+                  "boom first: the speed it meets the water at, and the drop height that equals.", "",
+                  "| Slowed by | Hits the water at | Like a drop of | Adds |", "|---|---|---|---|"]
+        for r in fl:
+            v = f"{r['v']:.1f} m/s" + (f", {r['v_flare']:.1f} m/s after the flare" if "v_flare" in r else "")
+            h = f"{r['drop_m']:.1f} m" + (f", {r['drop_flare_m']:.1f} m" if "drop_flare_m" in r else "")
+            add = r.get("note") or (f"{r['adds_kg']:.1f} kg" if r["adds_kg"] else "nothing")
+            lines.append(f"| {r['how']} | {v} | {h} | {add} |")
     return "\n".join(lines) + "\n"

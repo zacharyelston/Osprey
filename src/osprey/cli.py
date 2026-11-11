@@ -573,8 +573,11 @@ def cmd_recon_puffin_sar(args) -> int:
     o = Path(args.out) if args.out else OUT / "recon-puffin-sar"
     o.mkdir(parents=True, exist_ok=True)
     b, f = puffin_sar.budget(), puffin_sar.floated()
-    (o / "sar.json").write_text(json.dumps({"budget": b, "floated": f}, indent=1, default=float))
-    (o / "sar.md").write_text(puffin_sar.report(b, f))
+    sw = puffin_sar.forward_sweep(args.workers)
+    fl = puffin_sar.fall(b, sw)
+    (o / "sar.json").write_text(json.dumps({"budget": b, "floated": f, "forward_sweep": sw, "fall": fl}, indent=1,
+                                           default=float))
+    (o / "sar.md").write_text(puffin_sar.report(b, f, sw, fl))
     print(f"SAR build: {b['mass_kg']:.2f} kg, hover {b['hover_w']:.0f} W, cruise {b['cruise_w']:.0f} W at "
           f"{b['v_cruise_ms']:.1f} m/s, {b['cruise_min']:.0f} min; rights itself with the pack aboard: "
           f"{f['aboard']['rights']}, after the drop: {f['dropped']['rights']}")

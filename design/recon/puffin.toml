@@ -67,9 +67,12 @@ battery = "screw"
 wing_le_m = 0.70
 
 [layouts.sar]
-label = "SAR build: the screw layout with the search-and-rescue kit, a bigger battery and a fuller girth, no ballast"
+label = "SAR build: the screw layout with the search-and-rescue kit, a bigger battery and a fuller girth, no ballast; the wing swept forward 25°, 1.0 m props"
 battery = "screw"
-wing_le_m = 0.70
+sweep_deg = 25.0           # forward: the tips and props up the hull, clear of the water; the mean chord where the
+wing_le_m = 0.566          # straight wing's was (0.70 m), so the root's leading edge is 0.70 - half the tip's shift
+prop_diameter_m = 1.00     # 7.5 cm from the hull's side: a third less hover power than the 0.76 m props
+prop_kg = 0.14             # each, growing as the diameter squared
 diameter_m = 0.45          # 5 cm fuller than the screw layout: stiffer near upright
 battery_kg = 3.5           # the half kilogram that would have been ballast flies as battery instead
 payload_kg = 0.50          # the dome: the EO/IR gimbal 0.30, the AIS-MOB beacon, strobe and antenna 0.20
@@ -104,3 +107,26 @@ launch_s = 60.0            # lift off, run the battery forward, transition
 landing_s = 60.0           # transition back, run the battery down, settle
 afloat_w = 6.0             # marking: autopilot asleep, AIS-MOB and strobe on, the radio listening
 missions = ["sar-datum", "sar-offshore"]
+
+# Forward sweep on the SAR build (osprey recon-puffin-sar). The mean chord stays where the SAR layout has it, so
+# the neutral point doesn't move: the tips and their props go up the hull, the root down. Up the hull, the props sit
+# beside the narrowing dome, so they can grow; their mass grows as the diameter squared.
+[sar.forward_sweep]
+mean_le_m = 0.70           # the mean chord's leading edge, held while the sweep changes
+sweep_deg = [0.0, 15.0, 25.0, 35.0, 45.0]
+prop_gap_m = 0.03          # tip to hull, and tip to tip
+prop_max_m = 1.30          # the longest prop considered
+prop_ref_kg = 0.08         # at the 0.76 m prop
+prop_ref_m = 0.76
+
+# Total power lost in flight: the battery runs down the boom, it pitches up to tail-first and falls. How fast it
+# meets the water with nothing, with the props windmilling, autorotating, or under a parachute.
+[sar.fall]
+hull_cd_tail_first = 0.30  # on the girth's frontal area: falling boom first
+edge_cda_m2 = 0.010        # wings, strakes and nacelles edge-on
+windmill_cd = 0.5          # a fixed-pitch prop windmilling, on its disc: a low estimate
+autorotation_vh = 1.75     # steady autorotation, in hover inflow velocities (needs collective pitch)
+chute_d_m = 2.5
+chute_cd = 1.2
+chute_kg = 0.5
+tip_speed_ms = 100.0       # the props' tip speed in hover, for the energy a flare can take from them
