@@ -95,6 +95,9 @@ feature, "Osprey spar Puffin", drawn standing on its tail.
   named part, ready to drop into an assembly.
 - **Stations:** the wing's station, the battery's and the water surface come from the righting model, and a test
   keeps them in step with it.
+- **"Osprey spar Puffin lineup":** a second feature in the same file that draws all four side by side, 2.6 m
+  apart: as drawn, fixed ballast and the screw layout afloat, each at its water surface, then the screw layout with
+  its battery up as it flies. Add either feature to a Part Studio from the toolbar's custom features.
 
 ## Running it
 

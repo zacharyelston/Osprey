@@ -40,6 +40,12 @@ const NAC_R = { (meter) : [0.01, 0.04, 0.3] } as LengthBoundSpec;
 const STRAKE_L = { (meter) : [0.02, 0.35, 2] } as LengthBoundSpec;
 const STRAKE_S = { (meter) : [0.02, 0.30, 2] } as LengthBoundSpec;
 
+const PUFFIN_DEFAULTS = {
+        "layout" : PuffinLayout.SCREW, "flying" : false, "showWater" : true, "length" : 1.3 * meter,
+        "girth" : 0.40 * meter, "boomR" : 0.055 * meter, "boomTo" : 0.30, "girthFrom" : 0.45, "girthTo" : 0.75,
+        "span" : 1.6 * meter, "chord" : 0.26 * meter, "tc" : 0.14, "prop" : 0.76 * meter,
+        "nacR" : 0.04 * meter, "strakeL" : 0.35 * meter, "strakeS" : 0.30 * meter };
+
 annotation { "Feature Type Name" : "Osprey spar Puffin" }
 export const ospreySparPuffin = defineFeature(function(context is Context, id is Id, definition is map)
     precondition
@@ -216,10 +222,28 @@ export const ospreySparPuffin = defineFeature(function(context is Context, id is
         // The dome's gimbal camera: a ball in the nose.
         opSphere(context, id + "gimbal", { "center" : vector(0 * meter, 0 * meter, L - 0.06 * meter), "radius" : 0.045 * meter });
         name(context, id + "gimbal", "Gimbal camera (dome)");
-    }, {
-        "layout" : PuffinLayout.SCREW, "flying" : false, "showWater" : true, "length" : 1.3 * meter,
-        "girth" : 0.40 * meter, "boomR" : 0.055 * meter, "boomTo" : 0.30, "girthFrom" : 0.45, "girthTo" : 0.75,
-        "span" : 1.6 * meter, "chord" : 0.26 * meter, "tc" : 0.14, "prop" : 0.76 * meter, "nacR" : 0.04 * meter, "strakeL" : 0.35 * meter, "strakeS" : 0.30 * meter });
+    }, PUFFIN_DEFAULTS);
+
+/** All three layouts side by side, 2.6 m apart along y: the Puffin as drawn, the spar with fixed ballast and the spar
+ * with its battery on a screw, each afloat at its water surface; then the screw layout again with its battery up,
+ * as it flies. */
+annotation { "Feature Type Name" : "Osprey spar Puffin lineup" }
+export const ospreySparPuffinLineup = defineFeature(function(context is Context, id is Id, definition is map)
+    precondition
+    {
+    }
+    {
+        const cases = [[PuffinLayout.AS_DRAWN, false], [PuffinLayout.FIXED_BALLAST, false], [PuffinLayout.SCREW, false],
+                [PuffinLayout.SCREW, true]];
+        for (var i = 0; i < size(cases); i += 1)
+        {
+            const sub = id + ("craft" ~ i);
+            ospreySparPuffin(context, sub, mergeMaps(PUFFIN_DEFAULTS, { "layout" : cases[i][0], "flying" : cases[i][1],
+                            "showWater" : !cases[i][1] }));
+            opTransform(context, id + ("move" ~ i), { "bodies" : qCreatedBy(sub, EntityType.BODY),
+                        "transform" : transform(vector(0 * meter, (i - 1.5) * 2.6 * meter, 0 * meter)) });
+        }
+    }, {});
 
 /** A NACA 4-digit section, (u, z) in chord units: the upper surface from the trailing edge to the leading edge,
  * and the lower from the leading edge back, sharing both end points. */
