@@ -73,3 +73,23 @@ def test_the_onshape_feature_draws_each_layout_where_the_model_puts_it(layouts):
             assert num("battery") == pytest.approx(r["battery_x_m"], abs=0.002)
     c = puffin.inputs()["craft"]
     assert f'"girth" : {c["diameter_m"]:.2f} * meter' in fs and f'"span" : {c["span_m"]:.1f} * meter' in fs
+
+
+def test_the_sar_build_rights_itself_with_the_drop_pack_aboard_and_after_it_goes():
+    from osprey.recon import puffin_sar
+
+    f = puffin_sar.floated()
+    for r in f.values():
+        assert r["rights"] and r["gz15_m"] > 0.01 and r["props_clear_m"] > 0.25
+    assert f["aboard"]["mass_kg"] - f["dropped"]["mass_kg"] == pytest.approx(puffin_sar.inputs()["drop_pack_kg"])
+
+
+def test_the_sar_build_fits_the_uas_class_and_its_budget_adds_up():
+    from osprey.recon import puffin_sar
+
+    b = puffin_sar.budget()
+    assert 8.0 <= b["mass_kg"] <= 10.0
+    assert sum(b["parts"].values()) == pytest.approx(b["mass_kg"])
+    assert b["v_cruise_ms"] > b["v_stall_ms"] and b["cruise_w"] < b["hover_w"]
+    near = next(m for m in b["missions"] if m["mission"] == "sar-datum")
+    assert near["mark_ok"] and near["afloat_h"] > 12              # searches the whole task, then marks for a day

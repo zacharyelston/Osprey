@@ -387,7 +387,9 @@ always bobs back upright when a wave knocks it over. `osprey recon-puffin` draws
 The Puffin as drawn settles lying flat. A spar does better: a slender boom at the tail carries the battery, below
 a 40 cm girth at the waterline. With the battery on a screw (down the boom to float, up to the wing to fly) it
 self-rights at 7.5 kg on an ordinary tail, the props 31 cm clear. The notebook and an Onshape feature are in
-[docs/puffin](docs/puffin/README.md).
+[docs/puffin](docs/puffin/README.md). The first article is the SAR build: the SAR kit aboard, the wing swept
+forward 25° on 1.0 m props, 9.1 kg, rights itself with its rescue tube aboard and after the drop
+([build spec](docs/puffin/build-spec.md), `osprey recon-puffin-sar`).
 
 ### The Beet (first look)
 
@@ -534,6 +536,7 @@ uv run osprey recon-cyclone --payload all                   # Recon: three wing 
 uv run osprey recon-cyclone-sweep --payload all             # Recon: the Cyclone with 3-6 arms, A along them
 uv run osprey recon-loiter --workers 8                      # Recon: the loiter craft, 2-12 h on station
 uv run osprey recon-puffin --workers 8                      # Recon: the spar Puffin, righting curves
+uv run osprey recon-puffin-sar --workers 8                  # Recon: the spar Puffin SAR build's budget
 uv run osprey recon-awareness                               # Recon: anti-piracy ranges
 uv run osprey beet --workers 8                              # the Beet: a flying buoy, sized and floated
 ```
@@ -555,7 +558,7 @@ Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two works
 | [`design/beet.toml`](design/beet.toml) | The Beet: craft, cabin geometry, the hop, four ways to power it, the cases and sweeps |
 | [`design/recon/`](design/recon/) | Recon: the reference printed airframe, airframe variants (blended wing, crescent), payload variants, and the mission profiles (search, survey, inspect, escort) |
 | [`src/osprey/`](src/osprey/) | `frames`, `motion`, `optics`, `stabilize`, `occlusion`, `rig`, `tasking`, `calcs`, `figures`, `render/scene`, `cli`, `beet` (the flying buoy, sized and floated) |
-| [`src/osprey/recon/`](src/osprey/recon/) | `tasks` (search, survey, inspect, escort), `search` (sweep width, POD), `flight` (3-DOF), `sizing` (OpenMDAO + OpenAeroStruct, trim and stability for flying wings), `fleet` (one bird, many jobs), `geometry` and `render` (the bird in MuJoCo), `plug` and `frame` (mould plugs, CNC ladder frames), `water` (afloat, take-off from the sea, landing loads), `tailsitter` (hover sizing, afloat upright, the water launch), `cyclone` (three wing arms spinning as a rotor), `cyclone_modes` (its modes, the moves between them, the manager), `cyclone_dynamics` (the spin building and dying, A's and B's authority, the wind), `cyclone_water` (afloat on its arms, the lift-off), `cyclone_sweep` (how many arms, where A goes), `loiter` (the loiter craft, hours on station), `puffin` (the spar Puffin's righting), `awareness` (anti-piracy ranges), `figures` |
+| [`src/osprey/recon/`](src/osprey/recon/) | `tasks` (search, survey, inspect, escort), `search` (sweep width, POD), `flight` (3-DOF), `sizing` (OpenMDAO + OpenAeroStruct, trim and stability for flying wings), `fleet` (one bird, many jobs), `geometry` and `render` (the bird in MuJoCo), `plug` and `frame` (mould plugs, CNC ladder frames), `water` (afloat, take-off from the sea, landing loads), `tailsitter` (hover sizing, afloat upright, the water launch), `cyclone` (three wing arms spinning as a rotor), `cyclone_modes` (its modes, the moves between them, the manager), `cyclone_dynamics` (the spin building and dying, A's and B's authority, the wind), `cyclone_water` (afloat on its arms, the lift-off), `cyclone_sweep` (how many arms, where A goes), `loiter` (the loiter craft, hours on station), `puffin` (the spar Puffin's righting), `puffin_sar` (its SAR build's flight and mission budget), `awareness` (anti-piracy ranges), `figures` |
 | [`sim/`](sim/) | The sims' loops in Rust (PyO3): `flight` and `tasks` (the mission sim), `water` (take-off run, tailsitter launch), `cyclone` (spin-up, pitch moves), `rotor` (the Cyclone's blade elements, spin moves, wind trims, water launch) |
 | [`runs/`](runs/README.md) | Kept runs, never edited after they are archived |
 | [`docs/`](docs/) | [Architecture](docs/architecture.md), [Recon](docs/recon.md), [the Cyclone](docs/cyclone/README.md), [the loiter craft](docs/loiter/README.md), [the spar Puffin](docs/puffin/README.md), [the Puffin's markets](docs/puffin/markets.md), [the Beet](docs/beet/README.md), [remote runs](docs/remote-simulation.md), README figures |

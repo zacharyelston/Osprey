@@ -43,6 +43,7 @@ def layout(name: str, li: dict | None = None, **over) -> dict:
     if c["hull"].get("kind", "spar") == "spar":
         c["hull"] = {**li["craft"]["hull"], **c["hull"]}
     c.setdefault("wing_le_m", 0.70)
+    c.setdefault("sweep_deg", 0.0)
     c["float_x_m"] = li["screw"]["float_x_m"]
     return c
 
@@ -87,6 +88,12 @@ def spar_radius(c: dict, q: float) -> float:
     return R * math.sqrt(max(1 - t**2, 0.0004))
 
 
+def tip_shift(c: dict) -> float:
+    """How far forward (up the hull) the wingtip's leading edge sits of the root's: forward sweep is positive. The
+    wing is taken from the hull's side (its girth) to the tip."""
+    return (c["span_m"] / 2 - c["diameter_m"] / 2) * math.tan(math.radians(c.get("sweep_deg", 0.0)))
+
+
 def build(c: dict, battery_x: float) -> tuple[list, list, float, np.ndarray]:
     """Sealed meshes [(name, (verts, faces))], point masses [(name, kg, xyz)], the total mass and the CG, with the
     battery at battery_x up from the tail."""
@@ -108,23 +115,26 @@ def build(c: dict, battery_x: float) -> tuple[list, list, float, np.ndarray]:
     u, zf = g.naca4(0.02, 0.4, tc, 24)
     if not c["wings_flood"]:
         for sgn in (1, -1):
-            meshes.append((f"wing{sgn}", g.loft([g._section(u, zf, -xw, ch, sgn * y, 0.0, 0.0)
+            sweep = math.tan(math.radians(c.get("sweep_deg", 0.0)))
+            meshes.append((f"wing{sgn}", g.loft([g._section(u, zf, -(xw + max(y - R, 0.0) * sweep), ch, sgn * y, 0.0, 0.0)
                                                  for y in np.linspace(R * 0.6, span / 2, 6)])))
-    masses.append(("wing", c["wing_kg"], [xw - 0.42 * ch, 0, 0]))
+    shift = tip_shift(c)
+    masses.append(("wing", c["wing_kg"], [xw + shift / 2 - 0.42 * ch, 0, 0]))
     for sgn in (1, -1):
         yt = sgn * span / 2
         if not c["wings_flood"]:
-            meshes.append((f"nacelle{sgn}", g._streamlined(xw + 0.12, xw - ch - c["nacelle_tail_m"], yt, 0.0,
+            meshes.append((f"nacelle{sgn}", g._streamlined(xw + shift + 0.12, xw + shift - ch - c["nacelle_tail_m"], yt, 0.0,
                                                            c["nacelle_r_m"], nose=0.2, full=0.5)))
-        masses += [("motor", c["motor_kg"], [xw + 0.06, yt, 0]), ("prop", c["prop_kg"], [xw + 0.12, yt, 0])]
+        masses += [("motor", c["motor_kg"], [xw + shift + 0.06, yt, 0]), ("prop", c["prop_kg"], [xw + shift + 0.12, yt, 0])]
     m = sum(k for _, k, _ in masses)
     cg = sum(k * np.array(p, float) for _, k, p in masses) / m
     return meshes, masses, m, cg
 
 
 def flight_cg_target(c: dict) -> float:
-    """Where the CG must sit in flight: the static margin ahead of the neutral point, taken as the quarter chord."""
-    return c["wing_le_m"] - (0.25 + c["static_margin"]) * c["chord_m"]
+    """Where the CG must sit in flight: the static margin ahead of the neutral point, taken as the quarter chord of
+    the mean chord, which forward sweep carries forward by half the tip's shift."""
+    return c["wing_le_m"] + tip_shift(c) / 2 - (0.25 + c["static_margin"]) * c["chord_m"]
 
 
 def balance_wing(c: dict, battery_x: float) -> dict:
@@ -184,7 +194,7 @@ def righting(c: dict, battery_x: float, step_deg: float = 5.0) -> dict:
     out = {"mass_kg": m, "cg_x_m": float(cg[0]), "battery_x_m": battery_x, "wing_le_m": c["wing_le_m"],
            "sealed_l": sealed * 1e3, "displaced_l": need * 1e3}
     water_x = h + cg[0]                                  # the waterline, up from the tail
-    out.update(waterline_m=water_x, props_clear_m=c["wing_le_m"] + 0.12 - water_x,
+    out.update(waterline_m=water_x, props_clear_m=c["wing_le_m"] + tip_shift(c) + 0.12 - water_x,
                wing_te_clear_m=c["wing_le_m"] - c["chord_m"] - water_x, dome_above_m=c["length_m"] - water_x)
     phis = np.arange(0, 180 + 1e-9, step_deg)
     out["phi_deg"] = phis.tolist()
