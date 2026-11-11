@@ -1,0 +1,6 @@
+gpu1, on 97ba4b5 (branch feat/recon-loiter; run from the working tree before that commit, whose src/ and design/recon/airframes are the same, only the Onshape feature and a test differed): the loiter craft, a lifting body and a tandem tilt-wing with both wings high, the rear on a pylon 30 cm up, and a V-keel hull it floats on, the front float tails as outriggers
+sweep/: uv run osprey recon-loiter --out <this>/sweep  (sweep.json, sweep.md, sweep.png; hero-, threeview-, lineup- and afloat-*.png for the longest pair that both close at each battery)
+  sweep.md and the renders redrawn on 73236ce from the same sweep.json (uv run osprey recon-loiter --run <this>/sweep --out <this>/sweep): the tilt-wing drawn afloat with its wings at the 55° stance tilt, not flat, and the sheet's wording for the keel stance; the numbers are unchanged
+floats/: gpu1, on 73236ce: uv run osprey recon-loiter --floats --out <this>/floats  (floats.json, floats.md, floats.png): the 4 h, 200 Wh/kg tilt-wing re-sized with its float tails at 0.4-1.25x reserve and fineness 5, 6 and 8, then floated on its keel
+docs/img/recon-loiter-{lineup,threeview,sweep,afloat}.png: copies of sweep/lineup-300.png, sweep/threeview-tiltwing-8h-300.png, sweep/sweep.png and sweep/afloat-300.png
+docs/img/recon-loiter-floats.png: a copy of floats/floats.png

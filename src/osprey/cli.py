@@ -547,11 +547,60 @@ def cmd_recon_cyclone_sweep(args) -> int:
     return 0
 
 
+def cmd_recon_loiter(args) -> int:
+    """The loiter craft: the lifting body and the tandem tilt-wing, each sized for each time on station
+    and battery (design/recon/loiter.toml), flown and floated; renders of the longest pair that both close."""
+    from osprey.recon import figures as rfig
+    from osprey.recon import loiter
+    from osprey.recon import render as rrender
+    from osprey.recon import water
+
+    o = Path(args.out) if args.out else OUT / "recon-loiter"
+    o.mkdir(parents=True, exist_ok=True)
+    if args.floats:
+        rows = loiter.float_sweep(args.workers)
+        (o / "floats.json").write_text(json.dumps(rows, indent=1, default=float))
+        (o / "floats.md").write_text(loiter.float_report(rows))
+        rfig.loiter_floats(rows, o / "floats.png")
+        for r in rows:
+            print(f"floats {r['reserve']:g}x, fineness {r['fineness']:g}: "
+                  + (f"{r['design']['mass_total_kg']:.2f} kg" if r.get("ok") else f"doesn't close ({r.get('why')})"))
+        return 0
+    if args.run:
+        rows = json.loads((Path(args.run) / "sweep.json").read_text())
+    else:
+        rows = loiter.sweep(args.workers)
+        (o / "sweep.json").write_text(json.dumps(rows, indent=1, default=float))
+    (o / "sweep.md").write_text(loiter.report(rows))
+    rfig.loiter(rows, o / "sweep.png")
+    for wh in sorted({r["wh_per_kg"] for r in rows}):
+        pr = loiter.pair(rows, wh)
+        if not pr:
+            continue
+        birds, floats = [], []
+        for r in pr:
+            p = loiter.load(r["airframe"], r["hours"], wh)
+            d = r["design"]
+            name = f"{r['airframe']}-{r['hours']:g}h-{wh:.0f}"
+            rrender.hero(p, d, o / f"hero-{name}.png")
+            rrender.threeview(p, d, o / f"threeview-{name}.png")
+            birds.append((p, d, f"{loiter.label(r['airframe'])}, {r['hours']:g} h"))
+            # The tilt-wing floats with its wings part way up; draw it as the model floated it.
+            dw = {**d, "wing_tilt_deg": p.nacelle_floats.stance_tilt_deg} if r["airframe"] == "tiltwing" else d
+            floats.append((p, dw, r.get("afloat") or water.afloat(p, dw), loiter.label(r["airframe"])))
+        rrender.lineup(birds, o / f"lineup-{wh:.0f}.png")
+        rrender.afloat(floats, o / f"afloat-{wh:.0f}.png")
+    for r in rows:
+        print(f"{loiter.label(r['airframe'])}, {r['hours']:g} h, {r['wh_per_kg']:.0f} Wh/kg: "
+              + (f"{r['design']['mass_total_kg']:.1f} kg" if r.get("ok") else f"doesn't close ({r.get('why', 'not recovered')})"))
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="osprey", description=__doc__)
     ap.add_argument("cmd", choices=["calc", "sim", "render", "all", "sweep", "recon-size", "recon-fly", "recon",
                                     "recon-render", "recon-plug", "recon-frame", "recon-water", "recon-awareness",
-                                    "recon-cyclone", "recon-cyclone-sweep"])
+                                    "recon-cyclone", "recon-cyclone-sweep", "recon-loiter"])
     ap.add_argument("--scenario", default="coastal-watch", choices=SCENARIOS)
     ap.add_argument("--rig", default=None, choices=RIGS, help="override the scenario's rig")
     ap.add_argument("--out", default=None, help="output directory (absolute); default out/<scenario>/<rig>")
@@ -566,6 +615,7 @@ def main(argv=None) -> int:
     ap.add_argument("--payload", default="gimbal", help="recon: gimbal, or a design/recon/payloads variant (dual); "
                                                               "recon-cyclone and recon-cyclone-sweep also take all")
     ap.add_argument("--airframe", default="twinboom", help="recon: twinboom, or a design/recon/airframes variant (bwb)")
+    ap.add_argument("--floats", action="store_true", help="recon-loiter: sweep the tilt-wing's float tails instead")
     ap.add_argument("--water", action="store_true", help="recon: size and fly with the float kit aboard (recon/water.py)")
     ap.add_argument("--run", default=None, help="recon-render, -plug, -frame, -water: a run directory holding <mission>/design.json "
                                                 "(default out/recon); recon-cyclone: one holding <payload>/matrix.json "
@@ -583,6 +633,8 @@ def main(argv=None) -> int:
         return cmd_recon_cyclone(args)
     if args.cmd == "recon-cyclone-sweep":
         return cmd_recon_cyclone_sweep(args)
+    if args.cmd == "recon-loiter":
+        return cmd_recon_loiter(args)
     if args.cmd == "recon-awareness":
         return cmd_recon_awareness(args)
     if args.cmd.startswith("recon"):

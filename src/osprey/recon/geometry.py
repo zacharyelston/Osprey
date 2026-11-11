@@ -126,6 +126,8 @@ def build(p, d: dict, *, explode: float = 0.0) -> list[Part]:
     wing body: its upper and lower mould halves apart)."""
     if d.get("airframe") in ("bwb", "crescent"):
         return build_bwb(p, d, explode=explode)
+    if d.get("airframe") == "tandem":
+        return build_tandem(p, d, explode=explode)
     g, w = p.geometry, p.wing
     foil = naca4(g.airfoil_camber, g.airfoil_camber_pos, w.t_over_c)
     fo = w.fem_origin
@@ -479,4 +481,130 @@ def build_cyclone(p, d: dict, cy, phi_deg: float, *, axis_frac: float = 0.25, mo
     if spin_disc:
         v, f = _tube([0.0, 0.0, -0.002], [0.0, 0.0, 0.002], R, 64)
         parts.append(Part("rotor", "disc", v, f))
+    return parts
+
+
+def _tilt(parts: list[Part], xp: float, zp: float, tilt: float) -> list[Part]:
+    """Turn parts about the spanwise axis through (xp, zp), leading edge up by tilt radians."""
+    c, sn = math.cos(tilt), math.sin(tilt)
+    for q in parts:
+        dx, dz = q.verts[:, 0] - xp, q.verts[:, 2] - zp
+        q.verts = np.stack([xp + dx * c - dz * sn, q.verts[:, 1], zp + dx * sn + dz * c], 1)
+    return parts
+
+
+def _streamlined(x_front: float, x_back: float, y: float, z: float, r: float, nose: float = 0.15,
+                 full: float = 0.45, n: int = 24) -> tuple[np.ndarray, np.ndarray]:
+    """A streamlined body of revolution along x, from x_front back to x_back: a round nose over the first
+    `nose` of its length, full radius r to `full`, then tapering to a point."""
+    s = np.linspace(0, 1, n)
+    k = np.where(s < nose, np.sqrt(np.clip(1 - ((nose - s) / nose) ** 2, 0, 1)),
+                 np.where(s < full, 1.0, np.clip(1 - ((s - full) / (1 - full)) ** 2, 0, 1) ** 0.8))
+    k = np.maximum(k, 0.03)
+    a = np.linspace(0, 2 * math.pi, 20, endpoint=False)
+    return loft([np.stack([np.full_like(a, x_front + q * (x_back - x_front)), y + rr * r * np.cos(a),
+                           z + rr * r * np.sin(a)], 1) for q, rr in zip(s, k)])
+
+
+def _hull(x_front: float, x_back: float, z: float, r: float, keel: float, nose: float = 0.15, full: float = 0.75,
+          n: int = 28) -> tuple[np.ndarray, np.ndarray]:
+    """A hull along x from x_front back to x_back, its sections a teardrop point down: a round top of radius r over
+    the axis at height z, the sides falling straight from the beam, then closing to a V keel keel x r below the axis
+    (deadrise atan(keel / 2)). Side on, the same nose, full length and taper as _streamlined."""
+    s = np.linspace(0, 1, n)
+    k = np.where(s < nose, np.sqrt(np.clip(1 - ((nose - s) / nose) ** 2, 0, 1)),
+                 np.where(s < full, 1.0, np.clip(1 - ((s - full) / (1 - full)) ** 2, 0, 1) ** 0.8))
+    k = np.maximum(k, 0.03)
+    a = np.linspace(0, 2 * math.pi, 32, endpoint=False)
+    top = np.sin(a) >= 0
+    y = np.where(top, np.cos(a), np.cos(a) * np.abs(np.cos(a)))          # below the beam: y = r (1 - s^2), s = depth
+    zz = np.where(top, np.sin(a), keel * np.sin(a))
+    return loft([np.stack([np.full_like(a, x_front + q * (x_back - x_front)), rr * r * y, z + rr * r * zz], 1)
+                 for q, rr in zip(s, k)])
+
+
+def build_tandem(p, d: dict, *, explode: float = 0.0) -> list[Part]:
+    """The tandem tilt-wing, after the quad tilt-wing model it is based on, both wings high: the front's
+    half-wings start at the hull's sides on its top, the rear sits on a short pylon over the tail (the wings'
+    gap, which also serves as the fin), turning on a shaft through the pylon's head. The hull is a teardrop
+    point down, a V keel under a round top: it floats on the keel and tracks straight on it. A prop a side on
+    each wing; each nacelle is one streamlined body, spinner, motor, through the wing at its full section and
+    on behind the trailing edge, tapering, as a float. Each wing, with its nacelles and props, turns about its
+    shaft by d["wing_tilt_deg"] (0 in cruise, 90 to hover). On the water the wings stand part way up, at
+    the floats' stance tilt: the front float tails dip in as outriggers either side of the keel, the rear
+    ones, a pylon higher, stay clear of it."""
+    g, h = p.geometry, p.hover
+    parts: list[Part] = []
+    tilt = math.radians(d.get("wing_tilt_deg", 0.0))
+    nf = d.get("nacelle_floats") or {"diameter_m": 0.07, "length_m": 0.35}
+    rf, Lf = nf["diameter_m"] / 2, nf["length_m"]
+    rp = h.prop_diameter_m / 2
+    fu = p.fuselage
+    R, zc = fu.diameter_m / 2, fu.axis_z_m
+    keel = getattr(fu, "keel", 1.0)
+    head_r = 0.035                                           # the rear shaft's housing, on the pylon
+    # Each row's floats carry its share of the weight, standing: the CG between the pivots sets it.
+    piv = {n: -(d["surfaces"][n]["le_x_m"][-1] + p.wing.pivot_frac * d["surfaces"][n]["chords_m"][-1])
+           for n in ("front", "rear")}
+    front_share = (-d.get("cg_x_m", 0.6) - piv["rear"]) / (piv["front"] - piv["rear"])
+    share = {"front": front_share, "rear": 1 - front_share}
+    for name, kind, tc in (("front", "shell0", p.wing.t_over_c), ("rear", "shell1", p.rear.t_over_c)):
+        s_ = d["surfaces"][name]
+        dd = {**d, **{k: s_[k] for k in ("half_span_y_m", "le_x_m", "le_z_m", "chords_m", "twist_deg", "span_m")},
+              "t_over_c_cp": [tc]}
+        y0, le0, c0, tw0, _, lz0 = _stations(p, dd, 25)
+        root = R + 0.01 if name == "front" else head_r + 0.01   # the hull's side, or the pylon head's
+        y = np.linspace(root, y0[-1], 12)
+        le, c, tw, lz = (np.interp(y, y0, q) for q in (le0, c0, tw0, lz0))
+        u, z = naca4(g.airfoil_camber, g.airfoil_camber_pos, tc, 32)
+        wing: list[Part] = []
+        for sign in (1, -1):
+            v, f = loft([_section(u, z, le[i], c[i], sign * y[i], tw[i], lz[i]) for i in range(len(y))])
+            wing.append(Part(f"{name}_{'L' if sign > 0 else 'R'}", kind, v, f))
+            v, f = _sphere([-le[-1] - 0.02, sign * (y[-1] + 0.004), lz[-1]], 0.010, 10)
+            wing.append(Part(f"light_{name}_{sign}", "red" if sign > 0 else "green", v, f))
+        for frac in h.prop_y_frac:
+            yp = frac * s_["span_m"]
+            xle = -float(np.interp(yp, y, le))
+            zp = float(np.interp(yp, y, lz))
+            cp = float(np.interp(yp, y, c))
+            r = max(rf * math.sqrt(2 * share[name]), 0.6 * tc * cp, 0.035)
+            x_nose, x_tail = xle + 0.16, xle - cp - Lf
+            for sign in (1, -1):
+                tag = f"{name}_{sign}_{frac:.2f}"
+                # One body: spinner and motor ahead of the wing, full through it, the float tapering behind.
+                v, f = _streamlined(x_nose, x_tail, sign * yp, zp, r, nose=0.12, full=(0.16 + cp) / (x_nose - x_tail))
+                wing.append(Part(f"float_{tag}", "pod", v, f))
+                xd = x_nose - 0.03
+                v, f = _tube([xd, sign * yp, zp], [xd - 0.004, sign * yp, zp], rp, 40)
+                wing.append(Part(f"prop_disc_{tag}", "disc", v, f))
+                for blade in (0, math.pi):
+                    ang = 0.6 + blade + (0.8 if sign < 0 else 0.0)
+                    tip = np.array([0, math.cos(ang), math.sin(ang)]) * rp * 0.97
+                    v, f = _tube([xd - 0.002, sign * yp, zp], [xd - 0.002, sign * yp + tip[1], zp + tip[2]], 0.009, 8)
+                    wing.append(Part(f"blade_{tag}_{blade:.0f}", "prop", v, f))
+        xp, zp0 = -(le[0] + p.wing.pivot_frac * c[0]), float(lz[0])
+        if name == "front":
+            v, f = _tube([xp, -(R + 0.02), zp0], [xp, R + 0.02, zp0], 0.012, 10)
+        else:
+            v, f = _tube([xp, -(head_r + 0.02), zp0], [xp, head_r + 0.02, zp0], 0.012, 10)
+            parts.append(Part("shaft_head", "pod", *_streamlined(xp + 0.10, xp - 0.22, 0.0, zp0, head_r, nose=0.3, full=0.5)))
+            # The pylon: a symmetric section, its chord along x, from inside the hull up into the head.
+            cy = 0.9 * c[0]
+            uu, zz = naca4(0.0, 0.4, 0.15, 24)
+            x_le = xp + 0.3 * cy
+            rings = [np.stack([x_le - uu * cy, zz * cy, np.full_like(uu, zh)], 1) for zh in (zc, zp0)]
+            parts.append(Part("pylon", "pod", *loft(rings)))
+        parts.append(Part(f"shaft_{name}", "carbon", v, f))
+        parts += _tilt(wing, xp, zp0, tilt)
+    # The hull: round nose, full section past the front shaft, a fair tail; a V keel under it.
+    v, f = _hull(fu.nose_x_m, fu.nose_x_m - fu.length_m, zc, R, keel, nose=0.15, full=0.70)
+    parts.append(Part("pod", "pod", v, f))
+    # The gimbal in the nose turret, over the waterline, looking forward and down.
+    rg = g.gimbal_radius_m
+    xc, zg = fu.nose_x_m - 1.1 * rg, zc + 0.45 * R
+    v, f = _sphere([xc, 0, zg], rg)
+    parts.append(Part("gimbal", "gimbal", v, f))
+    v, f = _sphere([xc + rg * 0.75, 0, zg - 0.4 * rg], rg * 0.45)
+    parts.append(Part("lens", "lens", v, f))
     return parts

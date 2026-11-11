@@ -33,7 +33,8 @@ G = 9.81
 
 
 def vtol(p) -> bool:
-    return getattr(p.layout, "vtol", None) == "tailsitter"
+    """It hovers on its props: the tailsitter, or the tandem tilt-wing."""
+    return getattr(p.layout, "vtol", None) in ("tailsitter", "tiltwing")
 
 
 def _disc(p) -> float:

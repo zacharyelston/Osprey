@@ -252,6 +252,10 @@ Findings:
   work in progress: their design notebook, results, mould plug and CNC ladder-frame export (`osprey recon-plug`, `osprey recon-frame`) and open
   questions are in [docs/blended-wing](blended-wing/README.md).
 
+- **`liftbody`** and **`tiltwing`**: a larger loiter craft for hours on station, a lifting body and a
+  tandem tilt-wing with a V-keel hull, sized side by side for 2–12 h by `osprey recon-loiter`. Their notebook
+  and the Onshape feature for the tilt-wing are in [docs/loiter](loiter/README.md).
+
 Water operations (floating, take-off from the sea, landing loads, `osprey recon-water` and the `--water`
 float kit) and the **`tailsitter`** airframe (the blended wing with hover props and float pods, launched
 straight up out of the water) are in their own notebook, [docs/float-launch](float-launch/README.md).

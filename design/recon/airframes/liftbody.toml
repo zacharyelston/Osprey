@@ -1,0 +1,68 @@
+# Airframe variant: the loiter craft as a blended lifting body. A larger
+# blended wing body built for hours on station, not speed: a thick centre
+# body that lifts and carries the battery inside it, high-aspect-ratio
+# outer panels, one big slow pusher, elevons. It takes off from the water
+# on a planing shoe and lands on it, so the float kit is always aboard.
+# Overlaid on bwb.toml, then on design/recon/airframe.toml, with
+# `--airframe liftbody`; sized for hours on station by `osprey recon-loiter`
+# (design/recon/loiter.toml).
+
+[layout]
+base = "bwb"
+label = "Loiter lifting body: thick lifting centre body holding the battery, long outer panels, one pusher; off and onto the water"
+
+[wing]
+num_y = 15
+span_m = 3.0
+root_chord_m = 0.80
+chord_cp_init = [0.20, 0.35, 0.70, 1.00]   # tip to root, on root_chord_m
+chord_scale_bounds = [0.08, 1.3]
+sweep_deg = 15.0
+sweep_bounds_deg = [5.0, 30.0]
+t_over_c_cp = [0.10, 0.13, 0.20]          # tip to root: the centre body is the lifting body
+span_bounds_m = [1.5, 4.0]                # stows in panels; the same limit as the tandem's
+
+[spar]
+radius_bounds_m = [0.008, 0.025]  # no smaller than 8 mm: the tube is the model's only torsion (the moulded skin's
+                                  # isn't counted), and a smaller one on a 4 m span twists toward divergence
+wall_bounds_m = [0.0005, 0.004]
+
+[stability]
+cg_x_bounds_m = [0.05, 0.70]
+
+[body]
+mass_kg = 0.60            # four elevon servos, hatch and seals, wiring, motor mount, keel strip
+cda_m2 = 0.006            # gimbal fairing, motor, prop hub, winglets
+
+[volume]
+root_depth_min_m = 0.10   # clears the gimbal's electronics and the pack's height
+battery_kg_per_l = 2.0    # Li-ion pack, cells, BMS and wrap
+usable_frac = 0.40        # of the wing's inside: clear of the spar, ribs and hatches
+fixed_l = 1.5             # avionics, radios, wiring runs
+
+[avionics]
+mass_kg = 0.30            # autopilot, GNSS, a long-range radio and video link
+power_w = 10.0
+
+[propulsion]
+battery_kg = 3.0
+battery_bounds_kg = [0.3, 10.0]
+prop_efficiency = 0.70    # one big, slow prop, sized for the loiter
+w_per_kg = 90.0           # peak shaft power per kg of take-off mass: over the hump on the water, and the climb
+kg_per_kw = 0.25          # motor, ESC and prop per kW of peak shaft power
+motor_fixed_kg = 0.05     # mount and wiring
+mass_guess_kg = 6.0
+
+[limits]
+search_speed_bounds_ms = [8.0, 30.0]
+search_speed_init_ms = 13.0
+tip_bend_max = 0.10         # the tip's rise at the 3 g manoeuvre, of the semi-span
+manoeuvre_speed_ms = 21.0  # V_A: the 3 g manoeuvre and gusts here, about sqrt(3) x a 12 m/s stall,
+                           # not at the loiter speed, where it would stall first
+
+[geometry]
+prop_diameter_m = 0.40
+
+[water]
+kit_kg = 0.25             # a longer planing shoe with its step, a taller prop pylon, seals
+kit_cda_m2 = 0.002
