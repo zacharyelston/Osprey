@@ -1,0 +1,3 @@
+local, on d14cca7 (branch feat/spar-puffin): the spar Puffin, a UAS-sized NASA Puffin tailsitter floated tail-down; each layout's righting curves and the battery-on-a-screw sweep
+uv run osprey recon-puffin --workers 12 --out <this>  (puffin.json, puffin.md, righting.png)
+docs/img/recon-puffin-righting.png: a copy of righting.png

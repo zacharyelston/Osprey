@@ -252,6 +252,9 @@ Findings:
   work in progress: their design notebook, results, mould plug and CNC ladder-frame export (`osprey recon-plug`, `osprey recon-frame`) and open
   questions are in [docs/blended-wing](blended-wing/README.md).
 
+- **The spar Puffin** (`osprey recon-puffin`): a UAS-sized NASA Puffin tailsitter that floats tail-down and
+  always bobs back upright, with its battery on a screw. Its notebook and Onshape feature are in
+  [docs/puffin](puffin/README.md).
 - **`liftbody`** and **`tiltwing`**: a larger loiter craft for hours on station, a lifting body and a
   tandem tilt-wing with a V-keel hull, sized side by side for 2–12 h by `osprey recon-loiter`. Their notebook
   and the Onshape feature for the tilt-wing are in [docs/loiter](loiter/README.md).
