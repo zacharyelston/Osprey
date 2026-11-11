@@ -1,6 +1,7 @@
 """`uv run osprey calc | sim | render | all --scenario <name> [--rig <name>]`
 `uv run osprey sweep [--workers N]`
-`uv run osprey recon-size | recon-fly | recon | recon-render --mission <name>|all` (Osprey Recon)"""
+`uv run osprey recon-size | recon-fly | recon | recon-render --mission <name>|all` (Osprey Recon)
+`uv run osprey beet [--workers N]` (the Beet, a flying buoy)"""
 
 from __future__ import annotations
 
@@ -565,6 +566,23 @@ def cmd_recon_puffin(args) -> int:
     return 0
 
 
+def cmd_beet(args) -> int:
+    """The Beet: a flying buoy, a circular RIB observation boat with a coaxial rotor on its mast, sized for each way
+    of powering it, floated and knocked over to 180 degrees (design/beet.toml)."""
+    from osprey import beet
+
+    o = Path(args.out) if args.out else OUT / "beet"
+    o.mkdir(parents=True, exist_ok=True)
+    res = beet.run(args.workers)
+    (o / "beet.json").write_text(json.dumps(res, indent=1, default=float))
+    (o / "beet.md").write_text(beet.report(res))
+    figures.beet(res, o / "beet.png")
+    for r in res["cases"]:
+        print(f"{r['label'].split(':')[0]}, {r['power']}: " + (f"{r['mass_kg']:.0f} kg, rotor {r['rotor_m']:.1f} m, "
+              f"hover {r['hover_kw']:.0f} kW, rights itself: {r['rights']}" if r["ok"] else "doesn't close"))
+    return 0
+
+
 def cmd_recon_loiter(args) -> int:
     """The loiter craft: the lifting body and the tandem tilt-wing, each sized for each time on station
     and battery (design/recon/loiter.toml), flown and floated; renders of the longest pair that both close."""
@@ -618,7 +636,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="osprey", description=__doc__)
     ap.add_argument("cmd", choices=["calc", "sim", "render", "all", "sweep", "recon-size", "recon-fly", "recon",
                                     "recon-render", "recon-plug", "recon-frame", "recon-water", "recon-awareness",
-                                    "recon-cyclone", "recon-cyclone-sweep", "recon-loiter", "recon-puffin"])
+                                    "recon-cyclone", "recon-cyclone-sweep", "recon-loiter", "recon-puffin", "beet"])
     ap.add_argument("--scenario", default="coastal-watch", choices=SCENARIOS)
     ap.add_argument("--rig", default=None, choices=RIGS, help="override the scenario's rig")
     ap.add_argument("--out", default=None, help="output directory (absolute); default out/<scenario>/<rig>")
@@ -655,6 +673,8 @@ def main(argv=None) -> int:
         return cmd_recon_loiter(args)
     if args.cmd == "recon-puffin":
         return cmd_recon_puffin(args)
+    if args.cmd == "beet":
+        return cmd_beet(args)
     if args.cmd == "recon-awareness":
         return cmd_recon_awareness(args)
     if args.cmd.startswith("recon"):
