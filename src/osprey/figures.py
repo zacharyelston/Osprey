@@ -179,3 +179,97 @@ def beet(res: dict, path: Path):
     fig.tight_layout()
     fig.savefig(path, dpi=130)
     plt.close(fig)
+
+
+TRIDENT_COLORS = {"sketch": "#8C8C8C", "balanced": "#4C72B0", "found": "#DD8452"}
+TRIDENT_GROUPS = {"payload": ("person", "mission load", "cargo"), "crew kit": ("container", "seat", "hatch", "safety"),
+                  "core": ("core walls", "core frame", "nose", "bay"), "battery": ("battery",),
+                  "modules": ("motors", "props", "pods", "wings", "legs", "float-feet"), "avionics": ("avionics",)}
+
+
+def trident(res: dict, path: Path):
+    """The Trident: each layout's righting curve (the worst way round), the three afloat side by side from the side,
+    and where the found layout's weight goes, crewed and as cargo."""
+    from osprey import trident as tr
+
+    li = tr.inputs()
+    fig = plt.figure(figsize=(16, 10.5))
+    gs = fig.add_gridspec(2, 2, width_ratios=[1.6, 1.0], height_ratios=[1.0, 0.85])
+    ax = fig.add_subplot(gs[0, 0])
+    ax.axhline(0, color="#444444", lw=0.8)
+    ax.axhspan(-80, 0, color="#d62728", alpha=0.05)
+    for r in res["layouts"]:
+        col = TRIDENT_COLORS[r["layout_name"]]
+        for p, arms in r["gz_m"].items():
+            worst = float(p) == r["worst_fall_deg"]
+            ax.plot(r["phi_deg"], np.array(arms) * 100, color=col, lw=2.2 if worst else 0.7, alpha=1 if worst else 0.45,
+                    label=f"{li['layouts'][r['layout_name']]['label'].split(':')[0]}, {r['mass_kg']:.0f} kg" if worst else None)
+    ax.set_xlim(0, 180)
+    ax.set_ylim(-80, 160)
+    ax.set_xticks(range(0, 181, 30))
+    ax.grid(alpha=0.3)
+    ax.set_xlabel("knocked over from upright (°)")
+    ax.set_ylabel("righting arm GZ (cm)")
+    ax.text(178, -76, "below 0 it falls further over", ha="right", fontsize=8.5, color="#a33")
+    ax.text(178, 155, "above 0 it comes back upright", ha="right", va="top", fontsize=8.5, color="#333")
+    ax.legend(loc="upper left", bbox_to_anchor=(0, 0.93), fontsize=8.5, frameon=False)
+    ax.set_title("Righting: the worst way round bold,\nthe other directions faint", fontsize=10)
+    # The three afloat, from the side: one module in the plane of the page (right), the other two behind it (left).
+    bx = fig.add_subplot(gs[1, :])
+    bx.axhspan(-1.4, 0, color="#4C72B0", alpha=0.10)
+    bx.axhline(0, color="#4C72B0", lw=1.0)
+    for i, r in enumerate(res["layouts"]):
+        c = tr.params(r["layout_name"])
+        c["z_prop"] = r["layout"]["z_prop"]
+        lay = tr.layout(c)
+        x0, w = i * 12.5, r["waterline_m"]
+        col = TRIDENT_COLORS[r["layout_name"]]
+        pts = np.array(tr.outline(c))
+        bx.fill(np.r_[x0 + pts[:, 0], x0 - pts[::-1, 0]], np.r_[pts[:, 1], pts[::-1, 1]] - w, color=col, alpha=0.85, lw=0)
+        ch, d, zp = c["wing_chord_m"], c["prop_d_m"], lay["z_prop"]
+        for sgn, k, alpha in ((1, 1.0, 1.0), (-1, 0.5, 0.45)):      # in the page; the two behind, foreshortened
+            r0, r1, arm = lay["r_core"] * k, lay["r_tip"] * k, lay["arm"] * k
+            bx.add_patch(plt.Rectangle((x0 + sgn * r0 if sgn > 0 else x0 - r1, lay["z_wing_le"] - ch - w), r1 - r0, ch,
+                                       color="#555555", alpha=0.8 * alpha, lw=0))
+            bx.plot([x0 + sgn * (arm - d / 2 * k), x0 + sgn * (arm + d / 2 * k)], [zp - w] * 2, color="#222222", lw=1.6,
+                    alpha=alpha)
+            foot_b = c["foot_bottom_m"]
+            bx.plot([x0 + sgn * arm] * 2, [zp - 0.3 - w, foot_b - w], color="#333333", lw=1.2, alpha=alpha)
+            if c["foot_r_m"]:
+                bx.add_patch(plt.Rectangle((x0 + sgn * arm - c["foot_r_m"], foot_b - w), 2 * c["foot_r_m"], c["foot_l_m"],
+                                           color="#2e9e5b", alpha=0.85 * alpha, lw=0))
+        bx.add_patch(plt.Rectangle((x0 - 0.3, c["bay_m"] * 0.2 - w), 0.6, c["bay_m"] * 0.6, color="#222222", alpha=0.6))
+        bx.plot([x0], [r["zg_m"] - w], marker="o", ms=7, mfc="white", mec="#222222")
+        bx.text(x0, lay["z_nose"] - w + 0.25, f"{li['layouts'][r['layout_name']]['label'].split(':')[0]}\n"
+                f"margin {r['static_margin']:+.2f}, GM {r['gm_m']:.1f} m", ha="center", fontsize=9)
+    bx.text(-5.6, -0.12, "water", color="#4C72B0", fontsize=9, va="top")
+    bx.set_aspect("equal")
+    bx.set_xlim(-6.0, 31.0)
+    bx.set_ylim(-1.4, 5.6)
+    bx.set_yticks(range(-1, 6))
+    bx.set_xticks([])
+    bx.set_ylabel("height above the water (m)")
+    bx.set_title("Afloat, from the side: the battery (black), the CG (o), the wing (grey) and props (black lines);\n"
+                 "one module in the page (right), the other two behind it (left, faint); float-feet green", fontsize=10)
+    cx = fig.add_subplot(gs[0, 1])
+    found = next(r for r in res["layouts"] if r["layout_name"] == "found")
+    cases = [("crewed", found), ("cargo", res["cargo"])]
+    bottom = np.zeros(2)
+    for k, (grp, names) in enumerate(TRIDENT_GROUPS.items()):
+        vals = np.array([sum(r["parts"].get(n, 0.0) for n in names) for _, r in cases])
+        cx.bar(range(2), vals, bottom=bottom, color=PALETTE[k], label=grp, width=0.6)
+        for i, v in enumerate(vals):
+            if v > 40:
+                cx.text(i, bottom[i] + v / 2, f"{v:.0f}", ha="center", va="center", fontsize=8.5, color="white")
+        bottom += vals
+    for i, (_, r) in enumerate(cases):
+        cx.text(i, bottom[i] + 12, f"{r['mass_kg']:.0f} kg", ha="center", fontsize=9)
+    cx.set_xticks(range(2), [n for n, _ in cases])
+    cx.set_ylim(0, bottom.max() * 1.12)
+    cx.set_ylabel("kg")
+    cx.legend(fontsize=8, frameon=False, loc="upper left", bbox_to_anchor=(1.0, 1.0))
+    cx.set_title("Found layout: where the weight goes", fontsize=10)
+    fig.suptitle("The Trident: three modules round a core, a tailsitter that floats on its wings", fontsize=13)
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
+    fig.savefig(path, dpi=130)
+    plt.close(fig)

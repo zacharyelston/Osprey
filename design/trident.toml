@@ -1,0 +1,139 @@
+# The Trident (osprey trident): a crewed tailsitter built from three identical modules round a core. Each module
+# is an arm and wing panel, a motor pod with a big slow prop, and a leg ending in a foam float-foot. The core is a
+# foam-walled hull sized round a 4x8 ft sheet, with a person and their mission load (or cargo) in a padded,
+# buoyant container. The power cells sit in a bay a metre long under it: the keel afloat, the tail in flight.
+#
+# It lifts off standing on its tail, tips over and flies on the three wings in a Y, then lands back on its
+# float-feet. The third panel is the fin, so any of the three can be up: it flies the same in any roll attitude.
+#
+# From a SketchUp massing sketch (trident-1): three 4.57 m (15 ft) discs round a 1.22 m (4 ft) column 2.13 m
+# (7 ft) tall, triangular webs from the column's foot up to each rotor, and a 1 m bay below. Every number here is
+# a REF stand-in for a first look, not a design.
+#
+# Body frame: z up the axis from the tail (the bottom of the battery bay), forward in flight; x and y across,
+# the modules at 0, 120 and 240 degrees round it; metres.
+
+[core]
+interior_w_m = 1.22        # a 4x8 ft sheet: the core's inside, 4 ft across
+interior_l_m = 2.44        # and 8 ft along the axis
+wall_m = 0.18              # foam walls, 6-8 in
+skin = "hdpe"              # what the foam is wrapped in: a [skins.*] entry
+foam_kgm3 = 32.0           # closed-cell marine foam
+nose_m = 0.70              # the aeroshell's nose cone, ahead of the core
+nose_kgm2 = 2.0            # a glass-epoxy fairing, per m^2
+frame_kg = 45.0            # ring frames, floor, hard points for the three modules
+bay_m = 1.0                # the power cells' bay, under the core: "the meter below"
+bay_r_m = 0.50
+bay_kgm2 = 4.0             # its shell, per m^2: it carries the landing loads into the legs' roots too
+tail_fair_m = 0.25         # the bay's rounded tail: a fairing
+sealed = true              # the whole envelope (bay, core, nose) is watertight
+
+[skins.hdpe]
+label = "foam walls wrapped in HDPE, 3 mm each face"
+kgm2 = 5.7                 # 2 x 3 mm x 950 kg/m^3
+
+[skins.glass]
+label = "foam walls in a glass-epoxy skin, a sandwich"
+kgm2 = 1.8                 # 2 x (600 g/m^2 cloth + resin)
+
+[module]                   # each of the three: identical, swappable
+prop_d_m = 4.57            # 15 ft, as sketched
+prop_z_m = "balance"       # the props' plane up the axis: "balance" slides the module ring until the wing sits
+                           # where flight needs it; a number pins it (the sketch has it at the core's top, 3.8 m)
+prop_gap_m = 0.06          # tip to the core's side, and tip to tip
+prop_ref_kg = 6.0          # a prop 3.0 m across, blades and hub; scaling as the diameter squared
+prop_ref_m = 3.0
+pod_kg = 5.0               # the motor pod's shell and mount
+wing_chord_m = 1.00        # each panel, from the core's side out under its prop
+wing_tip_ext = 0.60        # the tip past the motor pod, in prop radii: the wing under the prop
+wing_kgm2 = 9.0            # foam-cored composite panel and its spar, per m^2 of planform
+wing_t_over_c = 0.15
+wings_flood = false        # foam-cored panels are buoyant; true takes them as free-flooding
+leg_chord_m = 0.30         # a faired strut from the pod down to the foot: the tail fin in flight
+leg_kgm = 3.0              # per m
+foot_r_m = 0.20            # a foam float-foot: a vertical cylinder with round ends
+foot_l_m = 1.00
+foot_bottom_m = -0.10      # below the bay's tail, so it stands on its feet on deck
+foot_kgm3 = 40.0           # foam
+foot_skin_kgm2 = 1.5
+
+[power]
+pack_wh_kg = 200.0         # Li-ion, at the pack
+pack_kw_kg = 1.5           # continuous, at the pack
+pack_wh_l = 400.0          # for the bay's volume check
+usable = 0.90              # of the pack: the depth it is cycled to
+figure_of_merit = 0.70     # big slow props in hover
+drive_eta = 0.92           # motor and controller
+motor_kw_kg = 5.0          # motor and controller, per kW of peak
+thrust_to_weight = 1.4     # installed: control in gusts, climbing out of a wave
+prop_cruise_eta = 0.70     # hover props in cruise
+avionics_kg = 25.0         # flight control, radios, wiring: a fixed part
+avionics_frac = 0.03       # and a part that grows with weight
+
+[aero]
+air_density_kgm3 = 1.225
+water_density_kgm3 = 1025.0
+cl_max = 1.3               # on the two lifting panels' projected area, flaps in the props' wash
+cruise_over_stall = 1.25   # at least
+oswald_e = 0.75
+static_margin = 0.10       # of the chord: the CG ahead of the wing's neutral point (its quarter chord)
+body_cd = 0.12             # the core in its aeroshell on its frontal area: fineness about 3
+wing_cd0 = 0.011           # all three panels, on their planform
+pod_cda_m2 = 0.010         # each
+leg_cd = 0.012             # each strut on its side area
+foot_cd = 0.15             # each foot on its frontal area, end-on in flight
+y_dihedral_deg = 30.0      # the Y: two panels 30 degrees below level carry the lift, the third is the fin
+
+[mission]                  # one trip: lift off, fly there, land; then a reserve
+range_km = 50.0
+hover_min = 4.0            # two lift-offs and landings with their transitions
+reserve_min = 10.0         # of cruise
+
+# The cases. "crewed" is sized: its battery for the mission, its weight closed. "cargo" flies the crewed one's
+# airframe and battery with no one aboard: everything the person needed comes out and cargo goes in.
+[cases.crewed]
+label = "Crewed: one person and 100 kg of mission load in a padded buoyant container"
+person_kg = 95.0
+mission_kg = 100.0
+container_kg = 20.0        # padded, buoyant
+seat_kg = 8.0              # seat and harness
+hatch_kg = 15.0            # the hatch and its window
+safety_kg = 8.0            # PLB, flares, a spare lifejacket
+payload_z_m = 0.90         # the container's centre above the core's floor: crouched low until it's flying
+
+[cases.cargo]
+label = "Uncrewed cargo: the crewed airframe and battery, everything the person needed out, cargo in"
+from = "crewed"
+
+# The layouts compared, each on top of the parts above.
+[layouts.sketch]
+label = "As sketched: the module ring at the core's top"
+prop_z_m = 3.8             # the core's top: the props' plane in the SketchUp sketch
+
+[layouts.balanced]
+label = "Balanced: the sketch with the module ring slid down until it flies"
+
+[layouts.found]
+label = "Found: balanced, a glass skin, legs with pads, longer and narrower wings, the person crouched"
+skin = "glass"
+foot_r_m = 0.0             # no float-feet: the legs end in pads to stand on deck; the wings float it
+foot_l_m = 0.0
+wing_tip_ext = 0.90
+wing_chord_m = 0.80
+payload_z_m = 0.50         # crouched low
+
+[sweep]                    # on the found layout
+prop_d_m = [3.05, 3.66, 4.57]          # 10, 12 and 15 ft
+skin = ["hdpe", "glass"]
+wall_m = [0.15, 0.20]
+range_km = [25.0, 50.0, 75.0, 100.0]
+feet = [                               # [radius, length]: [0, 0] is legs with pads, no floats
+  [0.0, 0.0],
+  [0.15, 0.80],
+  [0.20, 1.00],
+  [0.25, 1.60],
+]
+wings_flood = [false, true]
+wing_tip_ext = [0.6, 0.9]
+wing_chord_m = [0.8, 1.0]
+payload_z_m = [0.5, 0.9]
