@@ -137,3 +137,45 @@ def docking(p, path: Path):
     fig.tight_layout()
     fig.savefig(path, dpi=130)
     plt.close(fig)
+
+
+def beet(res: dict, path: Path):
+    """The Beet: the Beet-4 hybrid's righting curves for each cabin shape and keel pod, and where the Beet-4's
+    weight goes for each way of powering it."""
+    fig, (ax, bx) = plt.subplots(1, 2, figsize=(15, 5.6), gridspec_kw={"width_ratios": [1.25, 1]})
+    ax.axhline(0, color="#444444", lw=0.8)
+    ax.axhspan(-150, 0, color="#d62728", alpha=0.05)
+    rows = [r for r in res["sweeps"] if "keel_pod_m" in r["over"]]
+    for r in rows:
+        top, pod = r["over"]["cabin_top_ratio"], r["over"]["keel_pod_m"]
+        col = {1.0: PALETTE[0], 0.55: PALETTE[1], 0.35: PALETTE[2]}.get(top, PALETTE[3])
+        ls = {0.0: "-", 0.5: "--", 1.0: ":"}.get(pod, "-.")
+        shape = "cylinder" if top == 1.0 else f"cone, roof {top:g} of floor"
+        ax.plot(r["phi_deg"], np.array(r["gz_m"]) * 100, color=col, ls=ls, lw=2,
+                label=f"{shape}, keel pod {pod:g} m")
+    ax.set_xlim(0, 180)
+    ax.set_xticks(range(0, 181, 30))
+    ax.set_xlabel("knocked over from upright (°)")
+    ax.set_ylabel("righting arm GZ (cm)")
+    ax.text(178, 4, "above 0 it comes back upright", ha="right", va="bottom", fontsize=8.5, color="#333")
+    ax.text(178, -145, "below 0 it goes on over and floats upside down", ha="right", va="bottom", fontsize=8.5, color="#a33")
+    ax.grid(alpha=0.3)
+    ax.legend(fontsize=8, frameon=False, loc="lower left")
+    ax.set_title("Beet-4 hybrid: does it come back?")
+    b4 = [r for r in res["cases"] if r["case"] == "beet-4" and r["ok"]]
+    parts = list(b4[0]["parts"])
+    bottom = np.zeros(len(b4))
+    cols = plt.get_cmap("tab20").colors
+    for k, part in enumerate(parts):
+        vals = np.array([r["parts"][part] for r in b4])
+        bx.bar(range(len(b4)), vals, bottom=bottom, color=cols[k % len(cols)], label=part, width=0.6)
+        bottom += vals
+    for i, r in enumerate(b4):
+        bx.text(i, bottom[i] + 20, f"{r['mass_kg']:.0f} kg", ha="center", fontsize=9)
+    bx.set_xticks(range(len(b4)), [r["power"] for r in b4])
+    bx.set_ylabel("kg")
+    bx.set_title("Beet-4: where the weight goes")
+    bx.legend(fontsize=7.5, frameon=False, bbox_to_anchor=(1.0, 1.0), loc="upper left")
+    fig.tight_layout()
+    fig.savefig(path, dpi=130)
+    plt.close(fig)

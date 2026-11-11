@@ -1,0 +1,3 @@
+local, on ca2401d (branch feat/beet): the Beet, a flying buoy; every case sized four ways and floated, the Beet-4 sweeps
+uv run osprey beet --workers 10 --out <this>  (beet.json, beet.md, beet.png)
+docs/img/beet.png: a copy of beet.png
