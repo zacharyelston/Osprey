@@ -1,0 +1,3 @@
+local, on 9d5a0b2 (branch feat/trident): the Trident, three modules round a core; three layouts sized and floated, the found one as cargo, sweeps on it
+uv run osprey trident --workers 10 --out <this>  (trident.json, trident.md, trident.png)
+docs/img/trident.png: a copy of trident.png
