@@ -1,0 +1,72 @@
+# The spar Puffin (osprey recon-puffin): a UAS-sized take on NASA's Puffin electric tailsitter
+# (Moore, NASA Langley, 2010) that floats tail-down, the attitude it lifts off from, and always bobs
+# back upright when a wave knocks it over. Every number is a REF stand-in.
+#
+# Body frame: x up the hull's axis from the tail (forward in flight), y along the span, z across.
+# [craft] is the common base; each [layouts.*] overrides it.
+
+[craft]
+length_m = 1.30            # the Puffin's 3.7 m at about a third scale
+diameter_m = 0.40          # the girth: the hull's full section, where it floats
+span_m = 1.60
+chord_m = 0.26
+t_over_c = 0.14
+prop_diameter_m = 0.76     # the Puffin's 2.3 m props at a third scale: low tip speed, quiet
+hull_ref_kg = 0.90         # the moulded hull: 0.90 kg at 0.20 m across and 1.30 m long,
+hull_ref_diameter_m = 0.20 # scaling as (D / 0.20)^0.7 x (L / 1.30): 1.46 kg at 0.40 m
+hull_ref_length_m = 1.30
+hull_girth_exponent = 0.7
+battery_kg = 3.0
+payload_kg = 0.30          # in the dome: the gimbal camera, looking ahead in flight and round the horizon afloat
+payload_from_nose_m = 0.12
+avionics_kg = 0.60         # autopilot, radios, the screw drive's controller: low, by the boom
+avionics_x_m = 0.25
+wing_kg = 1.10
+motor_kg = 0.30            # each, at the wingtips
+prop_kg = 0.08
+fins_kg = 0.30             # four strakes on the boom, an X: the tail in flight, the legs on deck
+nacelle_r_m = 0.04
+nacelle_tail_m = 0.10
+static_margin = 0.10       # of the chord, the CG ahead of the neutral point (taken as the quarter chord)
+wings_flood = true         # the wings and nacelles are free-flooding: lying flat, they don't hold it there
+ballast_kg = 0.0
+ballast_x_m = 0.03
+water_density_kgm3 = 1025.0
+
+[craft.hull]               # a spar: a slender boom at the tail (the keel), flaring to the girth at the waterline
+kind = "spar"
+boom_r_m = 0.055
+boom_to = 0.30             # fractions of the length from the tail
+girth_from = 0.45
+girth_to = 0.75            # then a round nose: the dome
+
+[screw]                    # the battery on a screw along the axis
+float_x_m = 0.10           # afloat: down the boom, the keel
+                           # in flight: wherever it balances the craft on the wing (found)
+
+# The layouts compared. "wing" is the wing's leading edge from the tail; "battery" fixed or "screw".
+[layouts.as_drawn]
+label = "Puffin as drawn: a slender streamlined hull, the battery and avionics mid-hull, the CG on the wing"
+diameter_m = 0.20
+hull = { kind = "streamlined" }
+battery = 0.60
+avionics_x_m = 0.60
+wings_flood = false
+balance = "wing"           # slide the wing to the CG, as the Puffin's layout does
+
+[layouts.ballast]
+label = "Spar, fixed: battery and 1 kg of ballast in the boom; the CG 1.25 chords behind the wing, the tail lifting"
+battery = 0.10
+ballast_kg = 1.0
+static_margin = 1.0
+balance = "wing"
+
+[layouts.screw]
+label = "Spar, screw: the battery runs down the boom to float, up to the wing to fly; a normal tail"
+battery = "screw"
+wing_le_m = 0.70
+
+[sweep]                    # the screw layout: where the wing sits, what's in the dome, and ballast
+wing_le_m = [0.60, 0.70, 0.80, 0.90]
+payload_kg = [0.3, 0.6, 1.0]
+ballast_kg = [0.0, 0.5]

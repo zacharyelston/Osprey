@@ -547,6 +547,24 @@ def cmd_recon_cyclone_sweep(args) -> int:
     return 0
 
 
+def cmd_recon_puffin(args) -> int:
+    """The spar Puffin: a UAS-sized NASA Puffin tailsitter that floats tail-down; each layout's righting curves, and
+    the battery-on-a-screw sweep (design/recon/puffin.toml)."""
+    from osprey.recon import figures as rfig
+    from osprey.recon import puffin
+
+    o = Path(args.out) if args.out else OUT / "recon-puffin"
+    o.mkdir(parents=True, exist_ok=True)
+    rows = [puffin.one(n) for n in puffin.inputs()["layouts"]]
+    sw = puffin.sweep(args.workers)
+    (o / "puffin.json").write_text(json.dumps({"layouts": rows, "sweep": sw}, indent=1, default=float))
+    (o / "puffin.md").write_text(puffin.report(rows, sw))
+    rfig.puffin(rows, o / "righting.png")
+    for r in rows:
+        print(f"{r['label']}: {r['mass_kg']:.2f} kg, rights itself: {r['rights']}, props {r['props_clear_m'] * 100:.0f} cm clear")
+    return 0
+
+
 def cmd_recon_loiter(args) -> int:
     """The loiter craft: the lifting body and the tandem tilt-wing, each sized for each time on station
     and battery (design/recon/loiter.toml), flown and floated; renders of the longest pair that both close."""
@@ -600,7 +618,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="osprey", description=__doc__)
     ap.add_argument("cmd", choices=["calc", "sim", "render", "all", "sweep", "recon-size", "recon-fly", "recon",
                                     "recon-render", "recon-plug", "recon-frame", "recon-water", "recon-awareness",
-                                    "recon-cyclone", "recon-cyclone-sweep", "recon-loiter"])
+                                    "recon-cyclone", "recon-cyclone-sweep", "recon-loiter", "recon-puffin"])
     ap.add_argument("--scenario", default="coastal-watch", choices=SCENARIOS)
     ap.add_argument("--rig", default=None, choices=RIGS, help="override the scenario's rig")
     ap.add_argument("--out", default=None, help="output directory (absolute); default out/<scenario>/<rig>")
@@ -635,6 +653,8 @@ def main(argv=None) -> int:
         return cmd_recon_cyclone_sweep(args)
     if args.cmd == "recon-loiter":
         return cmd_recon_loiter(args)
+    if args.cmd == "recon-puffin":
+        return cmd_recon_puffin(args)
     if args.cmd == "recon-awareness":
         return cmd_recon_awareness(args)
     if args.cmd.startswith("recon"):

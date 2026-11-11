@@ -548,3 +548,67 @@ def loiter_floats(rows: list[dict], path):
     fig.tight_layout(rect=(0, 0.08, 1, 0.93))
     fig.savefig(path, dpi=130)
     plt.close(fig)
+
+
+PUFFIN_COLORS = {"as_drawn": "#8C8C8C", "ballast": "#4C72B0", "screw": "#DD8452"}
+
+
+def puffin(rows: list[dict], path):
+    """The spar Puffin's righting curves, onto its belly or back and onto a wingtip, for each layout; and the screw
+    layout floating upright, the battery down the boom and where it runs to fly."""
+    from osprey.recon import puffin as pf
+
+    fig = plt.figure(figsize=(15.5, 5.8))
+    gs = fig.add_gridspec(1, 3, width_ratios=[1.15, 1.15, 0.75])
+    for k, axis in enumerate(("belly", "wingtip")):
+        ax = fig.add_subplot(gs[0, k])
+        ax.axhline(0, color="#444444", lw=0.8)
+        ax.axhspan(-45, 0, color="#d62728", alpha=0.05)
+        for r in rows:
+            ax.plot(r["phi_deg"], np.array(r[f"gz_{axis}_m"]) * 100, color=PUFFIN_COLORS.get(r["layout"], "#55A868"),
+                    lw=2, label=f"{r['label'].split(':')[0]}, {r['mass_kg']:.1f} kg")
+        ax.set_xlim(0, 180)
+        ax.set_ylim(-45, 75)
+        ax.set_xticks(range(0, 181, 30))
+        ax.grid(alpha=0.3)
+        ax.set_xlabel("knocked over from upright (°), " + ("onto its belly or back" if axis == "belly" else "onto a wingtip"))
+        ax.set_ylabel("righting arm GZ (cm)")
+        ax.text(178, -41, "below 0 it falls further over", ha="right", fontsize=8.5, color="#a33")
+        ax.text(178, 70, "above 0 it comes back upright", ha="right", va="top", fontsize=8.5, color="#333")
+        if k == 0:
+            ax.legend(loc="upper left", bbox_to_anchor=(0, 0.93), fontsize=9, frameon=False)
+    # The screw layout afloat: the hull's profile, the waterline, the battery afloat and in flight, the wing and props.
+    ax = fig.add_subplot(gs[0, 2])
+    r = next((r for r in rows if r["layout"] == "screw"), rows[-1])
+    c = pf.layout(r["layout"])
+    x = np.linspace(0, c["length_m"], 120)
+    rad = np.array([pf.spar_radius(c, q / c["length_m"]) for q in x])
+    w = r["waterline_m"]
+    ax.axhspan(-0.9, 0, color="#4C72B0", alpha=0.10)
+    ax.axhline(0, color="#4C72B0", lw=1.2)
+    ax.fill_betweenx(x - w, -rad, rad, color="#DD8452", alpha=0.85, lw=0)
+    le, ch, half = c["wing_le_m"] - w, c["chord_m"], c["span_m"] / 2
+    for s in (1, -1):
+        ax.plot([s * rad.max() * 0.6, s * 0.38], [le - 0.42 * ch] * 2, color="#555555", lw=3, solid_capstyle="butt")
+    ax.plot([-0.38, -0.02], [le + 0.12] * 2, color="#222222", lw=1.2)
+    ax.plot([0.02, 0.38], [le + 0.12] * 2, color="#222222", lw=1.2)
+    for y, lab, col in ((r["battery_x_m"] - w, "battery afloat", "#222222"),
+                        (r["flight_battery_x_m"] - w, "battery in flight", "#777777")):
+        ax.add_patch(plt.Rectangle((-0.035, y - 0.09), 0.07, 0.18, color=col, alpha=0.9))
+        ax.text(0.06, y, lab, fontsize=8.5, va="center")
+    ax.annotate("", xy=(0.0, r["flight_battery_x_m"] - w - 0.1), xytext=(0.0, r["battery_x_m"] - w + 0.1),
+                arrowprops=dict(arrowstyle="<->", color="#222222", lw=1))
+    ax.text(-0.40, -0.03, "water", color="#4C72B0", fontsize=9, va="top")
+    ax.text(-0.40, le + 0.15, "props", fontsize=8.5)
+    ax.text(0.40, le - 0.42 * ch + 0.03, "wing", fontsize=8.5, ha="right")
+    ax.set_aspect("equal")
+    ax.set_xlim(-0.42, 0.42)
+    ax.set_ylim(-0.62, c["length_m"] - w + 0.08)
+    ax.set_xticks([])
+    ax.set_ylabel("height above the water (m)")
+    ax.set_title(f"Screw layout afloat, from ahead:\n{w * 100:.0f} cm under water, props {r['props_clear_m'] * 100:.0f} cm clear;\n"
+                 f"the battery runs {r['travel_m'] * 100:.0f} cm up to fly", fontsize=10)
+    fig.suptitle("The spar Puffin: knocked over by a wave, does it come back tail-down?", fontsize=13)
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
+    fig.savefig(path, dpi=130)
+    plt.close(fig)
