@@ -12,6 +12,7 @@ docs/remote-simulation.md).
 
 | Run | SHA | Host | What it shows |
 |---|---|---|---|
+| [2026-11-11_recon-puffin](2026-11-11_recon-puffin/) | d14cca7 | local | The spar Puffin: a UAS-sized NASA Puffin tailsitter floated tail-down, the righting curves of the Puffin as drawn, a spar with fixed ballast and a spar with its battery on a screw, and the screw's travel against the wing's station, the dome's payload and ballast |
 | [2026-11-11_recon-loiter](2026-11-11_recon-loiter/) | 97ba4b5 | gpu1 | The loiter craft: a lifting body and a tandem tilt-wing (high wings, the rear on a pylon, a V-keel hull) sized for 2-12 h on station at 200 and 300 Wh/kg, flown and floated, with renders; the tilt-wing's float-tail sweep |
 | [2026-11-06_first-sweep](2026-11-06_first-sweep/) | 47ed25e | gpu1 | Every scenario x rig: calc reports, figures, looking-group timelines; `summary.md` |
 | [2026-11-06_docking-render](2026-11-06_docking-render/) | 9af2de6 | gpu1 (EGL) | Sample of a 20 s docking render on mast5-spreaders: contact-sheet video, one frame's RGB/depth/class, all labels |

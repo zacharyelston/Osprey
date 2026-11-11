@@ -380,6 +380,15 @@ the motors half-way is the best fit, 0.25 kg lighter and 2.8 Wh a sortie, but it
 [docs/float-launch](docs/float-launch/README.md). The Cyclone has its own page, with renders: the spin
 building and dying, what A and B can control, the wind and floating, [docs/cyclone](docs/cyclone/README.md).
 
+### The spar Puffin (in progress)
+
+A UAS-sized take on NASA's Puffin electric tailsitter that floats tail-down, the attitude it lifts off from, and
+always bobs back upright when a wave knocks it over. `osprey recon-puffin` draws each layout's righting curve.
+The Puffin as drawn settles lying flat. A spar does better: a slender boom at the tail carries the battery, below
+a 40 cm girth at the waterline. With the battery on a screw (down the boom to float, up to the wing to fly) it
+self-rights at 7.5 kg on an ordinary tail, the props 31 cm clear. The notebook and an Onshape feature are in
+[docs/puffin](docs/puffin/README.md).
+
 ### The loiter craft (in progress)
 
 A larger Recon for watching the water round the boat for hours, where speed is not the problem and time
@@ -515,6 +524,7 @@ uv run osprey recon-frame --mission sar-offshore --airframe bwb  # Recon: CNC la
 uv run osprey recon-cyclone --payload all                   # Recon: three wing arms spinning as a rotor
 uv run osprey recon-cyclone-sweep --payload all             # Recon: the Cyclone with 3-6 arms, A along them
 uv run osprey recon-loiter --workers 8                      # Recon: the loiter craft, 2-12 h on station
+uv run osprey recon-puffin --workers 8                      # Recon: the spar Puffin, righting curves
 uv run osprey recon-awareness                               # Recon: anti-piracy ranges
 ```
 
@@ -534,15 +544,16 @@ Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two works
 | [`design/scenarios/`](design/scenarios/) | `coastal-watch` (sea state 4), `mob` (sea state 3), `docking` |
 | [`design/recon/`](design/recon/) | Recon: the reference printed airframe, airframe variants (blended wing, crescent), payload variants, and the mission profiles (search, survey, inspect, escort) |
 | [`src/osprey/`](src/osprey/) | `frames`, `motion`, `optics`, `stabilize`, `occlusion`, `rig`, `tasking`, `calcs`, `figures`, `render/scene`, `cli` |
-| [`src/osprey/recon/`](src/osprey/recon/) | `tasks` (search, survey, inspect, escort), `search` (sweep width, POD), `flight` (3-DOF), `sizing` (OpenMDAO + OpenAeroStruct, trim and stability for flying wings), `fleet` (one bird, many jobs), `geometry` and `render` (the bird in MuJoCo), `plug` and `frame` (mould plugs, CNC ladder frames), `water` (afloat, take-off from the sea, landing loads), `tailsitter` (hover sizing, afloat upright, the water launch), `cyclone` (three wing arms spinning as a rotor), `cyclone_modes` (its modes, the moves between them, the manager), `cyclone_dynamics` (the spin building and dying, A's and B's authority, the wind), `cyclone_water` (afloat on its arms, the lift-off), `cyclone_sweep` (how many arms, where A goes), `loiter` (the loiter craft, hours on station), `awareness` (anti-piracy ranges), `figures` |
+| [`src/osprey/recon/`](src/osprey/recon/) | `tasks` (search, survey, inspect, escort), `search` (sweep width, POD), `flight` (3-DOF), `sizing` (OpenMDAO + OpenAeroStruct, trim and stability for flying wings), `fleet` (one bird, many jobs), `geometry` and `render` (the bird in MuJoCo), `plug` and `frame` (mould plugs, CNC ladder frames), `water` (afloat, take-off from the sea, landing loads), `tailsitter` (hover sizing, afloat upright, the water launch), `cyclone` (three wing arms spinning as a rotor), `cyclone_modes` (its modes, the moves between them, the manager), `cyclone_dynamics` (the spin building and dying, A's and B's authority, the wind), `cyclone_water` (afloat on its arms, the lift-off), `cyclone_sweep` (how many arms, where A goes), `loiter` (the loiter craft, hours on station), `puffin` (the spar Puffin's righting), `awareness` (anti-piracy ranges), `figures` |
 | [`sim/`](sim/) | The sims' loops in Rust (PyO3): `flight` and `tasks` (the mission sim), `water` (take-off run, tailsitter launch), `cyclone` (spin-up, pitch moves), `rotor` (the Cyclone's blade elements, spin moves, wind trims, water launch) |
 | [`runs/`](runs/README.md) | Kept runs, never edited after they are archived |
-| [`docs/`](docs/) | [Architecture](docs/architecture.md), [Recon](docs/recon.md), [the Cyclone](docs/cyclone/README.md), [the loiter craft](docs/loiter/README.md), [remote runs](docs/remote-simulation.md), README figures |
+| [`docs/`](docs/) | [Architecture](docs/architecture.md), [Recon](docs/recon.md), [the Cyclone](docs/cyclone/README.md), [the loiter craft](docs/loiter/README.md), [the spar Puffin](docs/puffin/README.md), [remote runs](docs/remote-simulation.md), README figures |
 
 ## Kept runs
 
 | Run | What it shows |
 |---|---|
+| [`2026-11-11_recon-puffin`](runs/2026-11-11_recon-puffin/) | The spar Puffin: righting curves of the Puffin as drawn, a spar with fixed ballast and a spar with its battery on a screw, and the screw's travel |
 | [`2026-11-11_recon-loiter`](runs/2026-11-11_recon-loiter/) | The loiter craft: a lifting body and a tandem tilt-wing sized for 2–12 h on station at 200 and 300 Wh/kg, flown and floated, with renders; the tilt-wing's float-tail sweep |
 | [`2026-11-09_recon-cyclone-arms`](runs/2026-11-09_recon-cyclone-arms/) | The Cyclone with the pitch-over flown at A's burst, and re-sized with three to six arms and A at the tips, ¾ or half-way out, with renders |
 | [`2026-11-07_recon-cyclone-dynamics`](runs/2026-11-07_recon-cyclone-dynamics/) | Superseded: the Cyclone's spin building and dying, A's and B's authority, the wind in modes 1 and 2, floating on its arms, with a pitch-over that sank 17 m |
