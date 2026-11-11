@@ -66,7 +66,41 @@ label = "Spar, screw: the battery runs down the boom to float, up to the wing to
 battery = "screw"
 wing_le_m = 0.70
 
+[layouts.sar]
+label = "SAR build: the screw layout with the search-and-rescue kit, a bigger battery and a fuller girth, no ballast"
+battery = "screw"
+wing_le_m = 0.70
+diameter_m = 0.45          # 5 cm fuller than the screw layout: stiffer near upright
+battery_kg = 3.5           # the half kilogram that would have been ballast flies as battery instead
+payload_kg = 0.50          # the dome: the EO/IR gimbal 0.30, the AIS-MOB beacon, strobe and antenna 0.20
+wing_kg = 1.50             # the wing 1.10 and the drop pack 0.40 slung under it at the flight CG
+avionics_kg = 0.85         # autopilot, radios, ESCs 0.60 and the screw drive 0.25
+
 [sweep]                    # the screw layout: where the wing sits, what's in the dome, and ballast
 wing_le_m = [0.60, 0.70, 0.80, 0.90]
 payload_kg = [0.3, 0.6, 1.0]
 ballast_kg = [0.0, 0.5]
+
+# The SAR build's flight and mission budget (osprey recon-puffin-sar, recon/puffin_sar.py). First-order: momentum
+# theory for the hover, a drag polar for cruise. REF stand-ins until the hover rig and the first flights measure them.
+[sar]
+layout = "sar"
+drop_pack_kg = 0.40        # a self-inflating rescue tube and its release, under the wing
+cell_wh_kg = 190.0         # the pack, Li-ion 21700
+usable = 0.80              # of the pack's energy, keeping 20 % back
+figure_of_merit = 0.65     # the big, slow props in hover
+motor_eta = 0.85           # motor and ESC
+prop_cruise_eta = 0.60     # hover props are poor in cruise
+thrust_to_weight = 1.6     # installed, for gusts and climbing out of a wave
+air_density_kgm3 = 1.225
+cl_max = 1.2
+cruise_over_stall = 1.3
+oswald_e = 0.80
+hull_cd = 0.12             # on its frontal area: a stubby body, fineness about 3
+wing_cd0 = 0.010
+boom_strakes_cda_m2 = 0.004
+nacelles_cda_m2 = 0.003
+launch_s = 60.0            # lift off, run the battery forward, transition
+landing_s = 60.0           # transition back, run the battery down, settle
+afloat_w = 6.0             # marking: autopilot asleep, AIS-MOB and strobe on, the radio listening
+missions = ["sar-datum", "sar-offshore"]

@@ -565,6 +565,22 @@ def cmd_recon_puffin(args) -> int:
     return 0
 
 
+def cmd_recon_puffin_sar(args) -> int:
+    """The spar Puffin's SAR build: its mass, hover, cruise and missions, floated with the drop pack aboard and after
+    it is dropped (design/recon/puffin.toml [layouts.sar] and [sar])."""
+    from osprey.recon import puffin_sar
+
+    o = Path(args.out) if args.out else OUT / "recon-puffin-sar"
+    o.mkdir(parents=True, exist_ok=True)
+    b, f = puffin_sar.budget(), puffin_sar.floated()
+    (o / "sar.json").write_text(json.dumps({"budget": b, "floated": f}, indent=1, default=float))
+    (o / "sar.md").write_text(puffin_sar.report(b, f))
+    print(f"SAR build: {b['mass_kg']:.2f} kg, hover {b['hover_w']:.0f} W, cruise {b['cruise_w']:.0f} W at "
+          f"{b['v_cruise_ms']:.1f} m/s, {b['cruise_min']:.0f} min; rights itself with the pack aboard: "
+          f"{f['aboard']['rights']}, after the drop: {f['dropped']['rights']}")
+    return 0
+
+
 def cmd_recon_loiter(args) -> int:
     """The loiter craft: the lifting body and the tandem tilt-wing, each sized for each time on station
     and battery (design/recon/loiter.toml), flown and floated; renders of the longest pair that both close."""
@@ -618,7 +634,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="osprey", description=__doc__)
     ap.add_argument("cmd", choices=["calc", "sim", "render", "all", "sweep", "recon-size", "recon-fly", "recon",
                                     "recon-render", "recon-plug", "recon-frame", "recon-water", "recon-awareness",
-                                    "recon-cyclone", "recon-cyclone-sweep", "recon-loiter", "recon-puffin"])
+                                    "recon-cyclone", "recon-cyclone-sweep", "recon-loiter", "recon-puffin", "recon-puffin-sar"])
     ap.add_argument("--scenario", default="coastal-watch", choices=SCENARIOS)
     ap.add_argument("--rig", default=None, choices=RIGS, help="override the scenario's rig")
     ap.add_argument("--out", default=None, help="output directory (absolute); default out/<scenario>/<rig>")
@@ -655,6 +671,8 @@ def main(argv=None) -> int:
         return cmd_recon_loiter(args)
     if args.cmd == "recon-puffin":
         return cmd_recon_puffin(args)
+    if args.cmd == "recon-puffin-sar":
+        return cmd_recon_puffin_sar(args)
     if args.cmd == "recon-awareness":
         return cmd_recon_awareness(args)
     if args.cmd.startswith("recon"):
