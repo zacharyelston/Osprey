@@ -30,5 +30,5 @@ battery_wh_per_kg = [200.0, 300.0]   # Li-ion packs today; semi-solid-state cell
 [floats]                   # the tilt-wing's float tails: how small can they be? (osprey recon-loiter --floats)
 hours = 4.0
 battery_wh_per_kg = 200.0
-reserve = [1.2, 1.5, 1.75, 2.0, 2.5]   # the floats' sealed volume / what the craft displaces
-fineness = [5.0, 7.0, 9.0]             # each float's length / diameter
+reserve = [0.4, 0.6, 0.8, 1.0, 1.25]  # all four floats' sealed volume / what the craft displaces; the keel carries the rest
+fineness = [5.0, 6.0, 8.0]             # each float's length / diameter

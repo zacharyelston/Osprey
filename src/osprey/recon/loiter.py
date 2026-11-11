@@ -4,10 +4,11 @@ problem and time to observe is. Two layouts, side by side:
 - liftbody: a blended lifting body, the battery inside its thick centre body,
   long outer panels and one pusher; it takes off from the water on a planing
   shoe and lands on it.
-- tiltwing: a tandem tilt-wing, a front and a rear wing that turn up to hover,
-  a prop a side on each, and nacelles whose tails behind the wing are floats;
-  it stands on them in the water with its wings up, lifts straight off, and
-  turns the wings forward to fly.
+- tiltwing: a tandem tilt-wing, two high wings, the rear on a pylon, that turn
+  up to hover, a prop a side on each, and nacelles whose tails behind the wing
+  are floats; on the water it rests on its V-keel hull with the wings part way
+  up and the front float tails dipped in as outriggers, lifts straight off,
+  and turns the wings forward to fly.
 
 Each is sized for each time on station and battery (design/recon/loiter.toml)
 on the watch-passage job, an escort round the sailing boat, then flown through
@@ -129,8 +130,8 @@ def _afloat(r: dict) -> str:
         return r.get("afloat_why", "")
     prop = (f"props {fl['prop_clear_m'] * 100:.0f} cm clear" if fl["prop_clear_m"] >= 0
             else f"props {-fl['prop_clear_m'] * 100:.0f} cm in the water")
-    if r["airframe"] == "tiltwing":                  # standing on its float tails, wings up: the props are high
-        prop = f"standing on its float tails, the gimbal {fl['camera_clear_m'] * 100:.0f} cm clear"
+    if r["airframe"] == "tiltwing":                  # on its keel, wings part way up, the front float tails in
+        prop = f"on its keel and front float tails, {prop}, the gimbal {fl['camera_clear_m'] * 100:.0f} cm clear"
     return f"{fl['reserve']:.1f}x reserve, trim {fl['trim_deg']:+.0f}°, {prop}"
 
 
@@ -148,9 +149,10 @@ def report(rows: list[dict]) -> str:
              f"of at most {li_battery_max():.0f} kg keeps the craft one or two people can handle from a boat.", "",
              "- **Lifting body** (`--airframe liftbody`): a blended wing body, the battery inside its thick centre body, "
              "one pusher; it takes off from the water on a planing shoe and lands on it.",
-             "- **Tandem tilt-wing** (`--airframe tiltwing`): two wings, the rear 1.2 m aft, that turn up to hover; a "
-             "prop a side on each, and nacelles whose tails behind the wing are floats. It stands on them in the water "
-             "with its wings up and its pod dry, lifts straight off, and turns the wings forward to fly.", "",
+             "- **Tandem tilt-wing** (`--airframe tiltwing`): two high wings, the rear 1.2 m aft on a pylon 30 cm up, "
+             "that turn up to hover; a prop a side on each, and nacelles whose tails behind the wing are floats. On the "
+             "water it rests on its V-keel hull with the wings turned 55° up, the front float tails dipped in either "
+             "side as outriggers; it lifts straight off and turns the wings forward to fly.", "",
              "## Take-off mass for each time on station", "",
              "| Hours on station | " + " | ".join(f"{label(a)}, {e:.0f} Wh/kg" for a in sw.airframes
                                                 for e in sw.battery_wh_per_kg) + " |",
@@ -230,7 +232,7 @@ def stance(p, d: dict, mass_kg: float, tilt_deg: float = 3.0) -> dict:
 
 
 def one_floats(args) -> dict:
-    """The tilt-wing re-sized with its float tails at one reserve and fineness, flown, and stood in the water."""
+    """The tilt-wing re-sized with its float tails at one reserve and fineness, flown, and floated."""
     import warnings
 
     from osprey.recon import flight, sizing
@@ -265,19 +267,22 @@ def float_report(rows: list[dict]) -> str:
     fl = inputs().floats
     lines = ["# The tilt-wing's float tails: how small", "",
              f"The tandem tilt-wing re-sized for {fl.hours:g} h on station at {fl.battery_wh_per_kg:.0f} Wh/kg with its four "
-             "float tails at each buoyancy reserve (their sealed volume over what the craft displaces) and fineness "
-             "(length over diameter), flown, and stood in calm water on them with its wings up (`loiter.stance`). "
-             "GM: the metacentric height, from the centre of buoyancy's shift when tipped 3°; positive is stable.", "",
-             "| Reserve | Fineness | Float, each | Floats' mass, drag area | Mass | On station | Draft | Wings' trailing edges "
-             "above the water | Gimbal | GM pitch, roll |", "|---|---|---|---|---|---|---|---|---|---|"]
+             "float tails at each buoyancy reserve (all four's sealed volume over what the craft displaces) and "
+             "fineness (length over diameter), flown, and floated in calm water on its keel with the wings at their "
+             "stance tilt, the front float tails dipped in (`loiter.stance`). Keel: the share of the weight the hull "
+             "carries. GM: the metacentric height, from the centre of buoyancy's shift when tipped 3°; positive is "
+             "stable.", "",
+             "| Reserve | Fineness | Float, each | Floats' mass, drag area | Mass | On station | Keel | Wings' trailing "
+             "edges above the water | Props | Gimbal | GM pitch, roll |", "|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in sorted(rows, key=lambda r: (r["fineness"], r["reserve"])):
         if not r.get("ok"):
-            lines.append(f"| {r['reserve']:g} | {r['fineness']:g} | doesn't close: {r.get('why', 'not recovered')} | | | | | | | |")
+            lines.append(f"| {r['reserve']:g} | {r['fineness']:g} | doesn't close: {r.get('why', 'not recovered')} | | | | | | | | |")
             continue
         f, d, st = r["floats"], r["design"], r["stance"]
         lines.append(f"| {r['reserve']:g} | {r['fineness']:g} | {f['volume_l']:.1f} l, {f['length_m'] * 100:.0f} x "
                      f"{f['diameter_m'] * 100:.1f} cm | {f['kg']:.2f} kg, {f['cda_m2'] * 1e4:.0f} cm² | "
-                     f"{d['mass_total_kg']:.2f} kg | {d['power_w']:.0f} W | {st['draft_m'] * 100:.0f} cm | "
-                     f"{st['wing_clear_m'] * 100:.0f} cm | {st['camera_clear_m'] * 100:.0f} cm | "
+                     f"{d['mass_total_kg']:.2f} kg | {d['power_w']:.0f} W | {st['hull_share'] * 100:.0f} % | "
+                     f"{st['wing_clear_m'] * 100:.0f} cm | {st['prop_clear_m'] * 100:.0f} cm | "
+                     f"{st['camera_clear_m'] * 100:.0f} cm | "
                      f"{st['gm_pitch_m']:.2f}, {st['gm_roll_m']:.2f} m |")
     return "\n".join(lines) + "\n"

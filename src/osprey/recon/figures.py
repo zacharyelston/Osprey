@@ -521,15 +521,15 @@ def loiter(rows: list[dict], path):
 
 
 def loiter_floats(rows: list[dict], path):
-    """The float-tail sweep: the craft's mass, the floats' share of it and the wings' trailing edges above the water
-    against the floats' reserve, a line for each fineness."""
+    """The float-tail sweep: the craft's mass and power, the share of its weight the keel carries afloat, and the
+    lesser metacentric height, against the floats' reserve, a line for each fineness."""
     ok = [r for r in rows if r.get("ok")]
     fins = sorted({r["fineness"] for r in rows})
     cols = dict(zip(fins, ("#4C72B0", "#DD8452", "#55A868")))
     panels = [(lambda r: r["design"]["mass_total_kg"], "Take-off mass (kg)", None),
               (lambda r: r["design"]["power_w"], "Power on station (W)", None),
-              (lambda r: r["stance"]["wing_clear_m"] * 100, "Standing: wings' trailing edges above the water (cm)", 0.0),
-              (lambda r: min(r["stance"]["gm_pitch_m"], r["stance"]["gm_roll_m"]), "Standing: the lesser GM (m)", 0.0)]
+              (lambda r: r["stance"]["hull_share"] * 100, "Afloat: the weight the keel carries (%)", None),
+              (lambda r: min(r["stance"]["gm_pitch_m"], r["stance"]["gm_roll_m"]), "Afloat: the lesser GM (m)", 0.0)]
     fig, axs = plt.subplots(1, 4, figsize=(17, 4.4))
     for ax, (fn, name, line) in zip(axs, panels):
         for fi in fins:
@@ -544,7 +544,7 @@ def loiter_floats(rows: list[dict], path):
         ax.grid(alpha=0.3)
     h, lab = axs[0].get_legend_handles_labels()
     fig.legend(h, lab, loc="lower center", ncol=3, fontsize=9, frameon=False)
-    fig.suptitle("The tilt-wing's float tails: each size re-sized for 4 h on station, then stood in calm water", fontsize=12)
+    fig.suptitle("The tilt-wing's float tails: each size re-sized for 4 h on station, then floated in calm water", fontsize=12)
     fig.tight_layout(rect=(0, 0.08, 1, 0.93))
     fig.savefig(path, dpi=130)
     plt.close(fig)
