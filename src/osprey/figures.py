@@ -183,7 +183,7 @@ def beet(res: dict, path: Path):
 
 TRIDENT_COLORS = {"sketch": "#8C8C8C", "balanced": "#4C72B0", "found": "#DD8452"}
 TRIDENT_GROUPS = {"payload": ("person", "mission load", "cargo"), "crew kit": ("container", "seat", "hatch", "safety"),
-                  "core": ("core walls", "core frame", "nose", "bay"), "battery": ("battery",),
+                  "core": ("core walls", "core frame", "flotation", "nose", "bay"), "battery": ("battery",),
                   "modules": ("motors", "props", "pods", "wings", "legs", "float-feet"), "avionics": ("avionics",)}
 
 

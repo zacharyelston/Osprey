@@ -17,8 +17,14 @@
 interior_w_m = 1.22        # a 4x8 ft sheet: the core's inside, 4 ft across
 interior_l_m = 2.44        # and 8 ft along the axis
 wall_m = 0.18              # foam walls, 6-8 in
+shape_wall_m = 0.0         # the wall the outside shape is set by; 0 is wall_m. A thinner wall at the same outside
+                           # gives the room back inside
 skin = "hdpe"              # what the foam is wrapped in: a [skins.*] entry
-foam_kgm3 = 32.0           # closed-cell marine foam
+foam_kgm3 = 32.0           # the wall's core: closed-cell marine foam
+lattice_frac = 0.0         # the share of the wall's core that is an HDPE lattice (a tetrahedral truss), the cells
+lattice_kgm3 = 950.0       # foam-filled; 0 is all foam
+flotation_m3 = 0.0         # foam blocks inside, round the container: afloat if the envelope is holed
+flotation_kgm3 = 32.0
 nose_m = 0.70              # the aeroshell's nose cone, ahead of the core
 nose_kgm2 = 2.0            # a glass-epoxy fairing, per m^2
 frame_kg = 45.0            # ring frames, floor, hard points for the three modules
@@ -35,6 +41,58 @@ kgm2 = 5.7                 # 2 x 3 mm x 950 kg/m^3
 [skins.glass]
 label = "foam walls in a glass-epoxy skin, a sandwich"
 kgm2 = 1.8                 # 2 x (600 g/m^2 cloth + resin)
+
+[skins.lattice]
+label = "an HDPE lattice's face plates, 2 mm each face"
+kgm2 = 3.8                 # 2 x 2 mm x 950 kg/m^3
+
+[skins.carbon]
+label = "foam walls in a carbon-epoxy skin, a sandwich"
+kgm2 = 1.0                 # 2 x (300 g/m^2 cloth + resin)
+
+# How the core's walls are built, each on the found layout (the hull sweep). The envelope is sealed, so it floats
+# whatever its walls are; the wall's foam only matters if it is holed, and foam blocks inside can do that job.
+[hulls.hdpe_foam]
+label = "HDPE-wrapped foam, 18 cm"
+skin = "hdpe"
+
+[hulls.glass_foam]
+label = "Glass over foam, 18 cm (found)"
+skin = "glass"
+
+[hulls.lattice]
+label = "HDPE lattice, foam-filled, 18 cm"
+skin = "lattice"
+lattice_frac = 0.04        # a stretch-dominated truss at 4 %: about E/225 stiff, ~4 MPa, against ~80 MPa for PVC foam
+
+[hulls.lattice_thin]
+label = "HDPE lattice, foam-filled, 10 cm"
+skin = "lattice"
+lattice_frac = 0.04
+wall_m = 0.10
+
+[hulls.sandwich_shrunk]
+label = "Glass/foam sandwich 25 mm, the outside shrunk to it"
+skin = "glass"
+wall_m = 0.025
+foam_kgm3 = 80.0           # a structural PVC core
+flotation_m3 = 1.0
+
+[hulls.sandwich]
+label = "Glass/foam sandwich 25 mm, moldless, the same outside"
+skin = "glass"
+wall_m = 0.025
+shape_wall_m = 0.18
+foam_kgm3 = 80.0
+flotation_m3 = 1.0
+
+[hulls.carbon_sandwich]
+label = "Carbon/foam sandwich 25 mm, molded, the same outside"
+skin = "carbon"
+wall_m = 0.025
+shape_wall_m = 0.18
+foam_kgm3 = 80.0
+flotation_m3 = 1.0
 
 [module]                   # each of the three: identical, swappable
 prop_d_m = 4.57            # 15 ft, as sketched

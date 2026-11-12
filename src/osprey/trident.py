@@ -57,8 +57,9 @@ def params(layout_name: str = "found", li: dict | None = None, **over) -> dict:
 def layout(c: dict) -> dict:
     """Where everything goes. The props' plane is where the case puts it (the core's top unless it is balanced
     lower); the arm puts each tip just clear of the core; the wing's leading edge is just behind the props."""
-    r_core = c["interior_w_m"] / 2 + c["wall_m"]
-    core_l = c["interior_l_m"] + 2 * c["wall_m"]
+    shape = c.get("shape_wall_m") or c["wall_m"]
+    r_core = c["interior_w_m"] / 2 + shape
+    core_l = c["interior_l_m"] + 2 * shape
     d = c["prop_d_m"]
     arm = r_core + c["prop_gap_m"] + d / 2
     z_top = c["bay_m"] + core_l
@@ -66,6 +67,7 @@ def layout(c: dict) -> dict:
     foot_top = c["foot_bottom_m"] + c["foot_l_m"]
     zp = c.get("z_prop", z_top) if c["prop_z_m"] == "balance" else float(c["prop_z_m"])
     return {"r_core": r_core, "core_l": core_l, "z_floor": c["bay_m"], "z_top": z_top, "z_nose": z_top + c["nose_m"],
+            "inside_w_m": 2 * (r_core - c["wall_m"]), "inside_l_m": core_l - 2 * c["wall_m"],
             "arm": arm, "tip_gap": math.sqrt(3) * arm - d, "z_prop": zp, "r_tip": r_tip,
             "panel_span": r_tip - r_core, "z_wing_le": zp - 0.20, "foot_top": foot_top,
             "leg_l": max(zp - 0.3 - (foot_top if c["foot_l_m"] else c["foot_bottom_m"]), 0.0),
@@ -124,6 +126,29 @@ def meshes(c: dict) -> list[tuple[str, tuple[np.ndarray, np.ndarray]]]:
     return out
 
 
+def wall_core_kgm3(c: dict) -> float:
+    """The wall's core: foam, or an HDPE lattice with its cells foam-filled."""
+    f = c.get("lattice_frac", 0.0)
+    return f * c.get("lattice_kgm3", 950.0) + (1 - f) * c["foam_kgm3"]
+
+
+def wall_area(c: dict) -> float:
+    """The core's walls, at their mid-thickness: the side and both ends."""
+    lay = layout(c)
+    r_mid = lay["r_core"] - c["wall_m"] / 2
+    return 2 * math.pi * r_mid * lay["core_l"] + 2 * math.pi * r_mid**2
+
+
+def unsinkable(r: dict) -> float:
+    """Holed, how many times over the foam alone floats the craft: the walls' foam, the flotation blocks and the
+    buoyant wing panels, against its weight. Everything else's own displacement is left out, so above 1 it floats."""
+    c = r["params"]
+    v = wall_area(c) * c["wall_m"] * (1 - c.get("lattice_frac", 0.0)) + c.get("flotation_m3", 0.0)
+    if not c["wings_flood"]:
+        v += 3 * water._below([panel(c, 0.0)], 1e3)[0]
+    return v * c["water_density_kgm3"] / r["mass_kg"]
+
+
 def hover_kw(c: dict, mass_kg: float) -> float:
     """Electrical power to hover out of ground effect: ideal induced power over the three discs, the figure of
     merit, the motors and controllers."""
@@ -177,9 +202,7 @@ def trip_kwh(c: dict, p_hover: float, cr: dict, range_km: float | None = None) -
 def parts(c: dict, mass_kg: float, batt_kg: float, p_peak: float) -> dict:
     """Every part's weight (kg) at a gross weight, a battery and an installed peak power (kW)."""
     lay, w = layout(c), wing(c)
-    rc, L = lay["r_core"], lay["core_l"]
-    r_mid = rc - c["wall_m"] / 2
-    wall_a = 2 * math.pi * r_mid * L + 2 * math.pi * r_mid**2
+    rc = lay["r_core"]
     nose_a = math.pi * rc * math.hypot(rc, c["nose_m"])
     bay_a = 2 * math.pi * c["bay_r_m"] * c["bay_m"] + math.pi * c["bay_r_m"] ** 2
     rf, lf = c["foot_r_m"], c["foot_l_m"]
@@ -187,8 +210,9 @@ def parts(c: dict, mass_kg: float, batt_kg: float, p_peak: float) -> dict:
     return {
         "person": c["person_kg"], "mission load": c["mission_kg"], "container": c["container_kg"],
         "seat": c["seat_kg"], "hatch": c["hatch_kg"], "safety": c["safety_kg"],
-        "core walls": wall_a * (c["wall_m"] * c["foam_kgm3"] + c["skin_kgm2"]),
+        "core walls": wall_area(c) * (c["wall_m"] * wall_core_kgm3(c) + c["skin_kgm2"]),
         "core frame": c["frame_kg"],
+        "flotation": c.get("flotation_m3", 0.0) * c.get("flotation_kgm3", 32.0),
         "nose": nose_a * c["nose_kgm2"],
         "bay": bay_a * c["bay_kgm2"],
         "battery": batt_kg,
@@ -209,7 +233,8 @@ def heights(c: dict) -> dict:
     mid = zf + lay["core_l"] / 2
     pay = zf + c["wall_m"] + c["payload_z_m"]
     return {"person": pay, "mission load": pay, "container": pay, "seat": pay - 0.2, "hatch": mid + 0.3,
-            "safety": pay, "core walls": mid, "core frame": zf + 0.4, "nose": zt + c["nose_m"] / 3,
+            "safety": pay, "core walls": mid, "core frame": zf + 0.4, "flotation": zf + c["wall_m"] + 0.3,
+            "nose": zt + c["nose_m"] / 3,
             "bay": c["bay_m"] / 2, "battery": 0.45 * c["bay_m"], "motors": lay["z_prop"] - 0.15,
             "props": lay["z_prop"], "pods": lay["z_prop"] - 0.3, "wings": lay["z_wing_le"] - 0.42 * c["wing_chord_m"],
             "legs": lay["foot_top"] + lay["leg_l"] / 2, "float-feet": c["foot_bottom_m"] + c["foot_l_m"] / 2,
@@ -346,13 +371,18 @@ def one(args) -> dict:
     kind, name, over, float_it = args
     over = dict(over)
     rng = over.pop("cargo_range_km", None)
-    r = size(name, **over)
+    hull = over.pop("hull", None)
+    build = {k: v for k, v in inputs()["hulls"][hull].items() if k != "label"} if hull else {}
+    r = size(name, **build, **over)
     if kind == "cargo":
         r = cargo(r, rng)
     if float_it and r["ok"]:
         r.update(afloat(r, 5.0, (0.0, 15.0, 30.0, 45.0, 60.0)) if float_it == "fine" else afloat(r))
+    r["unsinkable"] = unsinkable(r)
     r["layout_name"] = name
     r["over"] = {k: (list(v) if isinstance(v, tuple) else v) for k, v in over.items()}
+    if hull:
+        r["over"]["hull"] = hull
     if rng is not None:
         r["over"]["cargo_range_km"] = rng
     del r["params"]
@@ -368,7 +398,7 @@ def _map(jobs, workers: int):
 
 def run(workers: int = 0) -> dict:
     """The three layouts, crewed, floated; the found layout as cargo; and sweeps on the found layout: the props, the
-    core's walls, the range, the feet and wings afloat, the wing's size and the crew's crouch."""
+    core's walls, the range, the feet and wings afloat, the wing's size, the crew's crouch and how the hull is built."""
     li = inputs()
     sw = li["sweep"]
     jobs = [("crewed", n, {}, "fine") for n in li["layouts"]] + [("cargo", "found", {}, "fine")]
@@ -381,6 +411,7 @@ def run(workers: int = 0) -> dict:
     jobs += [("crewed", "found", {"wing_tip_ext": e, "wing_chord_m": c}, True) for e in sw["wing_tip_ext"]
              for c in sw["wing_chord_m"]]
     jobs += [("crewed", "found", {"payload_z_m": z}, True) for z in sw["payload_z_m"]]
+    jobs += [("crewed", "found", {"hull": h}, True) for h in li["hulls"]]
     rows = _map(jobs, workers)
     return {"layouts": rows[:n - 1], "cargo": rows[n - 1], "sweeps": rows[n:]}
 
@@ -488,4 +519,18 @@ def report(res: dict) -> str:
     for r in _sweep(res, "payload_z_m"):
         lines.append(f"| {r['over']['payload_z_m']:.2f} m | {r['zg_m']:.2f} m | {r['layout']['z_prop']:.2f} m | "
                      f"{r['gm_m']:.1f} m | {_rights(r)} | {r['least_gz_m'] * 100:+.0f} cm |")
+    lines += ["", "## How the hull is built", "",
+              "Each build on the found layout. The envelope is sealed, so it floats whatever its walls are; the walls' "
+              "foam only matters if it is holed. *Holed* is how many times over the foam alone (the walls', the "
+              "flotation blocks', the wing panels') floats it, everything else's displacement left out. The structure's "
+              "stiffness and strength aren't checked: the walls are a weight per square metre.", "",
+              "| Hull | Core walls weigh | Inside | Max weight | Hover | Battery | Core's floor above the water | Holed "
+              "| GM | Rights itself | Least GZ |", "|---|---|---|---|---|---|---|---|---|---|---|"]
+    for r in _sweep(res, "hull"):
+        lay = r["layout"]
+        lines.append(f"| {li['hulls'][r['over']['hull']]['label']} | {r['parts']['core walls']:.0f} kg"
+                     + (f" + {r['parts']['flotation']:.0f} kg of blocks" if r["parts"]["flotation"] else "")
+                     + f" | {lay['inside_w_m']:.2f} x {lay['inside_l_m']:.2f} m | {r['mass_kg']:.0f} kg | "
+                     f"{r['hover_kw']:.0f} kW | {r['battery_kwh']:.0f} kWh | {r['floor_dry_m'] * 100:+.0f} cm | "
+                     f"{r['unsinkable']:.1f}x | {r['gm_m']:.1f} m | {_rights(r)} | {r['least_gz_m'] * 100:+.0f} cm |")
     return "\n".join(lines) + "\n"

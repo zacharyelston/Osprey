@@ -71,3 +71,13 @@ def test_the_found_layout_always_comes_back_and_float_feet_spoil_it(found):
     assert f["feet_share"] > 0.2 and not f["rights"]               # the feet's buoyancy at the tail holds it over
     sketch = trident.afloat(trident.size("sketch"))
     assert sketch["gm_m"] < 0 and not sketch["rights"]
+
+
+def test_a_thin_sandwich_at_the_same_outside_beats_the_thick_foam_and_the_hdpe_lattice(found):
+    hull = {h: trident.one(("crewed", "found", {"hull": h}, True)) for h in ("glass_foam", "lattice", "sandwich")}
+    assert hull["glass_foam"]["mass_kg"] == pytest.approx(found["mass_kg"])
+    sand, lat = hull["sandwich"], hull["lattice"]
+    assert sand["mass_kg"] < found["mass_kg"] - 20 and sand["rights"] and sand["unsinkable"] > 1.5
+    assert sand["layout"]["r_core"] == pytest.approx(found["layout"]["r_core"])        # the same outside
+    assert sand["layout"]["inside_w_m"] > found["layout"]["inside_w_m"] + 0.25           # the room back inside
+    assert lat["mass_kg"] > found["mass_kg"] + 150 and not lat["rights"]
