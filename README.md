@@ -406,7 +406,9 @@ A crewed tailsitter built from three identical modules round a foam-walled core 
 power cells in a bay under it. Each module is an arm and wing, a big slow prop and a leg. As sketched, the module
 ring sits too high to fly or float upright. Slid down until the wing sits on the CG, with buoyant wings as the
 floats and legs ending in pads, it comes to 888 kg for one person and 100 kg (or 246 kg of cargo) over 50 km, and
-rights itself from every angle. See [docs/trident](docs/trident/README.md).
+rights itself from every angle. Built as a 25 mm glass/foam sandwich with the same outside and foam blocks
+inside, rather than 18 cm foam walls, it comes to 857 kg with a bigger inside; an HDPE lattice is heavier and
+doesn't right itself. See [docs/trident](docs/trident/README.md).
 
 ### The loiter craft (in progress)
 

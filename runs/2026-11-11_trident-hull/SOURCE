@@ -1,0 +1,2 @@
+local, on 7386847 (branch feat/trident): the Trident run again with the hull builds added (HDPE lattice, foam sandwich, flotation blocks)
+uv run osprey trident --workers 8 --out <this>  (trident.json, trident.md, trident.png)
