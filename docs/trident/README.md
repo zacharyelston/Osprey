@@ -125,6 +125,35 @@ structure riveted on; or a foam-cored composite, moldless or molded. Each is siz
 - **Not checked:** the walls are a weight per square metre. Stiffness, slamming, the module joints and whether 25 mm
   is enough are open; so is where the flotation blocks go and how much room they take.
 
+## A tail ring
+
+With the stall at 38–39 m/s, the found layout is either flying fast or hovering. A tail ring adds three more
+panels at the bottom, from the bay out to each leg, so it flies as a tandem wing
+([`runs/2026-11-12_trident-tail`](../../runs/2026-11-12_trident-tail/trident.md), on the sandwich hull):
+
+- **The neutral point** is the two quarter chords weighted by area. The tail counts at 60 % because it flies in
+  the wing's downwash. The module ring is balanced again for each case.
+- **The tail panels free-flood.** A buoyant tail puts buoyancy at the tail, which holds the craft lying over, as
+  the float-feet did.
+
+| Wing chord / tail chord | Max weight | Stall | Cruise | Comes back upright? |
+|---|---|---|---|---|
+| 0.8 / none (the sandwich) | 857 kg | 38 m/s | 61 kW | yes, +9 cm |
+| 0.8 / 0.6 | 913 kg | 34 m/s | 57 kW | yes, +18 cm; floor only +2 cm |
+| **1.0 / 0.6** | **951 kg** | **32 m/s** | **58 kW** | **yes, +9 cm; floor +14 cm** |
+| 1.0 / 1.0 | 1,004 kg | 30 m/s | 64 kW | yes, +12 cm |
+| 1.0 / none | 881 kg | 35 m/s | 56 kW | no |
+| 1.2 / 0.6 | 995 kg | 30 m/s | 63 kW | no |
+| 1.0 / 1.0, buoyant tail | 1,004 kg | 30 m/s | 64 kW | no |
+
+- **The pick is a 1.0 m wing with a 0.6 m tail.** It is 94 kg heavier than the sandwich and stalls at 32 m/s
+  rather than 38, and cruise power stays about the same.
+- **The tail helps it right itself.** A 1.0 m wing on its own doesn't come back upright, but with the tail it
+  does, probably because the tail's weight sits low (not separated out here).
+- **Wing chords of 1.2 m and up don't come back upright,** with or without a tail.
+- **The best-range speed hardly moves** (40–48 m/s). A bigger wing lowers the stall, not the cruise.
+- **It doesn't lift the props.** The props' plane stays at 1.6–1.7 m, so they clear the water by about the same.
+
 ## In MuJoCo, afloat
 
 The righting curves are static: they say which way it is pushed at each angle, not what it does once it moves.
@@ -181,9 +210,12 @@ the flotation and MuJoCo runs use. Blender draws the rest from the model's numbe
 - a 1.8 m person for scale.
 
 The pods', pads' and flanges' sizes are for the drawing only; the model carries their weights, not their shapes.
-Z is the craft's axis, with z = 0 at the tail tip and module 1 along +X.
+Z is the craft's axis, with z = 0 at the tail tip and module 1 along +X. Free-flooding tail panels, when there are
+any, are drawn too.
 
 ![The found Trident built in Blender: the white core with a canopy band, three blue wing panels with a pod and two-blade prop over each, legs on pads, and a 1.8 m person for scale](../img/trident_blender.png)
+
+![The tail-ring pick in Blender: a 1.0 m wing and a 0.6 m tail panel under each wing, from the bay out to the leg](../img/trident_blender_tail.png)
 
 ## Watch-outs
 
@@ -198,7 +230,7 @@ Z is the craft's axis, with z = 0 at the tail tip and module 1 along +X.
 
 - **Flight:** the transition, control in the props' wash, and a crewed tailsitter's ergonomics. The person rotates
   90° between hover and cruise.
-- **The tail:** legs as fins, or strakes at the feet.
+- **The tail:** the tail ring's downwash share (`tail_eff`) is a stand-in; legs as fins, or strakes at the feet.
 - **Waves and dynamics:** the MuJoCo runs are regular waves only, with stand-in damping and no added mass;
   irregular and breaking seas, and lifting off from the water with the props turning, are next.
 - **Structure:** the arm's and wing's spar sizing; here they are weight per area.

@@ -1,0 +1,2 @@
+local, on 8c947bc (branch feat/trident): the Trident run again with a tail ring swept on the sandwich hull (wing chord 0.8-1.2 m, tail chord 0-1.0 m, and one buoyant tail)
+uv run osprey trident --workers 8 --out <this>  (trident.json, trident.md, trident.png)

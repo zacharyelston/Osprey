@@ -409,8 +409,9 @@ floats and legs ending in pads, it comes to 888 kg for one person and 100 kg (or
 rights itself from every angle. Built as a 25 mm glass/foam sandwich with the same outside and foam blocks
 inside, rather than 18 cm foam walls, it comes to 857 kg with a bigger inside; an HDPE lattice is heavier and
 doesn't right itself. In MuJoCo, let go upside down it is back upright in under 5 s, and in regular waves up to
-4 m it never goes past 30°; but in steep waves its props dip into the water. `osprey trident-blend` builds it in
-Blender from the model's own meshes. See [docs/trident](docs/trident/README.md).
+4 m it never goes past 30°; but in steep waves its props dip into the water. A tail ring (a tandem wing at the
+bottom) brings the stall from 38 to 32 m/s for 94 kg. `osprey trident-blend` builds it in Blender from the model's
+own meshes. See [docs/trident](docs/trident/README.md).
 
 ### The loiter craft (in progress)
 
