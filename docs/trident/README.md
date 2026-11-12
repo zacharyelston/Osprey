@@ -165,6 +165,26 @@ The righting curves are static: they say which way it is pushed at each angle, n
   lot of inertia, so the real period is longer, and the 30° peak moves to longer waves. A tank test of a scale model
   would set the damping and the period.
 
+## In Blender
+
+`osprey trident-blend` builds the found layout in Blender ([`src/osprey/trident_blend.py`](../../src/osprey/trident_blend.py)
+and [`src/osprey/blender/build_trident.py`](../../src/osprey/blender/build_trident.py)). Blender runs headless,
+with no window, and writes `out/trident-blend/trident.blend` and three renders (angled, side and top) in about 10 s.
+
+The core, bay, nose and wing panels go across as the sizing model meshes them, so they are the same sealed bodies
+the flotation and MuJoCo runs use. Blender draws the rest from the model's numbers:
+
+- the pods and props;
+- the legs and pads;
+- a canopy band;
+- the bolted root flange at each wing root;
+- a 1.8 m person for scale.
+
+The pods', pads' and flanges' sizes are for the drawing only; the model carries their weights, not their shapes.
+Z is the craft's axis, with z = 0 at the tail tip and module 1 along +X.
+
+![The found Trident built in Blender: the white core with a canopy band, three blue wing panels with a pod and two-blade prop over each, legs on pads, and a 1.8 m person for scale](../img/trident_blender.png)
+
 ## Watch-outs
 
 - **The props sit 74 cm above the water afloat.** That is too little in a sea; on deck they are at head height.
@@ -182,11 +202,16 @@ The righting curves are static: they say which way it is pushed at each angle, n
 - **Waves and dynamics:** the MuJoCo runs are regular waves only, with stand-in damping and no added mass;
   irregular and breaking seas, and lifting off from the water with the props turning, are next.
 - **Structure:** the arm's and wing's spar sizing; here they are weight per area.
-- **The module joint:** how a module bolts on and what that costs in weight.
+- **The module joint:** how a module bolts on and what that costs in weight. The Blender scene draws a bolted
+  flange there, but the model gives it no weight yet.
 
 ## Running it
 
 ```bash
 uv run osprey trident --workers 8    # three layouts, the cargo case and the sweeps, about 25 s
 uv run osprey trident-sim --workers 8    # in MuJoCo: let go at angles, and riding waves, about 4 min
+uv run osprey trident-blend              # built in Blender, with three views rendered (needs Blender), about 10 s
 ```
+
+Blender is found from `$BLENDER`, then `blender` on the path, then `/Applications/Blender.app`. On macOS,
+`brew install --cask blender` installs it.
