@@ -408,7 +408,8 @@ ring sits too high to fly or float upright. Slid down until the wing sits on the
 floats and legs ending in pads, it comes to 888 kg for one person and 100 kg (or 246 kg of cargo) over 50 km, and
 rights itself from every angle. Built as a 25 mm glass/foam sandwich with the same outside and foam blocks
 inside, rather than 18 cm foam walls, it comes to 857 kg with a bigger inside; an HDPE lattice is heavier and
-doesn't right itself. See [docs/trident](docs/trident/README.md).
+doesn't right itself. In MuJoCo, let go upside down it is back upright in under 5 s, and in regular waves up to
+4 m it never goes past 30°; but in steep waves its props dip into the water. See [docs/trident](docs/trident/README.md).
 
 ### The loiter craft (in progress)
 
@@ -550,6 +551,7 @@ uv run osprey recon-puffin-sar --workers 8                  # Recon: the spar Pu
 uv run osprey recon-awareness                               # Recon: anti-piracy ranges
 uv run osprey beet --workers 8                              # the Beet: a flying buoy, sized and floated
 uv run osprey trident --workers 8                           # the Trident: three modules round a core, sized and floated
+uv run osprey trident-sim --workers 8                       # the Trident in MuJoCo, afloat: let go at angles, riding waves
 ```
 
 Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two workstations, `gpu1` and
@@ -567,9 +569,9 @@ Output goes to `out/` (gitignored). Long sweeps and GPU renders run on two works
 | [`design/rigs/`](design/rigs/) | `gecko5` (pods), `spreader-pairs` (dual mounts on the spreader tips), `mast5` (1 top + 4 round the mast), `mast5-spreaders`, `whole-boat` |
 | [`design/scenarios/`](design/scenarios/) | `coastal-watch` (sea state 4), `mob` (sea state 3), `docking` |
 | [`design/beet.toml`](design/beet.toml) | The Beet: craft, cabin geometry, the hop, four ways to power it, the cases and sweeps |
-| [`design/trident.toml`](design/trident.toml) | The Trident: the core, the modules, power, aero, the trip, the cases, the layouts and the sweeps |
+| [`design/trident.toml`](design/trident.toml) | The Trident: the core, the modules, power, aero, the trip, the cases, the layouts, the hulls, the sweeps and the MuJoCo runs |
 | [`design/recon/`](design/recon/) | Recon: the reference printed airframe, airframe variants (blended wing, crescent), payload variants, and the mission profiles (search, survey, inspect, escort) |
-| [`src/osprey/`](src/osprey/) | `frames`, `motion`, `optics`, `stabilize`, `occlusion`, `rig`, `tasking`, `calcs`, `figures`, `render/scene`, `cli`, `beet` (the flying buoy, sized and floated), `trident` (three modules round a core, sized and floated) |
+| [`src/osprey/`](src/osprey/) | `frames`, `motion`, `optics`, `stabilize`, `occlusion`, `rig`, `tasking`, `calcs`, `figures`, `render/scene`, `cli`, `beet` (the flying buoy, sized and floated), `trident` (three modules round a core, sized and floated), `trident_sim` (the Trident afloat in MuJoCo) |
 | [`src/osprey/recon/`](src/osprey/recon/) | `tasks` (search, survey, inspect, escort), `search` (sweep width, POD), `flight` (3-DOF), `sizing` (OpenMDAO + OpenAeroStruct, trim and stability for flying wings), `fleet` (one bird, many jobs), `geometry` and `render` (the bird in MuJoCo), `plug` and `frame` (mould plugs, CNC ladder frames), `water` (afloat, take-off from the sea, landing loads), `tailsitter` (hover sizing, afloat upright, the water launch), `cyclone` (three wing arms spinning as a rotor), `cyclone_modes` (its modes, the moves between them, the manager), `cyclone_dynamics` (the spin building and dying, A's and B's authority, the wind), `cyclone_water` (afloat on its arms, the lift-off), `cyclone_sweep` (how many arms, where A goes), `loiter` (the loiter craft, hours on station), `puffin` (the spar Puffin's righting), `puffin_sar` (its SAR build's flight and mission budget), `awareness` (anti-piracy ranges), `figures` |
 | [`sim/`](sim/) | The sims' loops in Rust (PyO3): `flight` and `tasks` (the mission sim), `water` (take-off run, tailsitter launch), `cyclone` (spin-up, pitch moves), `rotor` (the Cyclone's blade elements, spin moves, wind trims, water launch) |
 | [`runs/`](runs/README.md) | Kept runs, never edited after they are archived |

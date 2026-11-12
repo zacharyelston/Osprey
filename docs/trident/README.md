@@ -125,6 +125,46 @@ structure riveted on; or a foam-cored composite, moldless or molded. Each is siz
 - **Not checked:** the walls are a weight per square metre. Stiffness, slamming, the module joints and whether 25 mm
   is enough are open; so is where the flotation blocks go and how much room they take.
 
+## In MuJoCo, afloat
+
+The righting curves are static: they say which way it is pushed at each angle, not what it does once it moves.
+`osprey trident-sim` puts it in MuJoCo ([`src/osprey/trident_sim.py`](../../src/osprey/trident_sim.py), run
+[`runs/2026-11-11_trident-sim`](../../runs/2026-11-11_trident-sim/trident_sim.md)).
+- **MuJoCo carries the rigid body:** the mass, the inertia from where each part sits, and the integration.
+- **The water is ours.** MuJoCo has no free surface. Each step the sealed meshes (the envelope and the buoyant
+  wing panels) are clipped at the water's surface, curved in a wave, and the pressure under it is applied through
+  `xfrc_applied`. On calm water that is the same sum as the righting curves; a test checks it rocks at the period
+  its GM and inertia give.
+- **Damping is a stand-in:** 20 % of critical in heave and 10 % in roll. Added mass, wave radiation, the wave's
+  pressure fading with depth and breaking waves aren't modelled. The props are stopped.
+
+![The Trident in MuJoCo: the tilt after being let go at each angle in calm water, for the balanced, found and sandwich crafts; and in regular waves, the most it tilts and how close the props come to the water](../img/trident_sim.png)
+
+- **Let go upside down, it comes back in under 5 s.** The found layout and the sandwich come back from every angle
+  to 175°, in both directions. They swing back past upright by 8–24° and settle in 0.6–4.5 s.
+- **Momentum helps the balanced layout, but not enough.** Statically it is held over at 70–90°. Dynamically it
+  swings through from most angles, but let go at 90° or 120° between two modules it lies over and stays at
+  about 92°.
+- **In waves it follows the water like a raft.** Its roll period is about 1 s, much shorter than the waves', so it
+  lies on the wave's slope rather than rolling against it. In a swell (steepness 1/20) it tilts about 9°, the
+  slope itself; in steep waves (1/10) about 18–20°. It peaks at 30° in a 1 m wave 10 m long, closest to its own
+  period. It never capsizes in regular waves up to 4 m.
+- **The props are the problem, not the righting.** Lying on the slope, a prop 5 m out from the axis dips toward
+  the water.
+  - In a swell of 1 m and up, the props stay 0.1–0.5 m clear.
+  - In steep waves, at every height tried, the props' rims go under, by up to 1.5 m in a 1 m wave 10 m long.
+  - In a short 0.5 m chop they touch.
+
+  So it can sit out a steep sea, but it can't start its props or lift off in one. Raising the props fights the
+  balance that put them low; folding or feathering blades at rest, or lifting off only below a sea state, are the
+  ways round it.
+- **The core's floor edge goes under in most waves.** The found layout's floor is 4 cm above the water at rest,
+  so a wave covers it; the sandwich, 12 cm up, keeps it at the surface in a swell. The hatch has to sit well above
+  the floor.
+- **What's uncertain:** without added mass the roll period is too short. The wings rolling through the water add a
+  lot of inertia, so the real period is longer, and the 30° peak moves to longer waves. A tank test of a scale model
+  would set the damping and the period.
+
 ## Watch-outs
 
 - **The props sit 74 cm above the water afloat.** That is too little in a sea; on deck they are at head height.
@@ -139,7 +179,8 @@ structure riveted on; or a foam-cored composite, moldless or molded. Each is siz
 - **Flight:** the transition, control in the props' wash, and a crewed tailsitter's ergonomics. The person rotates
   90° between hover and cruise.
 - **The tail:** legs as fins, or strakes at the feet.
-- **Waves and dynamics:** the righting curves are static, in calm water.
+- **Waves and dynamics:** the MuJoCo runs are regular waves only, with stand-in damping and no added mass;
+  irregular and breaking seas, and lifting off from the water with the props turning, are next.
 - **Structure:** the arm's and wing's spar sizing; here they are weight per area.
 - **The module joint:** how a module bolts on and what that costs in weight.
 
@@ -147,4 +188,5 @@ structure riveted on; or a foam-cored composite, moldless or molded. Each is siz
 
 ```bash
 uv run osprey trident --workers 8    # three layouts, the cargo case and the sweeps, about 25 s
+uv run osprey trident-sim --workers 8    # in MuJoCo: let go at angles, and riding waves, about 4 min
 ```
