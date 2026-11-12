@@ -267,9 +267,72 @@ def trident(res: dict, path: Path):
     cx.set_xticks(range(2), [n for n, _ in cases])
     cx.set_ylim(0, bottom.max() * 1.12)
     cx.set_ylabel("kg")
-    cx.legend(fontsize=8, frameon=False, loc="upper left", bbox_to_anchor=(1.0, 1.0))
+    cx.legend(fontsize=8, frameon=False, loc="lower right")
     cx.set_title("Found layout: where the weight goes", fontsize=10)
     fig.suptitle("The Trident: three modules round a core, a tailsitter that floats on its wings", fontsize=13)
     fig.tight_layout(rect=(0, 0, 1, 0.94))
+    fig.savefig(path, dpi=130)
+    plt.close(fig)
+
+
+TRIDENT_SIM_COLORS = {"found": "#DD8452", "found+sandwich": "#2e9e5b", "balanced": "#4C72B0"}
+
+
+def trident_sim(res: dict, path: Path):
+    """The Trident in MuJoCo, afloat: the tilt after being let go at each angle in calm water, one panel per craft;
+    and in regular waves, the most it tilts and how close the props come to the water, by wave height."""
+    from osprey import trident_sim as ts
+
+    crafts = list(dict.fromkeys(r["craft"] for r in res["drops"]))
+    fig = plt.figure(figsize=(15, 10))
+    gs = fig.add_gridspec(2, 6)
+    starts = sorted({r["phi_deg"] for r in res["drops"]})
+    shades = plt.cm.Blues(np.linspace(0.35, 0.95, len(starts)))
+    for j, cname in enumerate(crafts):
+        ax = fig.add_subplot(gs[0, 2 * j:2 * j + 2])
+        for r in (r for r in res["drops"] if r["craft"] == cname):
+            col = shades[starts.index(r["phi_deg"])]
+            ax.plot(r["t_s"], r["tilt_deg"], color=col, lw=1.6, ls="-" if r["psi_deg"] == 0 else "--",
+                    label=f"{r['phi_deg']:.0f}°" if r["psi_deg"] == 0 else None)
+        ax.axhspan(0, res["sim"]["upright_deg"], color="#2e9e5b", alpha=0.08, lw=0)
+        ax.set_xlim(0, 12)
+        ax.set_ylim(0, 185)
+        ax.set_yticks(range(0, 181, 30))
+        ax.grid(alpha=0.3)
+        ax.set_xlabel("time after letting go (s)")
+        if j == 0:
+            ax.set_ylabel("tilt off upright (°)")
+        ax.set_title(f"{ts._label(cname)}: let go in calm water", fontsize=10)
+        if j == len(crafts) - 1:
+            ax.legend(title="let go at (solid toward a module,\ndashed between two)", fontsize=8, title_fontsize=8,
+                      frameon=False, loc="upper right", ncol=2)
+    wcrafts = list(dict.fromkeys(r["craft"] for r in res["waves"]))
+    steeps = sorted({r["steepness"] for r in res["waves"]})
+    styles = ["-", "--", ":"]
+    bx, cx = fig.add_subplot(gs[1, :3]), fig.add_subplot(gs[1, 3:])
+    for cname in wcrafts:
+        for k, s in enumerate(steeps):
+            rows = [r for r in res["waves"] if r["craft"] == cname and r["steepness"] == s]
+            hs = sorted({r["height_m"] for r in rows})
+            worst_tilt = [max(r["tilt_max_deg"] for r in rows if r["height_m"] == h) for h in hs]
+            worst_props = [min(r["props_min_m"] for r in rows if r["height_m"] == h) for h in hs]
+            lab = f"{ts._label(cname)}, steepness 1/{1 / s:.0f}"
+            bx.plot(hs, worst_tilt, color=TRIDENT_SIM_COLORS.get(cname, "#555555"), ls=styles[k % 3], marker="o",
+                    ms=5, lw=2, label=lab)
+            cx.plot(hs, worst_props, color=TRIDENT_SIM_COLORS.get(cname, "#555555"), ls=styles[k % 3], marker="o",
+                    ms=5, lw=2, label=lab)
+    bx.set_xlabel("wave height (m)")
+    bx.set_ylabel("most tilt (°), the worse heading")
+    bx.grid(alpha=0.3)
+    bx.set_title("Regular waves: the most it tilts", fontsize=10)
+    cx.axhline(0, color="#c94040", lw=1)
+    cx.text(0.5, 0.05, "props in the water below this line", color="#c94040", fontsize=8)
+    cx.set_xlabel("wave height (m)")
+    cx.set_ylabel("lowest prop rim above the water (m)")
+    cx.grid(alpha=0.3)
+    cx.set_title("Regular waves: how close the props come to the water", fontsize=10)
+    cx.legend(fontsize=8, frameon=False, loc="lower right")
+    fig.suptitle("The Trident in MuJoCo, afloat: let go at an angle, and riding waves (props stopped)", fontsize=13)
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
     fig.savefig(path, dpi=130)
     plt.close(fig)

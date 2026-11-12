@@ -2,7 +2,8 @@
 `uv run osprey sweep [--workers N]`
 `uv run osprey recon-size | recon-fly | recon | recon-render --mission <name>|all` (Osprey Recon)
 `uv run osprey beet [--workers N]` (the Beet, a flying buoy)
-`uv run osprey trident [--workers N]` (the Trident, a three-module tailsitter)"""
+`uv run osprey trident [--workers N]` (the Trident, a three-module tailsitter)
+`uv run osprey trident-sim [--workers N]` (the Trident in MuJoCo, afloat: let go at angles, and riding waves)"""
 
 from __future__ import annotations
 
@@ -621,6 +622,23 @@ def cmd_trident(args) -> int:
     return 0
 
 
+def cmd_trident_sim(args) -> int:
+    """The Trident in MuJoCo, afloat: let go at each angle in calm water, and riding regular waves ([sim] in
+    design/trident.toml)."""
+    from osprey import trident_sim
+
+    o = Path(args.out) if args.out else OUT / "trident-sim"
+    o.mkdir(parents=True, exist_ok=True)
+    res = trident_sim.run(args.workers)
+    (o / "trident_sim.json").write_text(json.dumps(res, indent=1, default=float))
+    (o / "trident_sim.md").write_text(trident_sim.report(res))
+    figures.trident_sim(res, o / "trident_sim.png")
+    for r in res["drops"]:
+        print(f"{r['craft']} let go at {r['phi_deg']:.0f}° toward {r['psi_deg']:.0f}°: comes back {r['rights']}"
+              + (f" in {r['settled_s']:.1f} s" if r["settled_s"] is not None else ""))
+    return 0
+
+
 def cmd_recon_loiter(args) -> int:
     """The loiter craft: the lifting body and the tandem tilt-wing, each sized for each time on station
     and battery (design/recon/loiter.toml), flown and floated; renders of the longest pair that both close."""
@@ -675,7 +693,7 @@ def main(argv=None) -> int:
     ap.add_argument("cmd", choices=["calc", "sim", "render", "all", "sweep", "recon-size", "recon-fly", "recon",
                                     "recon-render", "recon-plug", "recon-frame", "recon-water", "recon-awareness",
                                     "recon-cyclone", "recon-cyclone-sweep", "recon-loiter", "recon-puffin",
-                                    "recon-puffin-sar", "beet", "trident"])
+                                    "recon-puffin-sar", "beet", "trident", "trident-sim"])
     ap.add_argument("--scenario", default="coastal-watch", choices=SCENARIOS)
     ap.add_argument("--rig", default=None, choices=RIGS, help="override the scenario's rig")
     ap.add_argument("--out", default=None, help="output directory (absolute); default out/<scenario>/<rig>")
@@ -718,6 +736,8 @@ def main(argv=None) -> int:
         return cmd_beet(args)
     if args.cmd == "trident":
         return cmd_trident(args)
+    if args.cmd == "trident-sim":
+        return cmd_trident_sim(args)
     if args.cmd == "recon-awareness":
         return cmd_recon_awareness(args)
     if args.cmd.startswith("recon"):

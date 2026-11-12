@@ -195,3 +195,21 @@ wings_flood = [false, true]
 wing_tip_ext = [0.6, 0.9]
 wing_chord_m = [0.8, 1.0]
 payload_z_m = [0.5, 0.9]
+
+# The Trident in MuJoCo, afloat (osprey trident-sim): dropped at an angle in calm water, and riding regular waves.
+# MuJoCo carries the rigid body; the water's forces are ours, from the sealed meshes clipped at the surface.
+[sim]
+dt_s = 0.005
+heave_damping = 0.20       # fraction of critical, upright: a REF stand-in until a tank test
+roll_damping = 0.10
+upright_deg = 10.0         # within this of upright counts as upright
+drop_crafts = ["balanced", "found", "found+sandwich"]   # a layout, or "found+<hull>" for a [hulls.*] build
+drop_deg = [30.0, 60.0, 90.0, 120.0, 150.0, 175.0]
+drop_dirs_deg = [0.0, 60.0]
+drop_s = 30.0
+wave_crafts = ["found", "found+sandwich"]
+wave_h_m = [0.5, 1.0, 2.0, 3.0, 4.0]
+wave_steepness = [0.05, 0.10]           # height over length: 1/20 a swell, 1/10 steep (1/7 breaks)
+wave_heading_deg = [0.0, 60.0]          # the waves toward a module, or between two
+wave_s = 120.0
+ramp_s = 10.0
