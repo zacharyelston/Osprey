@@ -18,7 +18,8 @@ MAC_APP = Path("/Applications/Blender.app/Contents/MacOS/Blender")
 
 
 def export(o: Path, layout_name: str = "found", **over) -> dict:
-    """Size the layout and write meshes.npz (each body's vertices and faces) and trident.json to `o`."""
+    """Size the layout and write meshes.npz (each body's vertices and faces, and any free-flooding tail panels) and
+    trident.json to `o`."""
     r = trident.size(layout_name, **over)
     c = r["params"]
     o.mkdir(parents=True, exist_ok=True)
@@ -26,6 +27,10 @@ def export(o: Path, layout_name: str = "found", **over) -> dict:
     for name, (v, f) in trident.meshes(c):
         k = name.replace(" ", "_")
         arrs[f"{k}_v"], arrs[f"{k}_f"] = np.asarray(v, float), np.asarray(f, np.int64)
+    if c.get("tail_chord_m", 0.0) > 0 and c.get("tail_flood", True):     # free-flooding, so not in meshes(): drawn
+        for k, th in enumerate(trident.ANGLES):
+            v, f = trident.panel(c, th, tail=True)
+            arrs[f"tail_{k + 1}_v"], arrs[f"tail_{k + 1}_f"] = np.asarray(v, float), np.asarray(f, np.int64)
     np.savez(o / "meshes.npz", **arrs)
     plain = (bool, int, float, str)
     doc = {"layout_name": layout_name, "mass_kg": r["mass_kg"], "zg_m": r["zg_m"],

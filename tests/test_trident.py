@@ -81,3 +81,21 @@ def test_a_thin_sandwich_at_the_same_outside_beats_the_thick_foam_and_the_hdpe_l
     assert sand["layout"]["r_core"] == pytest.approx(found["layout"]["r_core"])        # the same outside
     assert sand["layout"]["inside_w_m"] > found["layout"]["inside_w_m"] + 0.25           # the room back inside
     assert lat["mass_kg"] > found["mass_kg"] + 150 and not lat["rights"]
+
+
+def test_a_tail_ring_lowers_the_stall_and_balances_lower_but_a_buoyant_one_holds_it_over(found):
+    c = trident.params("found")
+    lay = trident.layout(c)
+    assert trident.neutral_point(c) == pytest.approx(lay["z_wing_le"] - 0.25 * c["wing_chord_m"])  # no tail: the wing's
+    tailed = dict(c, tail_chord_m=0.6)
+    assert trident.neutral_point(tailed) < trident.neutral_point(c)                                 # the tail pulls it aft
+    assert trident.wing(tailed)["tail_m2"] == pytest.approx((lay["arm"] - c["bay_r_m"]) * 0.6)
+
+    def run(w, t, flood=True):
+        return trident.one(("crewed", "found", {"hull": "sandwich", "wing_chord_m": w, "tail_chord_m": t,
+                                                 "tail_flood": flood}, True))
+    plain, ring, buoyant = run(0.8, 0.0), run(1.0, 0.6), run(1.0, 1.0, False)
+    assert ring["static_margin"] == pytest.approx(found["params"]["static_margin"], abs=1e-3)
+    assert ring["cruise"]["v_stall_ms"] < plain["cruise"]["v_stall_ms"] - 5 and ring["rights"]
+    assert ring["mass_kg"] > plain["mass_kg"] + 50 and ring["parts"]["tail"] > 0
+    assert not buoyant["rights"]                                  # buoyancy at the tail holds it over, as the feet did

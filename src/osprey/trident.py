@@ -66,7 +66,10 @@ def layout(c: dict) -> dict:
     r_tip = arm + c["wing_tip_ext"] * d / 2
     foot_top = c["foot_bottom_m"] + c["foot_l_m"]
     zp = c.get("z_prop", z_top) if c["prop_z_m"] == "balance" else float(c["prop_z_m"])
+    ct = c.get("tail_chord_m", 0.0)
+    r_tail = c["bay_r_m"] + c.get("tail_reach", 1.0) * (arm - c["bay_r_m"])
     return {"r_core": r_core, "core_l": core_l, "z_floor": c["bay_m"], "z_top": z_top, "z_nose": z_top + c["nose_m"],
+            "z_tail_le": ct, "r_tail": r_tail, "tail_span": (r_tail - c["bay_r_m"]) if ct > 0 else 0.0,
             "inside_w_m": 2 * (r_core - c["wall_m"]), "inside_l_m": core_l - 2 * c["wall_m"],
             "arm": arm, "tip_gap": math.sqrt(3) * arm - d, "z_prop": zp, "r_tip": r_tip,
             "panel_span": r_tip - r_core, "z_wing_le": zp - 0.20, "foot_top": foot_top,
@@ -104,15 +107,18 @@ def foot(c: dict, theta: float, n: int = 20) -> tuple[np.ndarray, np.ndarray]:
     return v + np.array([lay["arm"] * math.cos(theta), lay["arm"] * math.sin(theta), 0.0]), f
 
 
-def panel(c: dict, theta: float) -> tuple[np.ndarray, np.ndarray]:
-    """One wing panel, from the core's side out under its prop, the chord along the axis."""
+def panel(c: dict, theta: float, tail: bool = False) -> tuple[np.ndarray, np.ndarray]:
+    """One wing panel, from the core's side out under its prop, the chord along the axis; or with `tail`, one tail
+    panel from the bay out toward the leg."""
     lay = layout(c)
     u, zf = g.naca4(0.0, 0.4, c["wing_t_over_c"], 14)
     er = np.array([math.cos(theta), math.sin(theta), 0.0])
     et = np.array([-math.sin(theta), math.cos(theta), 0.0])
-    ch = c["wing_chord_m"]
-    rings = [r * er + np.outer(lay["z_wing_le"] - u * ch, [0, 0, 1]) + np.outer(zf * ch, et)
-             for r in np.linspace(lay["r_core"], lay["r_tip"], 5)]
+    if tail:
+        ch, z_le, r0, r1 = c["tail_chord_m"], lay["z_tail_le"], c["bay_r_m"], lay["r_tail"]
+    else:
+        ch, z_le, r0, r1 = c["wing_chord_m"], lay["z_wing_le"], lay["r_core"], lay["r_tip"]
+    rings = [r * er + np.outer(z_le - u * ch, [0, 0, 1]) + np.outer(zf * ch, et) for r in np.linspace(r0, r1, 5)]
     return g.loft(rings)
 
 
@@ -123,6 +129,8 @@ def meshes(c: dict) -> list[tuple[str, tuple[np.ndarray, np.ndarray]]]:
         out += [(f"foot {k + 1}", foot(c, th)) for k, th in enumerate(ANGLES)]
     if not c["wings_flood"]:
         out += [(f"wing {k + 1}", panel(c, th)) for k, th in enumerate(ANGLES)]
+    if c.get("tail_chord_m", 0.0) > 0 and not c.get("tail_flood", True):
+        out += [(f"tail {k + 1}", panel(c, th, tail=True)) for k, th in enumerate(ANGLES)]
     return out
 
 
@@ -162,8 +170,10 @@ def wing(c: dict) -> dict:
     lay = layout(c)
     k = math.cos(math.radians(c["y_dihedral_deg"]))
     a_panel = lay["panel_span"] * c["wing_chord_m"]
-    return {"panel_m2": a_panel, "lift_m2": 2 * (a_panel + lay["r_core"] * c["wing_chord_m"]) * k,
-            "span_m": 2 * lay["r_tip"] * k, "planform_m2": 3 * a_panel}
+    a_tail = lay["tail_span"] * c.get("tail_chord_m", 0.0)
+    return {"panel_m2": a_panel, "tail_m2": a_tail, "wing_lift_m2": 2 * (a_panel + lay["r_core"] * c["wing_chord_m"]) * k,
+            "lift_m2": 2 * (a_panel + lay["r_core"] * c["wing_chord_m"] + a_tail) * k,
+            "span_m": 2 * lay["r_tip"] * k, "planform_m2": 3 * (a_panel + a_tail)}
 
 
 def cda(c: dict) -> float:
@@ -219,7 +229,8 @@ def parts(c: dict, mass_kg: float, batt_kg: float, p_peak: float) -> dict:
         "motors": p_peak / c["motor_kw_kg"],
         "props": 3 * c["prop_ref_kg"] * (c["prop_d_m"] / c["prop_ref_m"]) ** 2,
         "pods": 3 * c["pod_kg"],
-        "wings": w["planform_m2"] * c["wing_kgm2"],
+        "wings": 3 * w["panel_m2"] * c["wing_kgm2"],
+        "tail": 3 * w["tail_m2"] * c["wing_kgm2"],
         "legs": 3 * lay["leg_l"] * c["leg_kgm"],
         "float-feet": feet,
         "avionics": c["avionics_kg"] + c["avionics_frac"] * mass_kg,
@@ -237,18 +248,25 @@ def heights(c: dict) -> dict:
             "nose": zt + c["nose_m"] / 3,
             "bay": c["bay_m"] / 2, "battery": 0.45 * c["bay_m"], "motors": lay["z_prop"] - 0.15,
             "props": lay["z_prop"], "pods": lay["z_prop"] - 0.3, "wings": lay["z_wing_le"] - 0.42 * c["wing_chord_m"],
+            "tail": lay["z_tail_le"] - 0.42 * c.get("tail_chord_m", 0.0),
             "legs": lay["foot_top"] + lay["leg_l"] / 2, "float-feet": c["foot_bottom_m"] + c["foot_l_m"] / 2,
             "avionics": zf + 0.3}
 
 
 # The parts carried by the three modules sit out on the arms; everything else is on the axis.
-RADIAL = {"motors": "arm", "props": "arm", "pods": "arm", "legs": "arm", "float-feet": "arm", "wings": "wing"}
+RADIAL = {"motors": "arm", "props": "arm", "pods": "arm", "legs": "arm", "float-feet": "arm", "wings": "wing",
+          "tail": "tail"}
 
 
 def neutral_point(c: dict) -> float:
-    """The wing's aerodynamic centre up the axis (its quarter chord): taken as the neutral point. The core ahead of
-    it and the legs and feet behind it are left out."""
-    return layout(c)["z_wing_le"] - 0.25 * c["wing_chord_m"]
+    """The neutral point up the axis: the wing's quarter chord, or with a tail ring, the two quarter chords weighted
+    by their lifting areas, the tail's by its efficiency in the wing's downwash. The core ahead of it and the legs
+    and feet behind it are left out."""
+    lay, w = layout(c), wing(c)
+    z1 = lay["z_wing_le"] - 0.25 * c["wing_chord_m"]
+    s1, s2 = w["wing_lift_m2"], (w["lift_m2"] - w["wing_lift_m2"]) * c.get("tail_eff", 0.6)
+    z2 = lay["z_tail_le"] - 0.25 * c.get("tail_chord_m", 0.0)
+    return (s1 * z1 + s2 * z2) / (s1 + s2)
 
 
 def balance(c: dict, ps: dict, mass_kg: float) -> float:
@@ -256,9 +274,13 @@ def balance(c: dict, ps: dict, mass_kg: float) -> float:
     the static margin ahead of the wing's neutral point: what flight needs. Returns how far it moved."""
     if c["prop_z_m"] != "balance":
         return 0.0
-    lay = layout(c)
+    lay, w = layout(c), wing(c)
     zg = sum(ps[k] * heights(c)[k] for k in ps) / mass_kg
-    z = zg - c["static_margin"] * c["wing_chord_m"] + 0.25 * c["wing_chord_m"] + 0.20
+    np_want = zg - c["static_margin"] * c["wing_chord_m"]
+    s1, s2 = w["wing_lift_m2"], (w["lift_m2"] - w["wing_lift_m2"]) * c.get("tail_eff", 0.6)
+    z2 = lay["z_tail_le"] - 0.25 * c.get("tail_chord_m", 0.0)
+    z1 = (np_want * (s1 + s2) - s2 * z2) / s1                      # the wing's quarter chord that puts the NP there
+    z = z1 + 0.25 * c["wing_chord_m"] + 0.20
     z = min(max(z, lay["z_floor"] + 0.5), lay["z_top"])
     moved = abs(z - lay["z_prop"])
     c["z_prop"] = lay["z_prop"] + 0.5 * (z - lay["z_prop"])
@@ -398,7 +420,8 @@ def _map(jobs, workers: int):
 
 def run(workers: int = 0) -> dict:
     """The three layouts, crewed, floated; the found layout as cargo; and sweeps on the found layout: the props, the
-    core's walls, the range, the feet and wings afloat, the wing's size, the crew's crouch and how the hull is built."""
+    core's walls, the range, the feet and wings afloat, the wing's size, the crew's crouch, how the hull is built and
+    a tail ring."""
     li = inputs()
     sw = li["sweep"]
     jobs = [("crewed", n, {}, "fine") for n in li["layouts"]] + [("cargo", "found", {}, "fine")]
@@ -412,6 +435,10 @@ def run(workers: int = 0) -> dict:
              for c in sw["wing_chord_m"]]
     jobs += [("crewed", "found", {"payload_z_m": z}, True) for z in sw["payload_z_m"]]
     jobs += [("crewed", "found", {"hull": h}, True) for h in li["hulls"]]
+    jobs += [("crewed", "found", {"hull": sw["tail_hull"], "wing_chord_m": w, "tail_chord_m": t, "tail_flood": True}, True)
+             for w in sw["tail_wing_chord_m"] for t in sw["tail_chord_m"]]
+    jobs += [("crewed", "found", {"hull": sw["tail_hull"], "wing_chord_m": w, "tail_chord_m": t, "tail_flood": False}, True)
+             for w, t in sw["tail_buoyant"]]
     rows = _map(jobs, workers)
     return {"layouts": rows[:n - 1], "cargo": rows[n - 1], "sweeps": rows[n:]}
 
@@ -533,4 +560,21 @@ def report(res: dict) -> str:
                      + f" | {lay['inside_w_m']:.2f} x {lay['inside_l_m']:.2f} m | {r['mass_kg']:.0f} kg | "
                      f"{r['hover_kw']:.0f} kW | {r['battery_kwh']:.0f} kWh | {r['floor_dry_m'] * 100:+.0f} cm | "
                      f"{r['unsinkable']:.1f}x | {r['gm_m']:.1f} m | {_rights(r)} | {r['least_gz_m'] * 100:+.0f} cm |")
+    sw = li["sweep"]
+    lines += ["", "## A tail ring", "",
+              f"A second ring of three panels at the tail, from the bay out to each leg, on the {sw['tail_hull']} "
+              f"hull ({li['hulls'][sw['tail_hull']]['label']}): a tandem wing. The tail counts at "
+              f"{mo['tail_eff']:.0%} of its area at the neutral point, as it flies in the wing's downwash, and the "
+              "module ring is balanced again for each. The stall is the wings' and tail's together.", "",
+              "| Wing chord | Tail chord | Tail | Max weight | Wings + tail weigh | Lifting area | Wing loading | Stall "
+              "| Cruise | Props' plane | Core's floor above the water | Rights itself | Least GZ |",
+              "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    for r in _sweep(res, "hull", "wing_chord_m", "tail_chord_m", "tail_flood"):
+        o, cru = r["over"], r["cruise"]
+        tail = "none" if not o["tail_chord_m"] else ("free-flooding" if o["tail_flood"] else "buoyant")
+        lines.append(f"| {o['wing_chord_m']:.1f} m | {o['tail_chord_m']:.1f} m | {tail} | {r['mass_kg']:.0f} kg | "
+                     f"{r['parts']['wings']:.0f} + {r['parts']['tail']:.0f} kg | {cru['lift_m2']:.1f} m² | "
+                     f"{cru['wing_loading_kgm2']:.0f} kg/m² | {cru['v_stall_ms']:.0f} m/s | {cru['kw']:.0f} kW at "
+                     f"{cru['v_ms']:.0f} m/s | {r['layout']['z_prop']:.2f} m | {r['floor_dry_m'] * 100:+.0f} cm | "
+                     f"{_rights(r)} | {r['least_gz_m'] * 100:+.0f} cm |")
     return "\n".join(lines) + "\n"

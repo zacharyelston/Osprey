@@ -125,7 +125,7 @@ def inertia(r: dict) -> tuple[float, float]:
     and about the axis. The modules' parts are rings of three at their radius; the core's walls a cylindrical shell,
     the battery a solid cylinder, everything else a lump 0.3 m round."""
     c, lay, zg = r["params"], r["layout"], r["zg_m"]
-    ring = {"arm": lay["arm"], "wing": (lay["r_core"] + lay["r_tip"]) / 2}
+    ring = {"arm": lay["arm"], "wing": (lay["r_core"] + lay["r_tip"]) / 2, "tail": (c["bay_r_m"] + lay["r_tail"]) / 2}
     across = axial = 0.0
     for k, m in r["parts"].items():
         if m <= 0:

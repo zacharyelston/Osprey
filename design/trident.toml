@@ -108,6 +108,12 @@ wing_kgm2 = 9.0            # foam-cored composite panel and its spar, per m^2 of
 wing_t_over_c = 0.15
 wings_flood = false        # foam-cored panels are buoyant; true takes them as free-flooding
 leg_chord_m = 0.30         # a faired strut from the pod down to the foot: the tail fin in flight
+tail_chord_m = 0.0         # a second ring of three panels at the tail (the bottom at rest), from the bay out to
+                           # each leg, bracing it: a tandem wing. 0 is none
+tail_reach = 1.0           # its tip, as a share of the way out to the leg (the motor pod's radius)
+tail_flood = true          # the tail panels free-flood: buoyancy at the tail holds it over (as the float-feet did)
+tail_eff = 0.6             # how much of the tail's lift slope counts at the neutral point: it flies in the wing's
+                           # downwash
 leg_kgm = 3.0              # per m
 foot_r_m = 0.20            # a foam float-foot: a vertical cylinder with round ends
 foot_l_m = 1.00
@@ -195,6 +201,12 @@ wings_flood = [false, true]
 wing_tip_ext = [0.6, 0.9]
 wing_chord_m = [0.8, 1.0]
 payload_z_m = [0.5, 0.9]
+# A tail ring (tail_chord_m in [module]) on the sandwich hull: each wing chord with each tail chord, the tail
+# panels free-flooding; and one buoyant tail ([wing chord, tail chord]).
+tail_hull = "sandwich"
+tail_wing_chord_m = [0.8, 1.0, 1.2]
+tail_chord_m = [0.0, 0.6, 1.0]
+tail_buoyant = [[1.0, 1.0]]
 
 # The Trident in MuJoCo, afloat (osprey trident-sim): dropped at an angle in calm water, and riding regular waves.
 # MuJoCo carries the rigid body; the water's forces are ours, from the sealed meshes clipped at the surface.
