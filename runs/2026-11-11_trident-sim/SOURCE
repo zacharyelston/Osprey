@@ -1,0 +1,3 @@
+local, on 4998ba7 (branch feat/trident): the Trident in MuJoCo, afloat; the balanced, found and sandwich crafts let go at 30-175 degrees in calm water, and the found and sandwich riding regular waves of 0.5-4 m at steepness 1/20 and 1/10
+uv run osprey trident-sim --workers 10 --out <this>  (trident_sim.json, trident_sim.md, trident_sim.png); about 4 min
+docs/img/trident_sim.png: a copy of trident_sim.png
