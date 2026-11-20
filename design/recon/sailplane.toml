@@ -69,7 +69,7 @@ stall_clean_ms = 11.2
 stall_flap_ms = 9.6
 min_sink_ms = 0.52
 rho_kgm3 = 1.225
-cl_max = 1.30              # REF: the SD7037's most lift, clean, at these Reynolds numbers
+cl_max = 1.30              # REF: the SD7037's most lift, clean; used only when [aero] sections is "flat-plate"
 stall_margin = 1.15        # the slow end of the loiter is at least this many times the stall
 
 [fuselage]                 # a Myring body: an elliptic-power nose, a parallel middle, a cubic tail cone
@@ -184,8 +184,9 @@ wing_drop_mm = 14.0        # the wing pin, under the wing's lower skin
 shape = "round"
 od_mm = 12.0               # REF: the tube inside the brace's fairing
 wall_mm = 1.0              # REF
-chord_mm = 68.0            # the fairing: an aerofoil, because the brace lifts; no wider than its tube needs
-t_over_c = 0.20
+chord_mm = 120.0           # the fairing: an aerofoil, because the brace lifts. Wide and thin: at its Reynolds
+                           # number a slim 20 % fairing has four times the drag under the lift it is asked for
+t_over_c = 0.11
 camber = 0.02
 skin_mm = 0.6
 seat_mm = 22.0             # from a pin to the tube's end, in its end fitting
@@ -209,9 +210,9 @@ material = "PA12-CF, printed; 7075 where the loads say so"
 socket_mm = 20.0           # how far a tube goes in
 bond_gap_mm = 0.15         # epoxy, on the radius
 wall_mm = 2.5
-pin_mm = 5.0               # the main strut's pins
+pin_mm = 6.0               # the main strut's pins
 jury_pin_mm = 3.0
-tang_mm = 6.0
+tang_mm = 7.0
 cheek_mm = 4.0             # each side of a fork
 groove_mm = [1.0, 0.3]     # adhesive relief grooves inside each socket: width, depth
 grooves = 2
@@ -242,7 +243,12 @@ recovery_from_mm = 750.0   # the tail cone's pressure recovery starts here: the 
 
 [aero]                     # a drag build-up by components, after Ting, Reynolds, Nguyen and Totah (the TBW by vortex-lattice
                            # superposition): flat-plate skin friction with transition, form factors, and induced drag
-brace_lift_frac = 0.085    # the braces' share of the lift (their Table 6); the wing carries the rest
+lift = "vlm"               # where the loads' lift comes from: "vlm", a vortex lattice of the wing and braces
+                           # (recon/sailplane_vlm.py), or "elliptic", the assumption below
+sections = "polars"        # the wing's, braces' and tail's profile drag and the stall: "polars", each section's own
+                           # at its own lift and Reynolds number (recon/sailplane_polars.py), or "flat-plate"
+oswald_inviscid = 0.96     # REF: span efficiency with the sections' own drag counted apart; the lattice alone gives 1.0
+brace_lift_frac = 0.085    # the braces' share of an elliptic lift (their Table 6); the wing carries the rest
 nu_m2s = 1.46e-5
 oswald = 0.90              # REF
 transition = { wing = 0.60, brace = 0.50, tail = 0.50, fuselage = 0.38 }   # REF: laminar to this share of each length
