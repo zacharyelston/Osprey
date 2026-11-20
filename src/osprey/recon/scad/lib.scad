@@ -250,6 +250,35 @@ module brace(side = 1) {
     strut(a + jury_seat * unit(b - a), b - jury_seat * unit(b - a), jury_od);
 }
 
+// ---- the tail and the propulsion ---------------------------------------------------------------------------
+
+// A V-tail: two panels from the body's axis, up (tail_sign 1) or down (-1) by the dihedral.
+module tail_panel(side = 1) {
+    mirror([0, side < 0 ? 1 : 0, 0]) translate([tail_x, 0, 0]) rotate([tail_sign * tail_dihedral, 0, 0]) hull() {
+        rotate([90, 0, 0]) linear_extrude(1) polygon([for (p = tail_pts) p * tail_root]);
+        translate([0.25 * (tail_root - tail_tip), tail_panel, 0]) rotate([90, 0, 0]) linear_extrude(1) polygon([for (p = tail_pts) p * tail_tip]);
+    }
+}
+
+function chord_at(y) = abs(y) <= half ? chord : chord - (chord - tip_chord) * (abs(y) - half) / (span / 2 - half);
+function le_at(y) = le_x + spar_frac * (chord - chord_at(y));
+
+// A prop pod on the wing where the brace's pin is: the brace's fork hangs under it.
+module pod(side = 1) {
+    y = strut_wing[1];
+    translate([le_at(y) - pod_ahead, side * y, spar_z_at(y) - pod_d / 5]) {
+        translate([pod_len / 2, 0, 0]) scale([pod_len / pod_d, 1, 1]) sphere(d = pod_d, $fn = 48);
+        translate([0.55 * pod_len, -3, -pod_d / 4]) cube([chord_at(y) * 0.5, 6, pod_d / 2]);      // a pylon back into the wing
+    }
+}
+
+module prop_disc(side = 1) {
+    y = strut_wing[1];
+    translate([le_at(y) - pod_ahead + 8, side * y, spar_z_at(y) - pod_d / 5]) rotate([0, 90, 0]) cylinder(d = prop_d, h = 1.2, $fn = 96);
+}
+
+module pusher_spinner() translate([x_max, 0, 0]) rotate([0, 90, 0]) cylinder(d1 = 2 * r_spinner, d2 = 8, h = 45);
+
 // ---- the centre section's end rib: it closes the section at the joint and carries the two connectors ------
 
 module connector_pocket(x, body) {

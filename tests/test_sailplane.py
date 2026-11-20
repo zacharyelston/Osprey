@@ -124,7 +124,52 @@ def test_the_belly_flat_takes_the_pane_and_ends_ahead_of_the_tail_cone(s, res):
 
 
 def test_only_the_package_s_own_numbers_fail(res):
-    assert sp.failed(res) == ["tail cone meets the spinner at the firewall", "battery holds what it weighs"]
+    assert sp.failed(res) == ["tail cone meets the spinner at the firewall", "tail volumes", "battery holds what it weighs"]
+
+
+@pytest.fixture(scope="module")
+def twin():
+    return sp.run("twin")
+
+
+def test_the_twin_has_its_props_on_the_wing_and_a_tail_that_is_big_enough(s, twin):
+    t = sp.inputs("twin")
+    assert "twin" in sp.VARIANTS and t.pods.count == 2 and t.tail.kind == "v" and t.propulsion.layout == "pods"
+    assert sp.failed(twin) == ["battery holds what it weighs"]                 # no stinger, and the tail volumes are met
+    assert twin["tail"]["vh"] >= t.tail.vh_target and twin["tail"]["vv"] >= t.tail.vv_target
+    # A pod's weight on the wing at the brace takes load off the brace in the pull-up, for its lift.
+    pull = sp.cases(t)[0][0]
+    no_pods = sp.inputs("twin")
+    no_pods.pods.count = 0
+    assert twin["analysis"]["cases"][pull]["brace_axial_n"] < sp.analyse(no_pods)["cases"][pull]["brace_axial_n"]
+    b = twin["balance"]
+    assert 0 < b["battery_aft_mm"] < b["travel_mm"]
+    assert b["shift_mm"] * t.mass.auw_kg == pytest.approx(b["battery_aft_mm"] * t.mass.battery_kg)
+    assert all("pods" in r["cd0"] for r in twin["aero"]["rows"])
+
+
+def test_how_long_the_body_can_be(s, res, twin):
+    f = s.fuselage
+    assert res["max_length_m"] == pytest.approx((f.nose_mm + f.mid_mm + 3 * f.radius_mm / math.tan(math.radians(11))) / 1e3)
+    rows = [r for r in res["length_sweep"] if r["sized"]]
+    assert [r["ok"] for r in rows] == [r["length_m"] <= res["max_length_m"] for r in rows]
+    assert all(r["swells"] == (not r["ok"]) for r in rows)                     # past the limit the cubic bulges
+    assert all(a["tail_m2"] > b["tail_m2"] and a["body_m2"] < b["body_m2"] for a, b in zip(rows[:-1], rows[1:]))
+    assert all(r["vh"] >= s.tail.vh_target - 1e-9 and r["vv"] >= s.tail.vv_target - 1e-9 for r in rows)
+    best = min((r for r in rows if r["ok"]), key=lambda r: r["sink_ms"])
+    assert 1.8 <= best["length_m"] <= 2.4                                      # a short body pays in tail, a long one in skin
+    assert best["sink_ms"] < rows[0]["sink_ms"] and best["sink_ms"] < rows[-1]["sink_ms"]
+    assert rows[0]["slope_deg"] > f.tail_angle_deg + 3 and best["slope_deg"] < f.tail_angle_deg + 0.5
+    as_designed = twin["length_sweep"][0]
+    assert not as_designed["sized"] and as_designed["length_m"] == 2.0
+
+
+def test_how_long_the_wing_can_be(res):
+    rows = res["span_sweep"]
+    assert rows[0]["ok"] and not rows[-1]["ok"]
+    assert all(a["used"] < b["used"] for a, b in zip(rows[:-1], rows[1:]))
+    assert rows[2]["sink_ms"] < rows[0]["sink_ms"]                             # a longer wing sinks slower, to a point
+    assert "brace" in next(r for r in rows if not r["ok"])["limit"]
 
 
 def test_params_scad_is_whole_and_used(s, res):
@@ -138,8 +183,8 @@ def test_params_scad_is_whole_and_used(s, res):
 
 @pytest.mark.skipif(not shutil.which("openscad"), reason="OpenSCAD is not installed")
 @pytest.mark.parametrize("part", ["tube_end", "wing_fork", "root_fork", "jury_collar", "end_rib", "nadir_belly"])
-def test_the_parts_build_in_openscad(res, tmp_path, part):
-    sp.export(res, tmp_path)
+def test_the_parts_build_in_openscad(res, twin, tmp_path, part):
+    sp.export(twin if part == "wing_fork" else res, tmp_path)
     out = tmp_path / f"{part}.stl"
     file, extra = (part, []) if part in ("end_rib", "nadir_belly") else ("brace_fittings", ["-D", f'part="{part}"'])
     done = subprocess.run(["openscad", *extra, "-o", str(out), str(tmp_path / "scad" / f"{file}.scad")],

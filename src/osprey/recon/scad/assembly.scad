@@ -8,6 +8,8 @@ show_wing = true;
 show_panels = true;
 show_braces = true;
 show_fairing = true;
+show_tail = true;
+show_props = true;
 see_inside = false;      // the wing's skin clear, the brace fairings off
 
 if (show_upper_shell) color("WhiteSmoke") upper_shell();
@@ -29,3 +31,9 @@ if (show_braces) for (side = [-1, 1]) {
 }
 if (show_fairing) color("SlateGray") root_fairing();
 if (show_lower_shell) color("Goldenrod") camera_plate();
+if (show_tail) color("SteelBlue") { tail_panel(1); tail_panel(-1); }
+if (pod_count > 0) for (side = [-1, 1]) {
+    color("WhiteSmoke") pod(side);
+    if (show_props) color("LightSkyBlue", 0.35) prop_disc(side);
+}
+if (pusher) color("DimGray") pusher_spinner();

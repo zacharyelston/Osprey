@@ -1,0 +1,76 @@
+# The twin (osprey recon-sailplane --variant twin): the sailplane with its propulsion moved out of the tail cone.
+# Two tractor props on pods where the braces meet the wing, and an upright V-tail on a body stretched to 2.0 m:
+# the length the sweep finds best, where the tail its volumes ask for is small and the tail cone never steeper
+# than its closing angle. The tail cone closes to a point. Laid over design/recon/sailplane.toml: only what differs is here.
+
+[variant]
+label = "twin: props on pods at the braces, upright V-tail, 2.0 m body"
+
+[propulsion]
+layout = "pods"
+
+[pods]                     # one each side, on the wing where the brace's pin is
+count = 2
+kg = 0.45                  # REF: motor, ESC, folding prop, spinner and the pod's shell
+diameter_mm = 48.0         # REF
+length_mm = 200.0          # REF
+nose_ahead_mm = 110.0      # the spinner's tip, ahead of the wing's leading edge
+prop_in = 13.0             # REF: a folding 13 x 8
+
+[mass]
+auw_kg = 19.2              # REF: the pusher's 18.0, plus 0.37 m^2 more shell and 0.07 m^2 more tail
+auw_night_kg = 18.3
+
+[tail]
+kind = "v"                 # upright: nothing behind it to protect now
+x_mm = 1800.0
+
+[aero]
+tail_area_m2 = 0.29        # what the two tail volumes ask for on this arm
+
+[fuselage]
+length_mm = 2000.0
+spinner_r_mm = 2.0         # no spinner: the cubic runs on almost to its point
+truncate_mm = 1990.0
+
+[[bulkhead]]
+x_mm = 250.0
+t_mm = 4.0
+web_mm = 22.0
+material = "G10"
+
+[[bulkhead]]
+x_mm = 400.0
+t_mm = 4.0
+web_mm = 22.0
+material = "G10"
+
+[[bulkhead]]
+x_mm = 520.0
+t_mm = 6.0
+web_mm = 22.0
+material = "carbon"
+
+[[bulkhead]]
+x_mm = 720.0
+t_mm = 6.0
+web_mm = 22.0
+material = "carbon"
+
+[[bulkhead]]
+x_mm = 850.0
+t_mm = 4.0
+web_mm = 22.0
+material = "G10"
+
+[[bulkhead]]
+x_mm = 1300.0
+t_mm = 4.0
+web_mm = 22.0
+material = "G10"
+
+[[bulkhead]]               # the tail's mount
+x_mm = 1800.0
+t_mm = 4.0
+web_mm = 18.0
+material = "G10"

@@ -27,6 +27,27 @@ quoted_ah = 21.0           # "20-22 Ah at 6S"
 loiter_w = 100.0           # average draw over the loiter
 loiter_h = 4.0
 
+[variant]
+label = "pusher: one prop in the tail cone, inverted V-tail"
+
+[propulsion]
+layout = "pusher"          # or "pods": see design/recon/sailplanes
+motor_kg = 0.90            # REF: what moves when the propulsion does: motor, ESC, prop and spinner
+motor_x_mm = 1415.0
+
+[pods]
+count = 0
+
+[tail]                     # a V-tail on the bulkhead at x = 1250, inverted to keep the pusher's prop off the ground
+kind = "inverted-v"
+x_mm = 1250.0              # its root's leading edge
+dihedral_deg = 40.0        # each panel, from the horizontal
+root_chord_mm = 210.0      # REF
+tip_chord_mm = 150.0       # REF
+t_over_c = 0.09
+vh_target = 0.40           # REF: tail volumes a sailplane this shape wants
+vv_target = 0.020
+
 [flight]
 loiter_ms = [14.5, 18.5]
 stall_clean_ms = 11.2
@@ -206,13 +227,19 @@ brace_lift_frac = 0.085    # the braces' share of the lift (their Table 6); the 
 nu_m2s = 1.46e-5
 oswald = 0.90              # REF
 transition = { wing = 0.60, brace = 0.50, tail = 0.50, fuselage = 0.38 }   # REF: laminar to this share of each length
-tail_area_m2 = 0.22        # REF: the V-tail, both surfaces
-tail_chord_mm = 180.0      # REF
-tail_t_over_c = 0.09
+tail_area_m2 = 0.22        # REF: the V-tail, both panels
 speeds_ms = [14.5, 16.5, 18.5]
+
+[battery_bay]              # for the CG: the pack slides on the rails
+pack_length_mm = 300.0     # REF
 
 [loads]
 n = 4.0                    # the pull-up
 n_neg = -2.0               # a push-over or a down-gust: the struts go into compression
 fs = 1.5                   # ultimate over limit
 sweep_y_mm = [500.0, 650.0, 800.0, 1000.0, 1200.0, 1400.0]   # the strut's wing station, swept
+sweep_span_m = [4.8, 5.4, 6.0, 6.6, 7.2, 7.8, 8.4, 9.0, 9.6, 10.2]   # how long can the wing be? The outer panels stretched
+sweep_length_m = [1.45, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0, 3.2]   # how long can the body be? The tail cone stretched
+shell_kgm2 = 3.0           # REF: the body's shell, per m^2 of skin, for what a longer body weighs
+tail_kgm2 = 1.5            # REF: the tail's panels, per m^2
+tip_rise_max_frac = 0.08   # REF: the tip's rise in the pull-up, of the half-span, past which the wing is too limp
