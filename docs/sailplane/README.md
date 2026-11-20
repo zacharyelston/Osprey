@@ -72,6 +72,17 @@ modules in [`src/osprey/recon/scad`](../../src/osprey/recon/scad). Change the de
 | `nadir_belly.scad` | The belly shell with a flat for the camera: a 110 mm window, the pane's recess, and bosses for an interchangeable camera plate |
 | `assembly.scad` | All of it on the body, with the bulkheads and rails |
 
+![The body and centre wing assembled: the frame, lugs and joiner boxes inside the wing's skin, the flaps, and the bulkheads in the body](../img/recon-sailplane-assembly.png)
+
+<sub>`assembly.scad`. The frame stands above and below the wing's skin: it is deeper than the section.</sub>
+
+| | |
+|---|---|
+| ![A node lug with its chord sleeve, post, brace and long diagonal arms](../img/recon-sailplane-lug.png) | ![The joiner box: two plates, the joiner's sleeve and the connector block](../img/recon-sailplane-joiner.png) |
+| The lug at the front bottom centre node | The starboard joiner box, from outboard |
+| ![The centre wing's skin and flap over the frame](../img/recon-sailplane-wing.png) | ![The belly's flat from below, with the window and the pane's recess](../img/recon-sailplane-belly.png) |
+| The wing over the frame, from the port tip | The belly flat and its window, from below |
+
 How each was decided:
 
 - **Lugs.** A tube stops where its bore leaves 1 mm of material to every other bore at the node. Posts and
@@ -96,8 +107,9 @@ How each was decided:
 
 ## Not done
 
-- The SCAD has not been rendered: OpenSCAD is not on the machine this was written on. The tests build the
-  printable parts when it is (`tests/test_sailplane.py`).
+- The parts build in OpenSCAD as closed solids (the tests export the lugs, the joiner box and the belly shell),
+  but none has been sliced or printed. The root fairing is stepped slices, for looking at, not for a mould.
+
 - The pylons' feet on the main bulkheads, the tail, the outer panels and the hatch are not designed.
 - The loads are one symmetric pull-up. No gust, landing, torsion from the flaps or tail load.
 - Lug and bond strength are not checked, only the tubes.

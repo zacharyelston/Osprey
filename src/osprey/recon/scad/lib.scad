@@ -266,13 +266,15 @@ module fairing_section(x) {
     f = min(fair_fillet, w / 2);
     zl = wing_lower_z(x);
     if (w > 2) difference() {
-        offset(r = -f) offset(delta = f) union() {
-            circle(r = r, $fn = 96);
-            translate([-w, 0]) square([2 * w, zl + 1]);
-            translate([-w - 3 * f, zl]) square([2 * w + 6 * f, 4 * f]);
+        intersection() {
+            offset(r = -f) offset(delta = f) union() {
+                circle(r = r, $fn = 96);
+                translate([-w, 0]) square([2 * w, zl + 1]);
+                translate([-w - 3 * f, zl]) square([2 * w + 6 * f, 4 * f]);
+            }
+            translate([-w - 3 * f, 0]) square([2 * w + 6 * f, zl]);       // only the web and its fillets
         }
-        circle(r = r - 0.01, $fn = 96);
-        translate([-2 * R, zl]) square([4 * R, 4 * R]);
+        circle(r = r, $fn = 96);
     }
 }
 
