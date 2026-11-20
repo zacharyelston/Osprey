@@ -653,3 +653,25 @@ def sailplane(res: dict, path):
     bx.legend(fontsize=8, ncol=2)
     fig.savefig(path, dpi=140, bbox_inches="tight")
     plt.close(fig)
+
+
+def sailplane_lift(res: dict, path):
+    """The wing's lift along the span in the pull-up: the vortex lattice's, each surface alone, against the
+    ellipse the loads used to assume."""
+    pu = res["lift"]["pull_up"]
+    y = np.array(pu["y_m"])
+    k = np.argsort(y)
+    fig, ax = plt.subplots(figsize=(10, 4.2))
+    ax.plot(-y[k][::-1], np.array(pu["lift_n_per_m"])[k][::-1], color="#4C72B0", lw=2.2, label="vortex lattice, wing alone")
+    ax.plot(-y[k][::-1], np.array(pu["elliptic_n_per_m"])[k][::-1], color="#DD8452", lw=1.8, ls="--",
+            label="an ellipse of the same lift")
+    ax.axvline(res["analysis"]["strut_y_mm"] / 1e3, color="#7f8c8d", lw=1)
+    ax.text(res["analysis"]["strut_y_mm"] / 1e3, ax.get_ylim()[0], " brace", va="bottom", fontsize=8, color="#7f8c8d")
+    ax.set_xlabel("y, m, along one wing")
+    ax.set_ylabel("lift, N per metre of span")
+    ax.set_title(f"{res['label']}: the wing's lift in the pull-up, at {pu['alpha_deg']:.1f} deg; the braces carry "
+                 f"{pu['brace_share']:.1%} more", fontsize=10)
+    ax.grid(alpha=0.25)
+    ax.legend(fontsize=9)
+    fig.savefig(path, dpi=140, bbox_inches="tight")
+    plt.close(fig)

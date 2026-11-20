@@ -278,16 +278,24 @@ def _lift(s, total_n: float, y0: float, y1: float) -> tuple[float, float]:
     return float(np.trapezoid(l, y)), float(np.trapezoid(l * (y - y0), y))
 
 
-def loads(s, nodes: dict, wings: str, n: float, pod_y: float | None = None) -> tuple[dict, dict]:
-    """Nodal forces at n g. The wing carries all the lift but the braces' share (none on the body, no tail
-    load), elliptic over the span, put on the spar's nodes; each brace's share goes on its own three nodes.
-    The wing's weight comes off where it is."""
+def loads(s, nodes: dict, wings: str, n: float, pod_y: float | None = None, lift: str = "elliptic") -> tuple[dict, dict]:
+    """Nodal forces at n g. The wing and braces carry all the lift (none on the body, no tail load): the
+    wing's on the spar's nodes, each brace's on its own three. With lift "vlm" the spanwise lift and the
+    braces' share are the vortex lattice's, each surface solved alone, at the angle of attack that carries
+    the load at stall x sqrt(n); with "elliptic" the lift is elliptic over the span and the braces take a
+    fixed share. The wing's weight comes off where it is."""
     w = s.wing
     auw = s.mass.auw_kg if wings == "day" else s.mass.auw_night_kg
     m_panel = w.panel_day_kg if wings == "day" else w.panel_night_kg
     braced = "K+" in nodes
     share = s.aero.brace_lift_frac if braced else 0.0
     L, jy, h = n * G * auw, joint_y(s), half_span(s)
+    here = None
+    if lift == "vlm":
+        from osprey.recon import sailplane_vlm as vlm
+
+        here = vlm.at_lift(s, L, s.flight.stall_clean_ms * math.sqrt(abs(n)), braced=braced)
+        share = here["lift_n"].get("brace", 0.0) / L
     F = {}
 
     def add(k, fz):
@@ -297,7 +305,7 @@ def loads(s, nodes: dict, wings: str, n: float, pod_y: float | None = None) -> t
     for i, (y, k) in enumerate(spar):
         lo = (spar[i - 1][0] + y) / 2 if i else y
         hi = (spar[i + 1][0] + y) / 2 if i < len(spar) - 1 else y
-        add(k, _lift(s, L * (1 - share), lo, hi)[0])
+        add(k, vlm.wing_lift_between(s, here, lo, hi) if here else _lift(s, L * (1 - share), lo, hi)[0])
         for a, b, kg, length in ((-h, -jy, m_panel, h - jy), (-jy, jy, w.center_kg, 2 * jy), (jy, h, m_panel, h - jy)):
             add(k, -n * G * kg * max(min(hi, b) - max(lo, a), 0.0) / length)
     if braced:
@@ -308,7 +316,8 @@ def loads(s, nodes: dict, wings: str, n: float, pod_y: float | None = None) -> t
         y = strut_points(s)["y"] if pod_y is None else pod_y
         for sg in (-1, 1):
             add(f"W{sg * y:+.0f}", -n * G * pod(s)["kg"])
-    return F, {"wings": wings, "n": n, "auw_kg": auw, "lift_n": L, "brace_lift_n": L * share / 2}
+    return F, {"wings": wings, "n": n, "auw_kg": auw, "lift_n": L, "brace_lift_n": L * share / 2, "brace_share": share,
+               "alpha_deg": here["alpha_deg"] if here else None}
 
 
 def evaluate(s, members: list[dict], res: dict) -> list[dict]:
@@ -330,14 +339,17 @@ def cases(s) -> list[tuple[str, str, float]]:
     return [(f"{w} wings, {n:+g} g", w, n) for n in (s.loads.n, s.loads.n_neg) for w in WINGS]
 
 
-def analyse(s, strut_y: float | None = None, braced: bool = True) -> dict:
-    """The wing through every case: each member's loads and margins, and the numbers that sum the wing up."""
+def analyse(s, strut_y: float | None = None, braced: bool = True, lift: str | None = None) -> dict:
+    """The wing through every case: each member's loads and margins, and the numbers that sum the wing up.
+    The lift is the design file's choice, but elliptic when the braces are moved off their design station
+    (the lattice is of the design)."""
+    lift = lift or (s.aero.lift if strut_y is None else "elliptic")
     nodes, members, fixed = model(s, strut_y, braced)
     jy, h = joint_y(s), half_span(s)
-    out = {"nodes": {k: v.tolist() for k, v in nodes.items()}, "cases": {}, "braced": braced,
+    out = {"nodes": {k: v.tolist() for k, v in nodes.items()}, "cases": {}, "braced": braced, "lift": lift,
            "strut_y_mm": strut_points(s, strut_y)["y"] if braced else None}
     for name, wings, n in cases(s):
-        F, summary = loads(s, nodes, wings, n, strut_points(s, strut_y)["y"])
+        F, summary = loads(s, nodes, wings, n, strut_points(s, strut_y)["y"], lift)
         res = solve(s, nodes, members, fixed, F)
         rows = evaluate(s, members, res)
         spar = [r for r in rows if r["kind"] in ("spar", "panel")]
@@ -362,7 +374,7 @@ def sweep(s) -> list[dict]:
     push = cases(s)[2][0]
     rows = []
     for y in [None, *s.loads.sweep_y_mm]:
-        a = analyse(s, y, braced=y is not None)
+        a = analyse(s, y, braced=y is not None, lift="elliptic")
         c, d = a["cases"][pull], a["cases"][push]
         worst = max((max(r["u_buckle"], r["u_stress"]) for cc in a["cases"].values() for r in cc["members"]
                      if r["group"] == "brace"), default=0.0)
@@ -855,6 +867,20 @@ def checks(s, an: dict, bare: dict, ae: dict) -> list[dict]:
     inside = st.chord_mm * st.t_over_c - 2 * st.skin_mm
     add("brace tube inside its fairing", inside >= st.od_mm, f"{inside:.1f} mm inside a {st.chord_mm:g} mm, "
         f"{st.t_over_c:.0%} thick fairing for a {st.od_mm:g} mm tube")
+    if an["lift"] == "vlm":
+        from osprey.recon import sailplane_vlm as vlm
+
+        lt, ell = vlm.run_for(s), analyse(s, lift="elliptic")["cases"][cases(s)[0][0]]
+        pu = lt["pull_up"]
+        add("the lift, solved", None,
+            f"a vortex lattice has the braces carrying {lt['alone']['share'].get('brace', 0):.1%} of the lift in the loiter "
+            f"with each surface alone and {lt['whole']['share'].get('brace', 0):.1%} all together (assumed "
+            f"{s.aero.brace_lift_frac:.1%}), and the wing's lift centred {pu['centre_m']:.2f} m out in the pull-up, not an "
+            f"ellipse's {pu['elliptic_centre_m']:.2f}. Against the elliptic assumption the spar's bending goes from "
+            f"{ell['spar_moment_nm']:.0f} to {pull['spar_moment_nm']:.0f} N m and each brace's pull from "
+            f"{ell['brace_axial_n']:.0f} to {pull['brace_axial_n']:.0f} N. Lift-curve slope {lt['alone']['cl_alpha']:.2f} per "
+            f"radian; span efficiency {lt['whole']['span_eff']:.2f} before the body and anything viscous (the drag build-up "
+            f"assumes {s.aero.oswald:g})")
     b0 = bare["cases"][cases(s)[0][0]]
     add("what the braces buy", None,
         f"in the pull-up the spar's bending falls from {b0['spar_moment_nm']:.0f} to {pull['spar_moment_nm']:.0f} N m and "
@@ -986,7 +1012,7 @@ def run(variant: str = "pusher", pods: str | None = None) -> dict:
     rows = bom(s, cuts)
     sp = strut_points(s)
     return {"variant": variant, "label": s.variant.label, "span_sweep": span_sweep(s), "tail": tail(s),
-            "auw_kg": s.mass.auw_kg, "stall": stall(s), "endurance": endurance(s),
+            "lift": _lift_solved(s), "auw_kg": s.mass.auw_kg, "stall": stall(s), "endurance": endurance(s),
             "pod": pod(s), "pod_sweep": pod_sweep(s) if s.pods.count else [], "booms": booms(s),
             "length_sweep": length_sweep(s), "max_length_m": max_length_mm(s) / 1e3,
             "balance": balance(s),
@@ -994,6 +1020,14 @@ def run(variant: str = "pusher", pods: str | None = None) -> dict:
             "strut": {k: (v.tolist() if isinstance(v, np.ndarray) else v) for k, v in sp.items()},
             "tube_mass_g": sum(r["mass_g"] for r in rows if r["mass_g"]),
             "nadir": nadir_flat(s), "flap": flap_split(s), "checks": checks(s, an, bare, ae)}
+
+
+def _lift_solved(s) -> dict | None:
+    if s.aero.lift != "vlm":
+        return None
+    from osprey.recon import sailplane_vlm as vlm
+
+    return vlm.run_for(s)
 
 
 def failed(res: dict) -> list[str]:
@@ -1024,7 +1058,23 @@ def report(res: dict) -> str:
     for name, c in an["cases"].items():
         L.append(f"| {name} | {c['lift_n']:.0f} | {c['spar_moment_nm']:.1f} | {c['joiner_moment_nm']:.1f} | "
                  f"{c['brace_axial_n']:+.0f} | {c['spar_axial_n']:+.0f} | {c['tip_rise_mm']:+.0f} | {c['u_max']:.2f} |")
-    L += ["", "Tension is positive. \"Used\" is the ultimate load over what the tube can take: above 1.00 it fails.", "",
+    L += ["", "Tension is positive. \"Used\" is the ultimate load over what the tube can take: above 1.00 it fails.", ""]
+    if res.get("lift"):
+        lt = res["lift"]
+        L += ["## The lift, solved", "",
+              "A vortex lattice of the wing, the braces and the tail (OpenAeroStruct), solved all together and, as "
+              "Ting et al. do, each surface alone with the forces added. The loads take the second. Coefficients "
+              "are on the wing's area, at the loiter's lift.", "",
+              "| | Lift-curve slope, /rad | Lift at zero angle | Angle, deg | Wing's share | Braces' share | "
+              "Tail, untrimmed | Span efficiency |", "|---|---|---|---|---|---|---|---|"]
+        for k, name in (("alone", "each surface alone, summed"), ("whole", "all in one lattice"), ("unbraced", "no braces")):
+            p_ = lt[k]
+            eff = f"{p_['span_eff']:.2f}" if k != "alone" else "n/a"
+            L.append(f"| {name} | {p_['cl_alpha']:.2f} | {p_['cl0']:.2f} | {p_['alpha_deg']:.1f} | {p_['share']['wing']:.1%} | "
+                     f"{p_['share'].get('brace', 0):.1%} | {p_['tail_lift_frac']:+.1%} | {eff} |")
+        L += ["", "Drag due to lift does not add up surface by surface (each is in the others' wash), so the summed "
+              "solve gives no span efficiency. The lattice has no body, no thickness and nothing viscous.", ""]
+    L += [
           "## Where the braces meet the wing", "",
           "| Brace at y, mm | Spar bending, N m | at the root, N m | Tip in the pull-up, mm | Brace tension, N | "
           "Brace compression in the push-over, N | Spar compression, N | Brace used | Most used |",

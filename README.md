@@ -428,7 +428,7 @@ flat calm. The notebook, with renders and an Onshape feature for the tilt-wing, 
 A thermal-soaring radio relay from an engineering handoff package: a laminar body and a truss-braced wing, a
 thin wing held by a brace a side from the belly, as on NASA's transonic truss-braced wing.
 `osprey recon-sailplane` flies the wing through a 4 g pull-up and a push-over with and without the braces,
-builds the drag up by components, checks the design against itself, and writes the brace fittings, wing and
+solves its lift with a vortex lattice, builds the drag up by components, checks the design against itself, and writes the brace fittings, wing and
 camera bay as OpenSCAD. The pusher is the package as handed over, and fails three of its own numbers.
 `--variant twin` has push-pull props on pods at the braces, a V-tail, a 6.0 m wing and a 2.3 m body;
 `--variant boom` carries its tail on twin booms from the pods, with a pusher on a short body and a tractor on

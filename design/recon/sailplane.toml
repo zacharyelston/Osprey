@@ -209,9 +209,9 @@ material = "PA12-CF, printed; 7075 where the loads say so"
 socket_mm = 20.0           # how far a tube goes in
 bond_gap_mm = 0.15         # epoxy, on the radius
 wall_mm = 2.5
-pin_mm = 5.0               # the main strut's pins
+pin_mm = 6.0               # the main strut's pins
 jury_pin_mm = 3.0
-tang_mm = 6.0
+tang_mm = 7.0
 cheek_mm = 4.0             # each side of a fork
 groove_mm = [1.0, 0.3]     # adhesive relief grooves inside each socket: width, depth
 grooves = 2
@@ -242,7 +242,9 @@ recovery_from_mm = 750.0   # the tail cone's pressure recovery starts here: the 
 
 [aero]                     # a drag build-up by components, after Ting, Reynolds, Nguyen and Totah (the TBW by vortex-lattice
                            # superposition): flat-plate skin friction with transition, form factors, and induced drag
-brace_lift_frac = 0.085    # the braces' share of the lift (their Table 6); the wing carries the rest
+lift = "vlm"               # where the loads' lift comes from: "vlm", a vortex lattice of the wing and braces
+                           # (recon/sailplane_vlm.py), or "elliptic", the assumption below
+brace_lift_frac = 0.085    # the braces' share of an elliptic lift (their Table 6); the wing carries the rest
 nu_m2s = 1.46e-5
 oswald = 0.90              # REF
 transition = { wing = 0.60, brace = 0.50, tail = 0.50, fuselage = 0.38 }   # REF: laminar to this share of each length

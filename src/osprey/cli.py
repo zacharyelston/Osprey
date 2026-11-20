@@ -603,6 +603,8 @@ def cmd_recon_sailplane(args) -> int:
     (o / "sailplane.md").write_text(sailplane.report(res))
     sailplane.export(res, o)
     rfig.sailplane(res, o / "wing.png")
+    if res.get("lift"):
+        rfig.sailplane_lift(res, o / "lift.png")
     for c in res["checks"]:
         print(f"{ {True: 'ok  ', False: 'FAIL', None: 'note'}[c['ok']]}  {c['name']}: {c['text']}")
     print(f"wrote {o}/sailplane.md, cutlist.csv, wing.png and scad/")

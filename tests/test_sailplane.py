@@ -66,7 +66,7 @@ def test_every_case_balances_and_is_the_same_either_side(s, res):
 
 def test_with_no_braces_the_root_bending_is_the_cantilever_s(s, res):
     """Elliptic lift's centre is 4/(3 pi) of the half-span out; the wing's own weight comes off."""
-    c = res["unbraced"]["cases"][sp.cases(s)[0][0]]
+    c = sp.analyse(s, braced=False, lift="elliptic")["cases"][sp.cases(s)[0][0]]
     w, h = s.wing, s.wing.span_mm / 2e3
     jy = w.center_span_mm / 2e3
     cr, ct = w.chord_mm, w.tip_chord_mm
@@ -253,3 +253,56 @@ def test_the_parts_build_in_openscad(res, twin, boom, tmp_path, part):
     done = subprocess.run(["openscad", *extra, "-o", str(out), str(tmp_path / "scad" / f"{file}.scad")],
                           capture_output=True, text=True, timeout=600)
     assert done.returncode == 0 and "WARNING" not in done.stderr and out.stat().st_size > 1000
+
+
+# ---- the vortex lattice (recon/sailplane_vlm.py) ----------------------------------------------------
+
+from osprey.recon import sailplane_vlm as vlm  # noqa: E402
+
+
+def test_the_lattice_s_lift_curve_is_a_finite_wing_s(s, res):
+    lt = res["lift"]
+    ar = (s.wing.span_mm / 1e3) ** 2 / sp.wing_area_m2(s)
+    assert lt["unbraced"]["cl_alpha"] == pytest.approx(2 * math.pi * ar / (ar + 2), rel=0.05)   # lifting-line theory
+    assert 0.15 < lt["unbraced"]["cl0"] < 0.40                                 # the SD7037's camber lifts at zero angle
+    assert lt["alone"]["cl_alpha"] > lt["whole"]["cl_alpha"] > lt["unbraced"]["cl_alpha"]     # the braces add lift
+    assert 0.9 < lt["unbraced"]["span_eff"] < 1.05
+
+
+def test_the_lattice_is_linear_in_the_angle(s):
+    ms = {"wing": vlm.wing_mesh(s)}
+    f = vlm._solve(ms, [0.0, 2.5, 5.0], s.climb.speed_ms, s.flight.rho_kgm3)["wing"]
+    up = f[..., 2].sum(axis=(1, 2))                                            # the lift's part; the drag's goes as the square
+    assert up[1] == pytest.approx((up[0] + up[2]) / 2, rel=2e-3)
+
+
+def test_the_solved_lift_carries_the_weight_and_adds_up_along_the_span(s):
+    lift = 4 * s.mass.auw_kg * sp.G
+    here = vlm.at_lift(s, lift, 22.4)
+    assert here["lift_n"]["wing"] + here["lift_n"]["brace"] == pytest.approx(lift)
+    h = s.wing.span_mm / 2
+    assert vlm.wing_lift_between(s, here, -h, h) == pytest.approx(here["lift_n"]["wing"], rel=1e-9)
+    assert vlm.wing_lift_between(s, here, 0, h) == pytest.approx(here["lift_n"]["wing"] / 2, rel=1e-9)
+    push = vlm.at_lift(s, -lift / 2, 22.4)
+    assert push["alpha_deg"] < 0 < here["alpha_deg"]
+
+
+def test_the_braces_share_of_the_lift_is_the_paper_s_or_near(res, boom):
+    for k in ("alone", "whole"):
+        assert 0.05 < res["lift"][k]["share"]["brace"] < 0.10                  # Ting et al.: 8.5 % by components
+    assert res["lift"]["alone"]["share"]["brace"] > res["lift"]["whole"]["share"]["brace"]   # alone, out of the wing's wash
+    assert boom["lift"]["alone"]["share"]["brace"] < 0.6 * res["lift"]["alone"]["share"]["brace"]   # a shorter brace
+    assert "brace" not in res["lift"]["unbraced"]["share"]
+
+
+def test_the_solved_lift_sits_further_out_than_an_ellipse_and_loads_the_wing_more(s, res):
+    pu = res["lift"]["pull_up"]
+    assert pu["elliptic_centre_m"] == pytest.approx(4 * 2.4 / (3 * math.pi))
+    assert pu["elliptic_centre_m"] < pu["centre_m"] < 1.1 * pu["elliptic_centre_m"]
+    pull = sp.cases(s)[0][0]
+    assert res["analysis"]["lift"] == "vlm" and all(r["strut_y_mm"] is None or True for r in res["sweep"])
+    ell = sp.analyse(s, lift="elliptic")["cases"][pull]
+    got = res["analysis"]["cases"][pull]
+    assert got["brace_axial_n"] > ell["brace_axial_n"]
+    assert got["applied_z_n"] == pytest.approx(ell["applied_z_n"], rel=1e-5)   # the same lift, put elsewhere
+    assert got["brace_share"] == pytest.approx(pu["brace_share"], rel=1e-6)
