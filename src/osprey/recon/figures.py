@@ -612,3 +612,29 @@ def puffin(rows: list[dict], path):
     fig.tight_layout(rect=(0, 0, 1, 0.94))
     fig.savefig(path, dpi=130)
     plt.close(fig)
+
+
+def sailplane(res: dict, path):
+    """The centre wing's frame from the front and from above, each member coloured by how much of what it can
+    take the pull-up uses at ultimate (buckling or stress, whichever is more)."""
+    pu = res["pull_up"]
+    g = pu[pu["governing"]]
+    nodes = {k: np.array(v) for k, v in res["nodes"].items()}
+    fig, axes = plt.subplots(2, 1, figsize=(12, 6.4), sharex=True, gridspec_kw={"height_ratios": [1, 1.6]})
+    cmap, norm = plt.get_cmap("RdYlGn_r"), matplotlib.colors.Normalize(0.0, 2.0)
+    for ax, (i, lab) in zip(axes, ((2, "z, mm"), (0, "x, mm"))):
+        for m in sorted(g["members"], key=lambda m: max(m["u_buckle"], m["u_stress"])):
+            a, b = nodes[m["a"]], nodes[m["b"]]
+            u = max(m["u_buckle"], m["u_stress"])
+            rear = i == 2 and a[0] > 600 and b[0] > 600
+            ax.plot([a[1], b[1]], [a[i], b[i]], color=cmap(norm(u)), lw=3.2 if m["tube"] == "chord" else 1.8,
+                    ls="--" if rear else "-", solid_capstyle="round")
+        ax.set_ylabel(lab)
+        ax.grid(alpha=0.25)
+    axes[1].invert_yaxis()
+    axes[1].set_xlabel("y, mm (starboard positive); from the front (top; rear plane dashed) and from above")
+    axes[0].set_title(f"The centre wing's frame at {g['lift_n'] / g['auw_kg'] / 9.81:.0f} g, {pu['governing']} wings: "
+                      f"share of each tube's strength used at ultimate", fontsize=11)
+    fig.colorbar(matplotlib.cm.ScalarMappable(norm, cmap), ax=axes, label="used (1.0 = fails; 2.0 and over in red)", pad=0.02)
+    fig.savefig(path, dpi=140, bbox_inches="tight")
+    plt.close(fig)

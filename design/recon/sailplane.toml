@@ -1,0 +1,189 @@
+# The sailplane (osprey recon-sailplane): a 4.8 m thermal-soaring relay with a laminar body of revolution for
+# a fuselage, a three-piece wing whose centre section is built round a carbon-tube space-frame, swappable outer
+# panels (solar by day, light by night) and a pusher in the tail cone. From an engineering handoff package:
+# the numbers are that package's, and where it was silent (tube bores, laminate allowables, panel masses,
+# connector bodies) the value is a REF stand-in until measured.
+#
+# Stations, in millimetres: x aft from the nose tip, y to starboard, z up from the body's axis. (The body
+# frame of src/osprey/frames.py is x forward and y port: x_body = -x, y_body = -y.)
+
+[mass]
+auw_kg = 18.0              # day wings on
+auw_night_kg = 17.1
+avionics_kg = 5.0          # mesh radio and antennas, SDR and its computer, nadir camera
+battery_kg = 5.0
+airframe_kg = 5.8
+propulsion_kg = 2.2        # motor, folding prop, ESC, servos, autopilot
+
+[battery]
+cells = 72                 # 21700 Li-ion
+series = 6
+cell_v = 3.6
+cell_ah = 5.0              # REF: a current 21700
+cell_kg = 0.069            # REF
+usable_frac = 0.85
+quoted_wh = 488.0          # what the package says the pack holds
+quoted_ah = 21.0           # "20-22 Ah at 6S"
+loiter_w = 100.0           # average draw over the loiter
+loiter_h = 4.0
+
+[flight]
+loiter_ms = [14.5, 18.5]
+stall_clean_ms = 11.2
+stall_flap_ms = 9.6
+min_sink_ms = 0.52
+rho_kgm3 = 1.225
+
+[fuselage]                 # a Myring body: an elliptic-power nose, a parallel middle, a cubic tail cone
+length_mm = 1450.0
+radius_mm = 150.0
+nose_mm = 550.0
+mid_mm = 200.0             # the parallel middle, under the wing's truss
+nose_exp = 2.2
+tail_angle_deg = 11.0      # the cubic's half-angle where it closes
+spinner_r_mm = 22.0        # the pusher's spinner; the tail is not let below this
+truncate_mm = 1415.0       # the motor firewall
+wall_mm = 2.5
+hatch_mm = [220.0, 820.0]  # the top hatch, x from and to
+hatch_half_w_mm = 95.0
+hatch_z_mm = 60.0          # cut away above this
+upper = "2x2 twill carbon"
+lower = "aramid + E-glass"  # belly-landing abrasion, and clear to the radios inside
+
+[[bulkhead]]
+x_mm = 250.0
+t_mm = 4.0
+web_mm = 22.0
+material = "G10"
+
+[[bulkhead]]
+x_mm = 400.0
+t_mm = 4.0
+web_mm = 22.0
+material = "G10"
+
+[[bulkhead]]               # the front main: the front truss plane's pylons land in it
+x_mm = 520.0
+t_mm = 6.0
+web_mm = 22.0
+material = "carbon"
+
+[[bulkhead]]               # the rear main
+x_mm = 720.0
+t_mm = 6.0
+web_mm = 22.0
+material = "carbon"
+
+[[bulkhead]]
+x_mm = 850.0
+t_mm = 4.0
+web_mm = 22.0
+material = "G10"
+
+[[bulkhead]]               # the tail's mount
+x_mm = 1250.0
+t_mm = 4.0
+web_mm = 22.0
+material = "G10"
+
+[rails]                    # twin rails the battery slides along to trim the CG when the wings are swapped
+y_mm = 75.0
+z_mm = -35.0
+x_mm = [240.0, 860.0]
+section_mm = 10.0
+material = "carbon square tube"
+
+[wing]
+span_mm = 4800.0
+center_span_mm = 1600.0
+chord_mm = 380.0           # the centre section, constant
+tip_chord_mm = 240.0       # the outer panels taper to this
+le_x_mm = 460.0            # the centre section's leading edge
+chord_z_mm = 170.0         # the chord line's height: puts the section's mid-thickness on the truss's mid-depth
+airfoil = "sd7037"         # design/recon/airfoils/<name>.dat
+cm = -0.085                # REF: the SD7037's pitching moment about the quarter chord
+dihedral_deg = 2.75        # the outer panels
+skin_mm = 1.5              # REF: the centre section's skin
+rib_mm = 3.0               # skin ribs, mid-way between the truss stations and at the flaps' inboard ends
+quoted_area_m2 = 1.63
+quoted_ar = 14.1
+center_kg = 1.30           # REF: truss, lugs, skin, flaps and servos
+panel_day_kg = 1.45        # REF: one outer panel with its 12 cells
+panel_night_kg = 1.00      # REF: "saving 750-900 g" on the pair
+
+[flap]                     # the centre section's camber and crow flaps
+chord_frac = 0.25          # of the chord, so the hinge line is at 75 %
+gap_mm = 1.0
+crow_deg = 60.0            # how far down they go as brakes
+hinges_per_flap = 3
+hinge_pocket_mm = [22.0, 14.0, 2.2]   # REF: a pocket's width along the span, length across the hinge line, depth
+end_gap_mm = 2.0
+
+[fairing]                  # the wing root fairing, between the body's crown and the wing's underside
+half_w_mm = 125.0          # its half-width at mid-chord; the truss pylons, at 110, are inside it
+fillet_mm = 18.0
+step_mm = 5.0              # the loft's slice
+
+[truss]                    # the centre section's space-frame: two Warren planes, braced top, bottom and across
+x_front_mm = 520.0
+x_rear_mm = 720.0
+z_bot_mm = 158.0
+z_top_mm = 204.0
+bays_per_side = 2
+pylon_y_mm = 110.0         # four pylons, front and rear, either side, down to the main bulkheads
+pylon_foot_z_mm = 85.0
+
+[tube.chord]               # the four spanwise chords and the pylons
+od_mm = 10.0
+id_mm = 8.0                # REF: the package gives the outside only
+[tube.strut]               # posts, braces and diagonals
+od_mm = 6.0
+id_mm = 4.0                # REF
+
+[carbon]                   # pultruded tube, REF until the supplier's sheet is in hand
+e_gpa = 115.0
+g_gpa = 4.5
+rho_kgm3 = 1550.0
+comp_allow_mpa = 500.0
+tens_allow_mpa = 900.0
+
+[lug]                      # the printed node lugs
+material = "PA12-CF"
+socket_mm = 15.0           # how far a tube goes in
+bond_gap_mm = 0.15         # epoxy, on the radius
+wall_mm = 2.0
+web_mm = 1.0               # the least material left between two sockets' bores
+groove_mm = [1.0, 0.3]     # adhesive relief grooves inside each socket: width, depth
+grooves = 2
+port_mm = 1.5              # a hole to inject the epoxy through, and let the air out
+min_bare_mm = 2.0          # the least tube left showing between two lugs
+
+[joiner]                   # the outboard receptacle for an outer panel's joiner
+size_mm = 25.0             # a square carbon tube
+engage_mm = 150.0          # how far it goes in from y = 800
+x_mm = 580.0               # its centre: the section's thickest point is at 30 % chord
+gap_mm = 0.15
+wall_mm = 2.5
+plate_mm = 4.0             # the two plates that thread onto the four chords and carry the joiner's couple
+plate_margin_mm = 12.0     # plate outside the chords' centres
+replaces_tip_diagonal = true   # the outer plate is the shear web at y = 800, where the diagonal would cross the joiner
+mpx_mm = [16.2, 7.8, 10.0]     # REF: a 6-pin MPX body's pocket, across, thick, deep
+xt30_mm = [10.4, 5.4, 9.0]     # REF: an XT30 body's pocket
+connector_x_mm = 655.0         # the connector block's centre, aft of the joiner
+shoulder_mm = 1.0              # the lip behind each connector
+
+[nadir]                    # a flat on the belly for the mapping camera's window
+x_mm = [250.0, 380.0]      # the camera bay
+window_mm = 110.0          # the clear opening, square
+ledge_mm = 6.0             # the pane overlaps the opening by this all round
+pane_mm = 3.0              # the pane's thickness, and the recess it sits in
+floor_mm = 5.5             # the flat's laminate under the bay
+margin_mm = 5.0            # flat outside the pane at the window's two ends
+mount_mm = [130.0, 130.0]  # REF: the camera plate's four M3 bosses, along and across
+boss_mm = [8.0, 6.0]       # a boss's diameter and height
+m3_mm = 2.5                # tapped for M3
+recovery_from_mm = 750.0   # the tail cone's pressure recovery starts here: the flat must end before it
+
+[loads]
+n = 4.0                    # the pull-up
+fs = 1.5                   # ultimate over limit

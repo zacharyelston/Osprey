@@ -423,6 +423,14 @@ stop at 6 h. The tilt-wing is heavier but lifts straight off the water, where th
 flat calm. The notebook, with renders and an Onshape feature for the tilt-wing, is
 [docs/loiter](docs/loiter/README.md).
 
+### The sailplane (in progress)
+
+A 4.8 m thermal-soaring relay from an engineering handoff package: a laminar body, a centre wing built round
+a carbon-tube frame, swappable outer panels. `osprey recon-sailplane` flies the frame through a 4 g pull-up,
+sets every printed lug's sockets and every tube's cut length, checks the package against itself, and writes
+the lugs, joiner receptacle, wing and camera bay as OpenSCAD. As drawn the frame is deeper than the wing
+section and its top chords buckle. The notebook is [docs/sailplane](docs/sailplane/README.md).
+
 ### Anti-piracy awareness
 
 How far each eye sees a fast skiff coming, and the warning that buys at 30 kn (`osprey recon-awareness`):
@@ -550,6 +558,7 @@ uv run osprey recon-cyclone-sweep --payload all             # Recon: the Cyclone
 uv run osprey recon-loiter --workers 8                      # Recon: the loiter craft, 2-12 h on station
 uv run osprey recon-puffin --workers 8                      # Recon: the spar Puffin, righting curves
 uv run osprey recon-puffin-sar --workers 8                  # Recon: the spar Puffin SAR build's budget
+uv run osprey recon-sailplane                               # Recon: the sailplane's wing frame, lugs, cut list, SCAD
 uv run osprey recon-awareness                               # Recon: anti-piracy ranges
 uv run osprey beet --workers 8                              # the Beet: a flying buoy, sized and floated
 uv run osprey trident --workers 8                           # the Trident: three modules round a core, sized and floated
