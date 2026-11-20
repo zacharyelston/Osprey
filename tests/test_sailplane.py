@@ -144,8 +144,30 @@ def test_the_twin_has_its_props_on_the_wing_and_a_tail_that_is_big_enough(s, twi
     assert twin["analysis"]["cases"][pull]["brace_axial_n"] < sp.analyse(no_pods)["cases"][pull]["brace_axial_n"]
     b = twin["balance"]
     assert 0 < b["battery_aft_mm"] < b["travel_mm"]
-    assert b["shift_mm"] * t.mass.auw_kg == pytest.approx(b["battery_aft_mm"] * t.mass.battery_kg)
     assert all("pods" in r["cd0"] for r in twin["aero"]["rows"])
+
+
+def test_front_back_and_both(twin):
+    t = sp.inputs("twin")
+    rows = {r["layout"]: r for r in twin["pod_sweep"]}
+    assert list(rows) == ["front", "back", "both"] and t.pods.layout == "both"
+    f, b, pp = rows["front"], rows["back"], rows["both"]
+    assert (f["motors"], b["motors"], pp["motors"]) == (2, 2, 4)
+    assert pp["length_mm"] > 2 * f["length_mm"] and pp["kg"] > f["kg"] and pp["auw_kg"] > f["auw_kg"]
+    assert pp["auw_kg"] == pytest.approx(t.mass.auw_kg)                        # the design file's weight is the push-pull's
+    assert pp["motor_w"] < 0.6 * f["motor_w"]                                  # four share what two did
+    assert pp["eff"] < b["eff"] < f["eff"]                                     # the installation's losses
+    assert f["battery_aft_mm"] > pp["battery_aft_mm"] > b["battery_aft_mm"] > 0   # a back prop's weight is further aft
+    assert pp["sink_ms"] > f["sink_ms"]                                        # the long pods' skin, and their weight
+    # One motor out: two motors lose half the thrust and the tail cannot hold the yaw; four lose a quarter and it can.
+    assert f["out_thrust_frac"] == 0.5 and pp["out_thrust_frac"] == 0.75
+    assert pp["out_yaw_nm"] == pytest.approx(f["out_yaw_nm"] / 2, rel=0.08)
+    assert not f["tail_ok"] and not b["tail_ok"] and pp["tail_ok"]
+    assert pp["out_climb_ms"] > f["out_climb_ms"] > 0
+    for r in rows.values():
+        c = sp.climb(sp.with_pods(t, r["layout"]))
+        assert c["thrust_n"] * t.climb.speed_ms == pytest.approx(c["shaft_w"] * c["eff"])
+        assert r["used"] < 1.0 and 0 < r["ideal"] < 1
 
 
 def test_how_long_the_body_can_be(s, res, twin):

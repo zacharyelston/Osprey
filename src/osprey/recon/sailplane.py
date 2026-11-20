@@ -276,7 +276,7 @@ def loads(s, nodes: dict, wings: str, n: float) -> tuple[dict, dict]:
     if s.pods.count:                                   # a pod hangs on the wing at each brace's station
         y = strut_points(s)["y"]
         for sg in (-1, 1):
-            add(f"W{sg * y:+.0f}", -n * G * s.pods.kg)
+            add(f"W{sg * y:+.0f}", -n * G * pod(s)["kg"])
     return F, {"wings": wings, "n": n, "auw_kg": auw, "lift_n": L, "brace_lift_n": L * share / 2}
 
 
@@ -390,8 +390,9 @@ def aero(s) -> dict:
         "body": (f.truncate_mm / 1e3, s_body, 1 + 1.5 / fine**1.5 + 7 / fine**3, a.transition.fuselage),
     }
     if s.pods.count:
-        pf = s.pods.length_mm / s.pods.diameter_mm
-        parts["pods"] = (s.pods.length_mm / 1e3, s.pods.count * 0.75 * math.pi * s.pods.diameter_mm * s.pods.length_mm / 1e6,
+        pl = pod_shape(s)["length_mm"]
+        pf = pl / s.pods.diameter_mm
+        parts["pods"] = (pl / 1e3, s.pods.count * 0.75 * math.pi * s.pods.diameter_mm * pl / 1e6,
                          1 + 1.5 / pf**1.5 + 7 / pf**3, 0.0)       # turbulent: they sit in the props' wash
     ar = (w.span_mm / 1e3) ** 2 / S
     rows = []
@@ -425,6 +426,66 @@ def tail(s) -> dict:
             "arm_needed_m": arm * need / A}
 
 
+def chord_at(s, y: float) -> float:
+    w = s.wing
+    return w.chord_mm - (w.chord_mm - w.tip_chord_mm) * max(abs(y) - joint_y(s), 0.0) / (half_span(s) - joint_y(s))
+
+
+def climb(s, auw_kg: float | None = None) -> dict:
+    """The climb the props are sized for: the thrust it takes, the props' efficiency (the ideal of momentum
+    theory for two streamtubes, one a pod, times the blades' and the installation's), the shaft power each
+    motor gives, and what is left with one motor stopped: the climb, and the lift coefficient the V-tail
+    needs to hold the yaw."""
+    c, pd = s.climb, s.pods
+    auw = auw_kg or s.mass.auw_kg
+    per_pod = 2 if pd.layout == "both" else 1
+    motors = pd.count * per_pod
+    row = min(aero(s)["rows"], key=lambda r: abs(r["v_ms"] - c.speed_ms))
+    W, v = auw * G, c.speed_ms
+    drag = W / row["braced"]["l_over_d"]
+    thrust = W * c.rate_ms / v + drag
+    q = 0.5 * s.flight.rho_kgm3 * v**2
+    disc = math.pi * (pd.prop_in * 0.0254) ** 2 / 4
+    ideal = 2 / (1 + math.sqrt(1 + thrust / pd.count / (q * disc)))
+    eff = ideal * c.blade_eff * getattr(c.install, pd.layout)
+    shaft = thrust * v / eff
+    y = strut_points(s)["y"] / 1e3
+    tl = tail(s)
+    side = thrust / motors * y / tl["arm_m"]
+    return {"motors": motors, "thrust_n": thrust, "ideal": ideal, "eff": eff, "shaft_w": shaft, "motor_w": shaft / motors,
+            "out_thrust_frac": (motors - 1) / motors, "out_climb_ms": (thrust * (motors - 1) / motors - drag) * v / W,
+            "out_yaw_nm": thrust / motors * y,
+            "out_tail_cl": side / (q * tl["area_m2"] * math.sin(math.radians(s.tail.dihedral_deg)) ** 2)}
+
+
+def pod_shape(s) -> dict:
+    """One pod as its layout has it: where it starts and ends, and which ends carry a prop."""
+    pd = s.pods
+    y = strut_points(s)["y"]
+    ch = chord_at(s, y)
+    le = s.wing.le_x_mm + s.spar.x_frac * (s.wing.chord_mm - ch)
+    front, back = pd.layout in ("front", "both"), pd.layout in ("back", "both")
+    nose = le - pd.nose_ahead_mm if front else le + ch + pd.tail_behind_mm - pd.length_mm
+    end = le + ch + pd.tail_behind_mm if back else nose + pd.length_mm
+    return {"layout": pd.layout, "length_mm": end - nose, "nose_x_mm": nose, "end_x_mm": end, "front": front,
+            "back": back, "y_mm": y}
+
+
+def pod(s) -> dict:
+    """A pod's shape and what it weighs: the shell by its length, and a prop and a motor for each end that
+    has one, the motor by the climb's power."""
+    pd = s.pods
+    if not pd.count:
+        return {"kg": 0.0, "length_mm": 0.0}
+    g = pod_shape(s)
+    motor_kg = pd.prop_kg + climb(s)["motor_w"] / 1e3 / pd.motor_kw_per_kg
+    items = [(pd.shell_kg_per_m * g["length_mm"] / 1e3, (g["nose_x_mm"] + g["end_x_mm"]) / 2)]
+    items += [(motor_kg, g["nose_x_mm"] + 45.0)] if g["front"] else []
+    items += [(motor_kg, g["end_x_mm"] - 45.0)] if g["back"] else []
+    kg = sum(m for m, _ in items)
+    return {**g, "kg": kg, "cg_x_mm": sum(m * x for m, x in items) / kg, "motor_kg": motor_kg}
+
+
 def balance(s) -> dict:
     """What moving the propulsion out of the tail cone does to the balance: how far aft the battery has to
     slide on its rails to put the CG back, against the travel the rails leave it."""
@@ -432,9 +493,39 @@ def balance(s) -> dict:
     travel = s.rails.x_mm[1] - s.rails.x_mm[0] - s.battery_bay.pack_length_mm
     if not s.pods.count:
         return {"shift_mm": 0.0, "battery_aft_mm": 0.0, "travel_mm": travel}
-    pod_x = s.wing.le_x_mm - s.pods.nose_ahead_mm + s.pods.length_mm / 2
-    moved = pr.motor_kg * (pr.motor_x_mm - pod_x)                       # kg mm, forward
+    pd = pod(s)
+    cg = s.wing.le_x_mm + 0.30 * s.wing.chord_mm                         # near enough, to take moments about
+    moved = pr.motor_kg * (pr.motor_x_mm - cg) - s.pods.count * pd["kg"] * (pd["cg_x_mm"] - cg)   # kg mm, forward
     return {"shift_mm": moved / s.mass.auw_kg, "battery_aft_mm": moved / s.mass.battery_kg, "travel_mm": travel}
+
+
+def with_pods(s, layout: str):
+    """The same aircraft with its pods' props at the front, the back or both: its weight follows the pods'."""
+    import copy
+
+    s2 = copy.deepcopy(s)
+    s2.pods.layout = layout
+    dm = s.pods.count * (pod(s2)["kg"] - pod(s)["kg"])
+    s2.mass.auw_kg += dm
+    s2.mass.auw_night_kg += dm
+    return s2
+
+
+def pod_sweep(s) -> list[dict]:
+    """Front, back and both: each pod layout's weight, balance, glide with the props folded, the climb and a
+    motor out, and the most any tube is used."""
+    rows = []
+    for layout in s.pods.layouts:
+        s2 = with_pods(s, layout)
+        pd, cl, bl, ae, an = pod(s2), climb(s2), balance(s2), aero(s2), analyse(s2)
+        best = min(ae["rows"], key=lambda r: r["braced"]["sink_ms"])
+        prop_r = s.pods.prop_in * 25.4 / 2
+        rows.append({"layout": layout, **{k: pd[k] for k in ("kg", "length_mm", "motor_kg")}, **cl, **bl,
+                     "auw_kg": s2.mass.auw_kg, "pods_counts": best["cd0"]["pods"] * 1e4, "sink_ms": best["braced"]["sink_ms"],
+                     "l_over_d": best["braced"]["l_over_d"], "used": max(c["u_max"] for c in an["cases"].values()),
+                     "brace_pull_n": an["cases"][cases(s2)[0][0]]["brace_axial_n"],
+                     "tail_ok": cl["out_tail_cl"] <= s.climb.tail_cl_max, "prop_r_mm": prop_r})
+    return rows
 
 
 def body_wetted_m2(s) -> float:
@@ -668,10 +759,20 @@ def checks(s, an: dict, bare: dict, ae: dict) -> list[dict]:
     if s.pods.count:
         bl = balance(s)
         prop_r = s.pods.prop_in * 25.4 / 2
-        add("balance with the props on the wing", bl["battery_aft_mm"] <= bl["travel_mm"],
-            f"moving {s.propulsion.motor_kg:g} kg from the tail cone to the pods brings the CG {bl['shift_mm']:.0f} mm "
-            f"forward; the battery slides {bl['battery_aft_mm']:.0f} mm aft to put it back, of {bl['travel_mm']:.0f} mm the "
-            f"rails leave it")
+        add("balance with the props on the wing", 0 <= bl["battery_aft_mm"] <= bl["travel_mm"],
+            f"taking {s.propulsion.motor_kg:g} kg out of the tail cone and hanging two {pod(s)['kg']:.2f} kg pods on the "
+            f"wing brings the CG {bl['shift_mm']:.0f} mm forward; the battery slides {bl['battery_aft_mm']:.0f} mm aft to "
+            f"put it back, of {bl['travel_mm']:.0f} mm the rails leave it")
+        cl = climb(s)
+        add("climb, and one motor out", cl["out_tail_cl"] <= s.climb.tail_cl_max and cl["out_climb_ms"] > 0,
+            f"{s.climb.rate_ms:g} m/s at {s.climb.speed_ms:g} m/s takes {cl['thrust_n']:.0f} N and {cl['motor_w']:.0f} W of "
+            f"shaft from each of {cl['motors']} motors (props {cl['eff']:.0%} efficient). One out leaves "
+            f"{cl['out_climb_ms']:.1f} m/s of climb and {cl['out_yaw_nm']:.0f} N m of yaw, which the tail holds at a lift "
+            f"coefficient of {cl['out_tail_cl']:.2f} (it has {s.climb.tail_cl_max:g})")
+        ps = pod_sweep(s)
+        add("where the props go on the pods", None, "; ".join(
+            f"{r['layout']}: {r['motors']} motors, {r['kg']:.2f} kg a pod, {r['auw_kg']:.1f} kg all up, sink "
+            f"{r['sink_ms']:.3f} m/s, one out leaves {r['out_climb_ms']:.1f} m/s" for r in ps))
         clear = strut_points(s)["y"] - prop_r - f.radius_mm
         add("props clear the body", clear > 0, f"{clear:.0f} mm between a {s.pods.prop_in:g} in disc and the body's side; "
             f"the discs' lowest point is {spar_xz(s, strut_points(s)['y'])[1] - prop_r + f.radius_mm:.0f} mm above the belly")
@@ -715,13 +816,16 @@ def checks(s, an: dict, bare: dict, ae: dict) -> list[dict]:
     return out
 
 
-def run(variant: str = "pusher") -> dict:
+def run(variant: str = "pusher", pods: str | None = None) -> dict:
     s = inputs(variant)
+    if pods:
+        s = with_pods(s, pods)
     an, bare, ae = analyse(s), analyse(s, braced=False), aero(s)
     cuts = cut_list(s)
     rows = bom(s, cuts)
     sp = strut_points(s)
     return {"variant": variant, "label": s.variant.label, "span_sweep": span_sweep(s), "tail": tail(s),
+            "pod": pod(s), "pod_sweep": pod_sweep(s) if s.pods.count else [],
             "length_sweep": length_sweep(s), "max_length_m": max_length_mm(s) / 1e3,
             "balance": balance(s),
             "analysis": an, "unbraced": bare, "sweep": sweep(s), "aero": ae, "bom": rows,
@@ -736,8 +840,13 @@ def failed(res: dict) -> list[str]:
 
 # ---- the report ----------------------------------------------------------------------------------------
 
-def report(res: dict) -> str:
+def _inputs_of(res: dict):
     s = inputs(res["variant"])
+    return with_pods(s, res["pod"]["layout"]) if res["pod"].get("layout") else s
+
+
+def report(res: dict) -> str:
+    s = _inputs_of(res)
     an = res["analysis"]
     mark = {True: "ok", False: "**FAIL**", None: "note"}
     L = ["# The sailplane: a truss-braced wing, its loads, drag and cut list", "", f"**{res['label']}**", "",
@@ -775,6 +884,20 @@ def report(res: dict) -> str:
         L.append(f"| {r['v_ms']:g} | {r['cl']:.2f} | {c['wing'] * 1e4:.0f} | {c['braces'] * 1e4:.0f} | {c['tail'] * 1e4:.0f} | "
                  f"{c['body'] * 1e4:.0f} | {c.get('pods', 0) * 1e4:.0f} | {r['cdi'] * 1e4:.0f} | {r['braced']['l_over_d']:.1f} | {r['braced']['sink_ms']:.2f} | "
                  f"{r['unbraced']['l_over_d']:.1f} | {r['unbraced']['sink_ms']:.2f} |")
+    if res["pod_sweep"]:
+        L += ["", "## Where the props go on the pods", "",
+              f"A tractor at the front of each pod, a pusher at the back, or both. The props are sized for a "
+              f"{s.climb.rate_ms:g} m/s climb at {s.climb.speed_ms:g} m/s; a motor's weight follows its power. Glide is with "
+              "the props folded.", "",
+              "| Props | Motors | Pod, mm | Pod, kg | All-up, kg | Battery slides aft, mm | Pods, counts | L/D | Sink, m/s | "
+              "Props' efficiency | Shaft a motor, W | One out: thrust left | climb, m/s | yaw, N m | tail CL | Brace pull at 4 g, N |",
+              "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+        for r in res["pod_sweep"]:
+            L.append(f"| {r['layout']} | {r['motors']} | {r['length_mm']:.0f} | {r['kg']:.2f} | {r['auw_kg']:.1f} | "
+                     f"{r['battery_aft_mm']:.0f} of {r['travel_mm']:.0f} | {r['pods_counts']:.1f} | {r['l_over_d']:.1f} | "
+                     f"{r['sink_ms']:.3f} | {r['eff']:.0%} | {r['motor_w']:.0f} | {r['out_thrust_frac']:.0%} | "
+                     f"{r['out_climb_ms']:.1f} | {r['out_yaw_nm']:.0f} | {r['out_tail_cl']:.2f}{'' if r['tail_ok'] else ' **over**'} | "
+                     f"{r['brace_pull_n']:.0f} |")
     L += ["", "## How long the body can be", "",
           f"The tail cone stretched, the nose and the parallel middle as they are. The cubic, held to its closing "
           f"angle, can be drawn out to {res['max_length_m']:.2f} m overall; past that it swells beyond the body's radius. "
@@ -854,9 +977,11 @@ def params_scad(s, res: dict) -> str:  # noqa: C901
         "pusher": s.propulsion.layout == "pusher", "tail_sign": 1 if s.tail.kind == "v" else -1, "tail_x": s.tail.x_mm,
         "tail_dihedral": s.tail.dihedral_deg, "tail_root": s.tail.root_chord_mm, "tail_tip": s.tail.tip_chord_mm,
         "tail_panel": res["tail"]["panel_mm"], "tail_pts": np.c_[naca4(0.0, 0.4, s.tail.t_over_c, 20)],
-        "pod_count": s.pods.count, **({"pod_d": s.pods.diameter_mm, "pod_len": s.pods.length_mm,
-                                        "pod_ahead": s.pods.nose_ahead_mm, "prop_d": s.pods.prop_in * 25.4}
-                                       if s.pods.count else {"pod_d": 0, "pod_len": 0, "pod_ahead": 0, "prop_d": 0}),
+        "pod_count": s.pods.count, **({"pod_d": s.pods.diameter_mm, "pod_len": res["pod"]["length_mm"],
+                                        "pod_nose": res["pod"]["nose_x_mm"], "prop_d": s.pods.prop_in * 25.4,
+                                        "pod_front": res["pod"]["front"], "pod_back": res["pod"]["back"]}
+                                       if s.pods.count else {"pod_d": 0, "pod_len": 0, "pod_nose": 0, "prop_d": 0,
+                                                             "pod_front": False, "pod_back": False}),
         "nadir_window": nd.window_mm, "nadir_pane": nf["pane_mm"], "nadir_pane_t": nd.pane_mm,
         "nadir_floor": nd.floor_mm, "nadir_xa": nf["xa_mm"], "nadir_za": nf["za_mm"], "nadir_tilt": nf["tilt_deg"],
         "nadir_margin": nd.margin_mm, "nadir_mount": nd.mount_mm, "nadir_boss": nd.boss_mm, "nadir_m3": nd.m3_mm,
@@ -868,7 +993,7 @@ def params_scad(s, res: dict) -> str:  # noqa: C901
 
 def export(res: dict, out: Path) -> list[Path]:
     """The OpenSCAD parts, params.scad beside them, and the cut list as CSV."""
-    s = inputs(res["variant"])
+    s = _inputs_of(res)
     d = out / "scad"
     d.mkdir(parents=True, exist_ok=True)
     for old in d.glob("*.scad"):

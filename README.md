@@ -430,8 +430,9 @@ a thin wing held by a brace a side from the belly to mid-span, as on NASA's tran
 `osprey recon-sailplane` flies the wing through a 4 g pull-up and a push-over with and without the braces,
 builds the drag up by components, checks the package against itself, and writes the brace fittings, wing and
 camera bay as OpenSCAD. The braces cut the spar's bending to a fifth for about two points of glide ratio.
-`--variant twin` moves the props to pods on the braces, with a V-tail on a body stretched to 2.0 m: the sweep of
-body length finds that best, and 3.07 m the longest the tail cone can be drawn. The notebook is [docs/sailplane](docs/sailplane/README.md).
+`--variant twin` moves the props to push-pull pods on the braces, with a V-tail on a body stretched to 2.0 m:
+the sweep of body length finds that best, and 3.07 m the longest the tail cone can be drawn. Of props at the
+front, the back or both ends of each pod, only both lets the V-tail hold the yaw with one motor out. The notebook is [docs/sailplane](docs/sailplane/README.md).
 
 ### Anti-piracy awareness
 

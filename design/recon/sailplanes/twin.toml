@@ -1,25 +1,39 @@
 # The twin (osprey recon-sailplane --variant twin): the sailplane with its propulsion moved out of the tail cone.
-# Two tractor props on pods where the braces meet the wing, and an upright V-tail on a body stretched to 2.0 m:
+# Props on pods where the braces meet the wing (a tractor and a pusher on each), and an upright V-tail on a body stretched to 2.0 m:
 # the length the sweep finds best, where the tail its volumes ask for is small and the tail cone never steeper
 # than its closing angle. The tail cone closes to a point. Laid over design/recon/sailplane.toml: only what differs is here.
 
 [variant]
-label = "twin: props on pods at the braces, upright V-tail, 2.0 m body"
+label = "twin: push-pull props on pods at the braces, upright V-tail, 2.0 m body"
 
 [propulsion]
 layout = "pods"
 
 [pods]                     # one each side, on the wing where the brace's pin is
 count = 2
-kg = 0.45                  # REF: motor, ESC, folding prop, spinner and the pod's shell
+layout = "both"            # where a pod's props are: "front" (tractor), "back" (pusher) or "both" (push-pull).
+                           # Both: with one motor out of four the V-tail can still hold the yaw
+layouts = ["front", "back", "both"]   # swept by osprey recon-sailplane
 diameter_mm = 48.0         # REF
-length_mm = 200.0          # REF
-nose_ahead_mm = 110.0      # the spinner's tip, ahead of the wing's leading edge
-prop_in = 13.0             # REF: a folding 13 x 8
+length_mm = 200.0          # REF: a pod with one prop; a push-pull pod runs the whole chord
+nose_ahead_mm = 110.0      # a front spinner's tip, ahead of the wing's leading edge
+tail_behind_mm = 90.0      # a back spinner's tip, behind the trailing edge
+prop_in = 13.0             # REF: folding 13 x 8
+shell_kg_per_m = 0.50      # REF: the pod's shell and mount, per metre of pod
+prop_kg = 0.07             # REF: a folding prop, spinner and motor mount
+motor_kw_per_kg = 4.0      # REF: motor and ESC together, shaft power per kg
+
+[climb]                    # what the props are sized for
+rate_ms = 3.0              # REF
+speed_ms = 14.5
+blade_eff = 0.80           # REF: the blades' own losses, on top of the ideal (momentum) efficiency
+install = { front = 0.97, back = 0.96, both = 0.92 }   # REF: a tractor's wash scrubs the wing; a pusher eats the wing's
+                           # wake; the back prop of a pair works in the front one's wash
+tail_cl_max = 0.9          # REF: what the V-tail can hold with its ruddervators over
 
 [mass]
-auw_kg = 19.2              # REF: the pusher's 18.0, plus 0.37 m^2 more shell and 0.07 m^2 more tail
-auw_night_kg = 18.3
+auw_kg = 19.7              # REF: the pusher's 18.0, plus 0.37 m^2 more shell, 0.07 m^2 more tail and two push-pull pods
+auw_night_kg = 18.8
 
 [tail]
 kind = "v"                 # upright: nothing behind it to protect now

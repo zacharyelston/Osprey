@@ -115,31 +115,57 @@ no interference, gaps, antennas, jury struts or stopped propeller.
 ## The twin: props on the braces' pods, a V-tail, a longer body
 
 ```
-uv run osprey recon-sailplane --variant twin      # out/recon-sailplane/twin
+uv run osprey recon-sailplane --variant twin                 # out/recon-sailplane/twin
+uv run osprey recon-sailplane --variant twin --pods front    # or back, or both
 ```
 
 A variant, laid over the pusher's design file by
-[`design/recon/sailplanes/twin.toml`](../../design/recon/sailplanes/twin.toml): two tractor props on pods on the
-wing where the braces' pins are, an upright V-tail, and no propeller in the tail cone, which now closes to a
-point.
+[`design/recon/sailplanes/twin.toml`](../../design/recon/sailplanes/twin.toml): a pod on each wing where the
+brace's pin is, with a tractor prop at its front and a pusher at its back, an upright V-tail, and no propeller
+in the tail cone, which now closes to a point.
 
-![The twin from above and ahead: a prop pod on each wing where the brace meets it, a tall V-tail on a longer body](../img/recon-sailplane-twin.png)
+![The twin from above and ahead: a push-pull pod on each wing where the brace meets it, a tall V-tail on a longer body](../img/recon-sailplane-twin.png)
 
 ![The twin from the front](../img/recon-sailplane-twin-front.png)
 
 What moving the props does:
 
-- **Loads.** A pod's 0.45 kg hangs on the wing right where the brace holds it, so in the pull-up it takes load
-  off the brace: 719 N a side. Every tube passes.
-- **Balance.** 0.9 kg leaves the tail cone for the wing, and the CG comes 45 mm forward. The
-  battery slides 174 mm aft on its rails to put it back, of the 320 mm they leave it.
+- **Loads.** A pod's 0.58 kg hangs on the wing right where the brace holds it. Each brace pulls 730 N in
+  the pull-up, and every tube passes.
+- **Balance.** 0.9 kg leaves the tail cone and the pods go on the wing; the CG comes 35 mm forward. The
+  battery slides 138 mm aft on its rails to put it back, of the 320 mm they leave it.
 - **Tail cone.** With no spinner to meet, the pusher's parallel stinger is gone.
-- **Drag.** The pods add about 2 counts. Best sink is 0.58 m/s (L/D 25) against the
-  pusher's 0.56 as quoted; but the pusher's figure is with a tail less than half the size it needs.
+- **Glide.** Best sink is 0.59 m/s (L/D 25), props folded.
 
-Not looked at: one prop stopped (the yaw it makes, 1.2 m off the centre line, against the V-tail), the props'
-wash over the wing and braces, the thrust's bending of the wing fore and aft, and where the tail's weight and
-the longer cone put the CG.
+### Where the props go on the pods
+
+A tractor at the front of each pod, a pusher at the back, or both. The props are sized for a 3 m/s climb at
+14.5 m/s, and a motor's weight follows its power.
+
+| | | |
+|---|---|---|
+| ![Front: a tractor prop ahead of the leading edge](../img/recon-sailplane-pods-front.png) | ![Back: a pusher behind the trailing edge](../img/recon-sailplane-pods-back.png) | ![Both: a pod the length of the chord with a prop at each end](../img/recon-sailplane-pods-both.png) |
+| front | back | both |
+
+| Props| Motors | Pod, mm | Pod, kg | All-up, kg | Battery slides aft, mm | Pods, counts | L/D | Sink, m/s
+
+- **Front and back fail with one motor out.** Half the thrust is gone, 1.2 m off the centre line: 28 N m of
+  yaw, which asks the V-tail for a lift coefficient of 1.40. It has about 0.9. The climb left is
+  1.2 m/s, if it could be held straight; in practice the live motor is throttled back and it is less.
+- **Both holds.** One of four out leaves three quarters of the thrust, 2.1 m/s of climb and half the yaw,
+  at a tail lift coefficient of 0.72. Each motor is 328 W against 601.
+- **Both costs 0.5 kg and 5 mm/s of sink.** The pod runs the whole chord, 545 mm against
+  200, and carries two more props. Its props are a little less efficient: the back one works in the
+  front one's wash.
+- **Front against back is nearly a draw.** A back prop's weight sits further aft, so the battery slides
+  117 mm instead of 171. A back prop eats the wing's wake; a front one blows on the wing.
+
+So the twin is drawn with both. A bigger tail would rescue front or back: the tail lift coefficient falls
+with its area.
+
+The installation losses (3, 4 and 8 %), the blades' 80 % and the tail's 0.9 are stand-ins. Not looked at: the
+props' wash over the wing and braces, the thrust's bending of the wing fore and aft, a back prop's clearance
+from a deflected aileron, and where the tail's weight and the longer cone put the CG.
 
 ### How long the body can be
 
@@ -152,22 +178,22 @@ body pays in tail area; a long one in skin and weight.
 
 | Length, m | Fineness | Tail arm, m | Tail, m^2 | Volumes, horizontal and vertical | Body skin, m^2 | Body, counts | Tail, counts | All-up, kg | Tail cone's steepest, deg | L/D | Sink, m/s | |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 2 | 6.7 | 1.29 | 0.29 | 0.41, 0.020 | 1.37 | 26 | 22 | 19.2 | 11.0 | 24.8 | 0.585 | as designed |
-| 1.45 | 4.8 | 0.74 | 0.50 | 0.41, 0.020 | 1.00 | 19 | 38 | 18.4 | 16.0 | 24.3 | 0.597 |  |
-| 1.6 | 5.3 | 0.89 | 0.42 | 0.41, 0.020 | 1.10 | 21 | 31 | 18.6 | 13.3 | 24.6 | 0.590 |  |
-| 1.8 | 6.0 | 1.09 | 0.34 | 0.41, 0.020 | 1.23 | 23 | 25 | 18.9 | 11.3 | 24.8 | 0.586 |  |
-| 2 | 6.7 | 1.29 | 0.29 | 0.41, 0.020 | 1.37 | 26 | 22 | 19.2 | 11.0 | 24.8 | 0.585 |  |
-| 2.2 | 7.3 | 1.49 | 0.25 | 0.41, 0.020 | 1.52 | 29 | 19 | 19.6 | 10.9 | 24.8 | 0.586 |  |
-| 2.4 | 8.0 | 1.69 | 0.22 | 0.41, 0.020 | 1.67 | 31 | 16 | 20.0 | 10.9 | 24.6 | 0.589 |  |
-| 2.6 | 8.7 | 1.89 | 0.20 | 0.41, 0.020 | 1.84 | 34 | 15 | 20.5 | 10.9 | 24.5 | 0.593 |  |
-| 2.8 | 9.3 | 2.09 | 0.18 | 0.41, 0.020 | 2.01 | 38 | 13 | 21.0 | 10.9 | 24.3 | 0.598 |  |
-| 3 | 10.0 | 2.29 | 0.16 | 0.41, 0.020 | 2.19 | 41 | 12 | 21.5 | 10.9 | 24.0 | 0.604 |  |
-| 3.2 | 10.7 | 2.49 | 0.15 | 0.41, 0.020 | 2.38 | 44 | 11 | 22.0 | 10.9 | 23.8 | 0.610 | swells |
+| 2 | 6.7 | 1.29 | 0.29 | 0.41, 0.020 | 1.37 | 26 | 22 | 19.7 | 11.0 | 24.6 | 0.590 | as designed |
+| 1.45 | 4.8 | 0.74 | 0.50 | 0.41, 0.020 | 1.00 | 19 | 38 | 18.9 | 16.0 | 24.1 | 0.601 |  |
+| 1.6 | 5.3 | 0.89 | 0.42 | 0.41, 0.020 | 1.10 | 21 | 31 | 19.1 | 13.3 | 24.4 | 0.594 |  |
+| 1.8 | 6.0 | 1.09 | 0.34 | 0.41, 0.020 | 1.23 | 23 | 25 | 19.4 | 11.3 | 24.6 | 0.590 |  |
+| 2 | 6.7 | 1.29 | 0.29 | 0.41, 0.020 | 1.37 | 26 | 22 | 19.7 | 11.0 | 24.6 | 0.589 |  |
+| 2.2 | 7.3 | 1.49 | 0.25 | 0.41, 0.020 | 1.52 | 29 | 19 | 20.1 | 10.9 | 24.5 | 0.591 |  |
+| 2.4 | 8.0 | 1.69 | 0.22 | 0.41, 0.020 | 1.67 | 31 | 16 | 20.5 | 10.9 | 24.4 | 0.594 |  |
+| 2.6 | 8.7 | 1.89 | 0.20 | 0.41, 0.020 | 1.84 | 34 | 15 | 21.0 | 10.9 | 24.2 | 0.598 |  |
+| 2.8 | 9.3 | 2.09 | 0.18 | 0.41, 0.020 | 2.01 | 38 | 13 | 21.5 | 10.9 | 24.0 | 0.603 |  |
+| 3 | 10.0 | 2.29 | 0.16 | 0.41, 0.020 | 2.19 | 41 | 12 | 22.0 | 10.9 | 23.8 | 0.609 |  |
+| 3.2 | 10.7 | 2.49 | 0.15 | 0.41, 0.020 | 2.38 | 44 | 11 | 22.5 | 10.9 | 23.5 | 0.616 | swells |
 
 - **The longest it can be is 3.07 m.** The tail cone is a cubic held to an 11° closing angle. Past that
   length the cubic swells beyond the body's radius before it narrows.
-- **The best is about 2.0 m**, and the curve is flat from 1.8 to 2.4 m. The twin is drawn at 2.0 m, with a
-  0.29 m² tail, at 19.2 kg.
+- **The best is about 2 m**, and the curve is flat from 1.8 to 2.4 m. The twin is drawn at 2.0 m, with a
+  0.29 m² tail.
 - **From 2.0 m on the tail cone is never steeper than its 11° closing angle.** At 1.45 m it reaches 16°, which
   is what the package wanted to avoid ahead of a pusher prop.
 
@@ -179,20 +205,20 @@ A side result. The outer panels stretched, the braces kept at mid-span, the tube
 
 | Span, m | Area, m^2 | Aspect ratio | All-up, kg | Brace, mm | Most-used tube | Joiner | Tip's rise | What limits | L/D | Sink, m/s | Vertical tail volume | |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 4.8 | 1.60 | 14.4 | 19.2 | 1127 | 0.30 | 0.05 | 0.3% | brace (buckling, night wings, -2 g), 0.30 | 24.8 | 0.58 | 0.0201 | ok |
-| 5.4 | 1.79 | 16.3 | 19.7 | 1274 | 0.44 | 0.05 | 0.4% | brace (buckling, night wings, -2 g), 0.44 | 27.0 | 0.54 | 0.0160 | ok |
-| 6 | 1.97 | 18.3 | 20.3 | 1422 | 0.61 | 0.12 | 0.5% | brace (buckling, night wings, -2 g), 0.61 | 28.6 | 0.51 | 0.0131 | ok |
-| 6.6 | 2.16 | 20.2 | 20.8 | 1570 | 0.81 | 0.14 | 0.6% | brace (buckling, night wings, -2 g), 0.81 | 29.8 | 0.49 | 0.0109 | ok |
-| 7.2 | 2.34 | 22.1 | 21.4 | 1719 | 1.05 | 0.15 | 0.7% | brace (buckling, night wings, -2 g), 1.05 | 30.7 | 0.47 | 0.0092 | **over** |
-| 7.8 | 2.53 | 24.0 | 21.9 | 1868 | 1.34 | 0.16 | 0.8% | brace (buckling, night wings, -2 g), 1.34 | 31.3 | 0.46 | 0.0078 | **over** |
-| 8.4 | 2.72 | 26.0 | 22.5 | 2017 | 1.68 | 0.17 | 0.8% | brace (buckling, night wings, -2 g), 1.68 | 31.6 | 0.46 | 0.0068 | **over** |
-| 9 | 2.90 | 27.9 | 23.0 | 2166 | 2.06 | 0.19 | 0.9% | brace (buckling, night wings, -2 g), 2.06 | 31.8 | 0.46 | 0.0059 | **over** |
-| 9.6 | 3.09 | 29.8 | 23.5 | 2316 | 2.50 | 0.20 | 1.0% | brace (buckling, night wings, -2 g), 2.50 | 31.9 | 0.45 | 0.0052 | **over** |
-| 10.2 | 3.27 | 31.8 | 24.1 | 2465 | 2.99 | 0.21 | 1.1% | brace (buckling, night wings, -2 g), 2.99 | 31.9 | 0.45 | 0.0046 | **over** |
+| 4.8 | 1.60 | 14.4 | 19.7 | 1127 | 0.31 | 0.05 | 0.4% | brace (buckling, night wings, -2 g), 0.31 | 24.6 | 0.59 | 0.0201 | ok |
+| 5.4 | 1.79 | 16.3 | 20.2 | 1274 | 0.44 | 0.05 | 0.4% | brace (buckling, night wings, -2 g), 0.44 | 26.8 | 0.54 | 0.0160 | ok |
+| 6 | 1.97 | 18.3 | 20.8 | 1422 | 0.62 | 0.12 | 0.5% | brace (buckling, night wings, -2 g), 0.62 | 28.5 | 0.51 | 0.0131 | ok |
+| 6.6 | 2.16 | 20.2 | 21.3 | 1570 | 0.82 | 0.14 | 0.6% | brace (buckling, night wings, -2 g), 0.82 | 29.8 | 0.49 | 0.0109 | ok |
+| 7.2 | 2.34 | 22.1 | 21.9 | 1719 | 1.07 | 0.15 | 0.7% | brace (buckling, night wings, -2 g), 1.07 | 30.7 | 0.47 | 0.0092 | **over** |
+| 7.8 | 2.53 | 24.0 | 22.4 | 1868 | 1.36 | 0.16 | 0.8% | brace (buckling, night wings, -2 g), 1.36 | 31.4 | 0.46 | 0.0078 | **over** |
+| 8.4 | 2.72 | 26.0 | 23.0 | 2017 | 1.70 | 0.18 | 0.9% | brace (buckling, night wings, -2 g), 1.70 | 31.8 | 0.46 | 0.0068 | **over** |
+| 9 | 2.90 | 27.9 | 23.5 | 2166 | 2.08 | 0.19 | 1.0% | brace (buckling, night wings, -2 g), 2.08 | 32.0 | 0.45 | 0.0059 | **over** |
+| 9.6 | 3.09 | 29.8 | 24.0 | 2316 | 2.52 | 0.20 | 1.0% | brace (buckling, night wings, -2 g), 2.52 | 32.1 | 0.45 | 0.0052 | **over** |
+| 10.2 | 3.27 | 31.8 | 24.6 | 2465 | 3.02 | 0.21 | 1.1% | brace (buckling, night wings, -2 g), 3.02 | 32.1 | 0.45 | 0.0046 | **over** |
 
-The wing passes out to about 7 m. What stops it is the 12 mm brace tube buckling in the push-over, as the
-brace gets longer; the spar and the joiners are barely loaded. A stiffer brace would go further. The vertical
-tail volume falls as the span grows, so a longer wing needs a bigger tail or a longer body again.
+What stops the wing is the 12 mm brace tube buckling in the push-over, as the brace gets longer; the spar and
+the joiners are barely loaded. A stiffer brace would go further. The vertical tail volume falls as the span
+grows, so a longer wing needs a bigger tail or a longer body again.
 
 ## The parts
 

@@ -34,6 +34,6 @@ if (show_lower_shell) color("Goldenrod") camera_plate();
 if (show_tail) color("SteelBlue") { tail_panel(1); tail_panel(-1); }
 if (pod_count > 0) for (side = [-1, 1]) {
     color("WhiteSmoke") pod(side);
-    if (show_props) color("LightSkyBlue", 0.35) prop_disc(side);
+    if (show_props) color("LightSkyBlue", 0.35) prop_discs(side);
 }
 if (pusher) color("DimGray") pusher_spinner();

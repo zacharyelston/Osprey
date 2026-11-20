@@ -263,18 +263,17 @@ module tail_panel(side = 1) {
 function chord_at(y) = abs(y) <= half ? chord : chord - (chord - tip_chord) * (abs(y) - half) / (span / 2 - half);
 function le_at(y) = le_x + spar_frac * (chord - chord_at(y));
 
-// A prop pod on the wing where the brace's pin is: the brace's fork hangs under it.
+// A prop pod on the wing where the brace's pin is: the brace's fork hangs under it. A prop at its front,
+// its back, or both.
 module pod(side = 1) {
     y = strut_wing[1];
-    translate([le_at(y) - pod_ahead, side * y, spar_z_at(y) - pod_d / 5]) {
-        translate([pod_len / 2, 0, 0]) scale([pod_len / pod_d, 1, 1]) sphere(d = pod_d, $fn = 48);
-        translate([0.55 * pod_len, -3, -pod_d / 4]) cube([chord_at(y) * 0.5, 6, pod_d / 2]);      // a pylon back into the wing
-    }
+    translate([pod_nose + pod_len / 2, side * y, spar_z_at(y) - pod_d / 5]) scale([pod_len / pod_d, 1, 1]) sphere(d = pod_d, $fn = 48);
 }
 
-module prop_disc(side = 1) {
+module prop_discs(side = 1) {
     y = strut_wing[1];
-    translate([le_at(y) - pod_ahead + 8, side * y, spar_z_at(y) - pod_d / 5]) rotate([0, 90, 0]) cylinder(d = prop_d, h = 1.2, $fn = 96);
+    for (x = concat(pod_front ? [pod_nose + 8] : [], pod_back ? [pod_nose + pod_len - 8] : []))
+        translate([x, side * y, spar_z_at(y) - pod_d / 5]) rotate([0, 90, 0]) cylinder(d = prop_d, h = 1.2, center = true, $fn = 96);
 }
 
 module pusher_spinner() translate([x_max, 0, 0]) rotate([0, 90, 0]) cylinder(d1 = 2 * r_spinner, d2 = 8, h = 45);
