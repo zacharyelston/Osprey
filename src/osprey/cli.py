@@ -1,6 +1,7 @@
 """`uv run osprey calc | sim | render | all --scenario <name> [--rig <name>]`
 `uv run osprey sweep [--workers N]`
 `uv run osprey recon-size | recon-fly | recon | recon-render --mission <name>|all` (Osprey Recon)
+`uv run osprey recon-sailplane` (the sailplane's truss-braced wing: loads, drag, cut list and OpenSCAD parts)
 `uv run osprey beet [--workers N]` (the Beet, a flying buoy)
 `uv run osprey trident [--workers N]` (the Trident, a three-module tailsitter)
 `uv run osprey trident-sim [--workers N]` (the Trident in MuJoCo, afloat: let go at angles, and riding waves)
@@ -588,6 +589,26 @@ def cmd_recon_puffin_sar(args) -> int:
     return 0
 
 
+def cmd_recon_sailplane(args) -> int:
+    """The sailplane: its truss-braced wing flown through a pull-up and a push-over, with and without the braces and
+    with their wing station swept, its drag by components, the cut list, the handoff package checked against itself,
+    and the parts as OpenSCAD (design/recon/sailplane.toml). Exits 1 on a FAIL: a design finding."""
+    from osprey.recon import figures as rfig
+    from osprey.recon import sailplane
+
+    o = Path(args.out) if args.out else OUT / "recon-sailplane"
+    o.mkdir(parents=True, exist_ok=True)
+    res = sailplane.run()
+    (o / "sailplane.json").write_text(json.dumps(res, indent=1, default=float))
+    (o / "sailplane.md").write_text(sailplane.report(res))
+    sailplane.export(res, o)
+    rfig.sailplane(res, o / "wing.png")
+    for c in res["checks"]:
+        print(f"{ {True: 'ok  ', False: 'FAIL', None: 'note'}[c['ok']]}  {c['name']}: {c['text']}")
+    print(f"wrote {o}/sailplane.md, cutlist.csv, wing.png and scad/")
+    return 1 if sailplane.failed(res) else 0
+
+
 def cmd_beet(args) -> int:
     """The Beet: a flying buoy, a circular RIB observation boat with a coaxial rotor on its mast, sized for each way
     of powering it, floated and knocked over to 180 degrees (design/beet.toml)."""
@@ -709,7 +730,7 @@ def main(argv=None) -> int:
     ap.add_argument("cmd", choices=["calc", "sim", "render", "all", "sweep", "recon-size", "recon-fly", "recon",
                                     "recon-render", "recon-plug", "recon-frame", "recon-water", "recon-awareness",
                                     "recon-cyclone", "recon-cyclone-sweep", "recon-loiter", "recon-puffin",
-                                    "recon-puffin-sar", "beet", "trident", "trident-sim", "trident-blend"])
+                                    "recon-puffin-sar", "recon-sailplane", "beet", "trident", "trident-sim", "trident-blend"])
     ap.add_argument("--scenario", default="coastal-watch", choices=SCENARIOS)
     ap.add_argument("--rig", default=None, choices=RIGS, help="override the scenario's rig")
     ap.add_argument("--out", default=None, help="output directory (absolute); default out/<scenario>/<rig>")
@@ -748,6 +769,8 @@ def main(argv=None) -> int:
         return cmd_recon_puffin(args)
     if args.cmd == "recon-puffin-sar":
         return cmd_recon_puffin_sar(args)
+    if args.cmd == "recon-sailplane":
+        return cmd_recon_sailplane(args)
     if args.cmd == "beet":
         return cmd_beet(args)
     if args.cmd == "trident":
