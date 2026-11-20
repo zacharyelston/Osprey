@@ -132,8 +132,9 @@ What moving the props does:
 
 - **Loads.** A pod's 0.58 kg hangs on the wing right where the brace holds it. Each brace pulls 730 N in
   the pull-up, and every tube passes.
-- **Balance.** 0.9 kg leaves the tail cone and the pods go on the wing; the CG comes 35 mm forward. The
-  battery slides 138 mm aft on its rails to put it back, of the 320 mm they leave it.
+- **Balance.** The pusher's 0.9 kg leaves the tail cone, the pods go on the wing and the bigger tail sits further
+  aft; the CG comes 19 mm forward. The battery slides 75 mm aft on its rails to put it back, of
+  the 160 mm they leave it either way.
 - **Tail cone.** With no spinner to meet, the pusher's parallel stinger is gone.
 - **Glide.** Best sink is 0.59 m/s (L/D 25), props folded.
 
@@ -147,7 +148,11 @@ A tractor at the front of each pod, a pusher at the back, or both. The props are
 | ![Front: a tractor prop ahead of the leading edge](../img/recon-sailplane-pods-front.png) | ![Back: a pusher behind the trailing edge](../img/recon-sailplane-pods-back.png) | ![Both: a pod the length of the chord with a prop at each end](../img/recon-sailplane-pods-both.png) |
 | front | back | both |
 
-| Props| Motors | Pod, mm | Pod, kg | All-up, kg | Battery slides aft, mm | Pods, counts | L/D | Sink, m/s
+| Props | Motors | Pod, mm | Pod, kg | All-up, kg | Battery slides aft, mm | Pods, counts | L/D | Sink, m/s | Props' efficiency | Shaft a motor, W | One out: thrust left | climb, m/s | yaw, N m | tail CL | Brace pull at 4 g, N |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| front | 2 | 200 | 0.32 | 19.2 | 108 of 160 | 2.3 | 24.8 | 0.585 | 56% | 601 | 50% | 1.2 | 28 | 1.40 **over** | 737 |
+| back | 2 | 200 | 0.32 | 19.2 | 54 of 160 | 2.3 | 24.8 | 0.585 | 56% | 608 | 50% | 1.2 | 28 | 1.40 **over** | 737 |
+| both | 4 | 545 | 0.58 | 19.7 | 75 of 160 | 4.1 | 24.6 | 0.590 | 53% | 328 | 75% | 2.1 | 14 | 0.72 | 730 |
 
 - **Front and back fail with one motor out.** Half the thrust is gone, 1.2 m off the centre line: 28 N m of
   yaw, which asks the V-tail for a lift coefficient of 1.40. It has about 0.9. The climb left is
@@ -158,7 +163,7 @@ A tractor at the front of each pod, a pusher at the back, or both. The props are
   200, and carries two more props. Its props are a little less efficient: the back one works in the
   front one's wash.
 - **Front against back is nearly a draw.** A back prop's weight sits further aft, so the battery slides
-  117 mm instead of 171. A back prop eats the wing's wake; a front one blows on the wing.
+  54 mm instead of 108. A back prop eats the wing's wake; a front one blows on the wing.
 
 So the twin is drawn with both. A bigger tail would rescue front or back: the tail lift coefficient falls
 with its area.
@@ -219,6 +224,57 @@ A side result. The outer panels stretched, the braces kept at mid-span, the tube
 What stops the wing is the 12 mm brace tube buckling in the push-over, as the brace gets longer; the spar and
 the joiners are barely loaded. A stiffer brace would go further. The vertical tail volume falls as the span
 grows, so a longer wing needs a bigger tail or a longer body again.
+
+## The boom: a tail on twin booms, a pusher on the body, a tractor on each pod
+
+```
+uv run osprey recon-sailplane --variant boom      # out/recon-sailplane/boom
+```
+
+A twin-boom sailplane, as the first Recon was and as a P-61 is
+([`design/recon/sailplanes/boom.toml`](../../design/recon/sailplanes/boom.toml)). The tail rides on two booms
+that run aft from the wing's pods. The body is a short nacelle hung from the wing, with one pusher prop at its
+back, between the booms. Each pod has a tractor prop on its front.
+
+![The boom from above and ahead: tractor props on the pods, booms aft to a tailplane with a fin at each end](../img/recon-sailplane-boom.png)
+
+| | |
+|---|---|
+| ![From behind: the pusher's disc at the body's tail, between the booms and ahead of the tailplane](../img/recon-sailplane-boom-rear.png) | ![From the front](../img/recon-sailplane-boom-front.png) |
+
+- **The braces, pods and booms are at the outer panels' joint**, y = ±800, not mid-span. A tailplane between
+  booms at mid-span would be 2.4 m wide and 60 mm in chord. At the joint the booms are 1.6 m apart, and the
+  outer panels swap without touching brace or boom. The cost is in the wing: the spar's bending in the pull-up
+  falls from 229 to 81 N m, not to 41.
+- **The tail sizes itself.** The tailplane spans the booms with its leading edge 80 mm behind the pusher's
+  disc; its chord, 139 mm, is what the horizontal volume asks for on that 0.96 m arm. The two fins,
+  401 mm tall, share what the vertical volume asks for.
+- **The body is the package's, cut at x = 1352**, where the tail cone's cubic reaches the spinner's radius.
+  That removes the parallel stinger the pusher has.
+- **Booms.** Two 25 mm carbon tubes 1066 mm long, 249 g the pair. The tailplane's most lift at the
+  pull-up's speed puts 34 N on each end: 74 MPa at the spar and 15 mm of bend. It also puts
+  32 N m of twist into the wing at each pod, which nothing here checks.
+- **Three motors.** The climb takes 1045 W of shaft between them. With one pod motor out, two thirds of
+  the thrust is left, 1.8 m/s of climb, and the fins hold the yaw at a lift coefficient of 0.60. With
+  the pusher out there is no yaw at all.
+- **Balance.** The battery slides 53 mm aft, of 160 mm either way.
+- **The brace's pins fail in a printed tang**: 840 N is 63 MPa in bearing against a stand-in 60. The
+  shorter, steeper brace pulls harder. Aluminium ends, as already advised.
+- **The wing could be much longer.** With the brace this short it passes out to 9 m of span.
+
+Not looked at: the wing's torsion under the booms, the booms' and tailplane's flutter, the pusher's wash on the
+tailplane, a landing on the fins' lower tips, and the braces' roots in a belly landing.
+
+### The three, side by side
+
+| | All-up, kg | Motors | Tail, m² | Tail volumes | L/D | Sink, m/s | One motor out | Fails |
+|---|---|---|---|---|---|---|---|---|
+| pusher (the package) | 18.0 | 1 | 0.22 | 0.18, 0.009 | 25.7 | 0.563 | no thrust | tail cone meets the spinner at the firewall; tail volumes; battery holds what it weighs |
+| twin, push-pull pods | 19.7 | 4 | 0.29 | 0.41, 0.020 | 24.6 | 0.590 | 2.1 m/s, tail CL 0.72 | battery holds what it weighs |
+| boom | 18.4 | 3 | 0.38 | 0.40, 0.020 | 24.7 | 0.587 | 1.8 m/s, tail CL 0.60 | brace pins in a printed tang; battery holds what it weighs |
+
+The pusher's glide is with a tail less than half the size it needs. Of the two that carry a proper tail, the
+boom is 1.3 kg lighter and keeps the package's short body; the twin has four motors' redundancy.
 
 ## The parts
 

@@ -1,0 +1,57 @@
+# The boom (osprey recon-sailplane --variant boom): a twin-boom sailplane, as the first Recon was and as a P-61 is.
+# The tail rides on two booms that run aft from the wing's pods; the body is a short nacelle hung from the wing,
+# with one pusher prop at its back, between the booms, and a tractor prop on the front of each pod. The braces and
+# pods come in to the outer panels' joint, so the booms are 1.6 m apart and the panels swap without touching them.
+# Laid over design/recon/sailplane.toml: only what differs is here.
+
+[variant]
+label = "boom: tail on twin booms from the pods, a pusher on the body and a tractor on each pod"
+
+[propulsion]
+layout = "pusher+pods"
+center_prop_in = 16.0      # the body's pusher
+center_prop_kg = 0.10      # REF: its folding prop, spinner and mount
+center_install = 0.94      # REF: it eats the body's wake
+motor_x_mm = 1352.0
+
+[fuselage]
+truncate_mm = 1352.0       # cut where the tail cone's cubic reaches the spinner's radius: no parallel stinger
+
+[strut]
+y_frac = 0.33333333        # the braces, pods and booms at the outer panels' joint
+
+[pods]
+count = 2
+layout = "front"
+layouts = ["front"]
+diameter_mm = 48.0         # REF
+length_mm = 200.0          # REF
+nose_ahead_mm = 110.0
+tail_behind_mm = 90.0
+prop_in = 13.0             # REF: folding 13 x 8
+shell_kg_per_m = 0.50      # REF
+prop_kg = 0.07             # REF
+motor_kw_per_kg = 4.0      # REF
+
+[climb]
+rate_ms = 3.0              # REF
+speed_ms = 14.5
+blade_eff = 0.80           # REF
+install = { front = 0.97, back = 0.96, both = 0.92 }   # REF
+tail_cl_max = 0.9          # REF: what the fins can hold with their rudders over
+
+[tail]
+kind = "boom"              # a tailplane between the booms' ends and a fin on each
+h_chord_min_mm = 120.0     # the tailplane is no slimmer than this
+fin_chord_mm = 200.0       # REF
+prop_clear_mm = 80.0       # the tailplane's leading edge, behind the pusher's disc
+
+[boom]
+shape = "round"
+od_mm = 25.0               # REF
+wall_mm = 1.0              # REF
+tail_cl_max = 1.0          # REF: the tailplane's most lift, at the pull-up's speed, for the booms' bending
+
+[mass]
+auw_kg = 18.4              # REF: the pusher's 18.0, with the pods, booms and tail on and the motors resized
+auw_night_kg = 17.5

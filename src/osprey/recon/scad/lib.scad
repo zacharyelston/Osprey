@@ -276,6 +276,17 @@ module prop_discs(side = 1) {
         translate([x, side * y, spar_z_at(y) - pod_d / 5]) rotate([0, 90, 0]) cylinder(d = prop_d, h = 1.2, center = true, $fn = 96);
 }
 
+// The boom tail: a boom aft from each pod, a tailplane between their ends and a fin on each.
+function pod_z() = spar_z_at(strut_wing[1]) - pod_d / 5;
+
+module boom(side = 1) translate([boom_x[0] - 30, side * strut_wing[1], pod_z()]) rotate([0, 90, 0]) cylinder(d = boom_d, h = boom_x[1] - boom_x[0] + 30, $fn = 32);
+
+module boom_tailplane() translate([htail_x, strut_wing[1], pod_z()]) rotate([90, 0, 0]) linear_extrude(2 * strut_wing[1]) polygon([for (p = tail_pts) p * htail_chord]);
+
+module boom_fin(side = 1) translate([boom_x[1] - fin_chord, side * strut_wing[1], pod_z() - 0.15 * fin_h]) linear_extrude(fin_h) polygon([for (p = tail_pts) p * fin_chord]);
+
+module center_prop_disc() translate([x_max + 30, 0, 0]) rotate([0, 90, 0]) cylinder(d = center_prop_d, h = 1.2, center = true, $fn = 96);
+
 module pusher_spinner() translate([x_max, 0, 0]) rotate([0, 90, 0]) cylinder(d1 = 2 * r_spinner, d2 = 8, h = 45);
 
 // ---- the centre section's end rib: it closes the section at the joint and carries the two connectors ------

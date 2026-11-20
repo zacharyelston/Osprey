@@ -31,7 +31,12 @@ if (show_braces) for (side = [-1, 1]) {
 }
 if (show_fairing) color("SlateGray") root_fairing();
 if (show_lower_shell) color("Goldenrod") camera_plate();
-if (show_tail) color("SteelBlue") { tail_panel(1); tail_panel(-1); }
+if (show_tail && !boom_tail) color("SteelBlue") { tail_panel(1); tail_panel(-1); }
+if (show_tail && boom_tail) {
+    color([0.12, 0.12, 0.12]) { boom(1); boom(-1); }
+    color("SteelBlue") { boom_tailplane(); boom_fin(1); boom_fin(-1); }
+    if (show_props) color("LightSkyBlue", 0.35) center_prop_disc();
+}
 if (pod_count > 0) for (side = [-1, 1]) {
     color("WhiteSmoke") pod(side);
     if (show_props) color("LightSkyBlue", 0.35) prop_discs(side);

@@ -432,7 +432,9 @@ builds the drag up by components, checks the package against itself, and writes 
 camera bay as OpenSCAD. The braces cut the spar's bending to a fifth for about two points of glide ratio.
 `--variant twin` moves the props to push-pull pods on the braces, with a V-tail on a body stretched to 2.0 m:
 the sweep of body length finds that best, and 3.07 m the longest the tail cone can be drawn. Of props at the
-front, the back or both ends of each pod, only both lets the V-tail hold the yaw with one motor out. The notebook is [docs/sailplane](docs/sailplane/README.md).
+front, the back or both ends of each pod, only both lets the V-tail hold the yaw with one motor out.
+`--variant boom` carries the tail on twin booms from the pods, with a pusher on a short body and a tractor on
+each pod. The notebook is [docs/sailplane](docs/sailplane/README.md).
 
 ### Anti-piracy awareness
 
@@ -561,7 +563,7 @@ uv run osprey recon-cyclone-sweep --payload all             # Recon: the Cyclone
 uv run osprey recon-loiter --workers 8                      # Recon: the loiter craft, 2-12 h on station
 uv run osprey recon-puffin --workers 8                      # Recon: the spar Puffin, righting curves
 uv run osprey recon-puffin-sar --workers 8                  # Recon: the spar Puffin SAR build's budget
-uv run osprey recon-sailplane [--variant twin]              # Recon: the sailplane's truss-braced wing, loads, drag, SCAD
+uv run osprey recon-sailplane [--variant twin|boom]             # Recon: the sailplane's truss-braced wing, loads, drag, SCAD
 uv run osprey recon-awareness                               # Recon: anti-piracy ranges
 uv run osprey beet --workers 8                              # the Beet: a flying buoy, sized and floated
 uv run osprey trident --workers 8                           # the Trident: three modules round a core, sized and floated
