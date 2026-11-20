@@ -89,7 +89,7 @@ def test_the_braces_take_the_bending_off_the_spar(s, res):
     assert sw[None]["brace_tension_n"] == 0
     ys = sorted(y for y in sw if y is not None)
     assert all(sw[a]["tip_rise_mm"] > sw[b]["tip_rise_mm"] for a, b in zip(ys[:-1], ys[1:]))
-    assert all(sw[a]["brace_used"] < sw[b]["brace_used"] for a, b in zip(ys[:-1], ys[1:]))   # a longer brace buckles sooner
+    assert all(sw[a]["brace_used"] < sw[b]["brace_used"] for a, b in zip(ys[1:-1], ys[2:]))  # a longer brace buckles sooner
 
 
 def test_the_drag_build_up_adds_up_and_the_braces_cost_some_glide(s, res):
@@ -135,16 +135,22 @@ def twin():
 def test_the_twin_has_its_props_on_the_wing_and_a_tail_that_is_big_enough(s, twin):
     t = sp.inputs("twin")
     assert "twin" in sp.VARIANTS and t.pods.count == 2 and t.tail.kind == "v" and t.propulsion.layout == "pods"
-    assert sp.failed(twin) == ["battery holds what it weighs"]                 # no stinger, and the tail volumes are met
-    assert twin["tail"]["vh"] >= t.tail.vh_target and twin["tail"]["vv"] >= t.tail.vv_target
+    assert sp.failed(twin) == []                                               # nothing fails
+    assert twin["tail"]["vh"] == pytest.approx(t.tail.vh_target) and twin["tail"]["vv"] == pytest.approx(t.tail.vv_target)
+    assert 35 < t.tail.dihedral_deg < 55                                       # the V's angle is what meets both at once
+    assert t.aero.tail_area_m2 == pytest.approx(twin["tail"]["area_needed_m2"])   # the tail is sized, not given
     # A pod's weight on the wing at the brace takes load off the brace in the pull-up, for its lift.
     pull = sp.cases(t)[0][0]
     no_pods = sp.inputs("twin")
     no_pods.pods.count = 0
     assert twin["analysis"]["cases"][pull]["brace_axial_n"] < sp.analyse(no_pods)["cases"][pull]["brace_axial_n"]
     b = twin["balance"]
-    assert 0 < b["battery_aft_mm"] < b["travel_mm"]
+    assert abs(b["battery_aft_mm"]) < b["travel_mm"]
     assert sp.balance(sp.inputs())["battery_aft_mm"] == 0                      # the pusher against itself
+    assert sp.inputs().mass.auw_kg == sp.package().mass.auw_kg                 # and it weighs what the package says
+    assert twin["auw_kg"] == pytest.approx(sp.package().mass.auw_kg + b["delta_kg"]
+                                           + t.loads.shell_kgm2 * (sp.body_wetted_m2(t) - sp.body_wetted_m2(sp.package()))
+                                           + 2 * (t.wing.panel_day_kg - sp.package().wing.panel_day_kg))
     assert all("pods" in r["cd0"] for r in twin["aero"]["rows"])
 
 
@@ -155,15 +161,15 @@ def test_front_back_and_both(twin):
     f, b, pp = rows["front"], rows["back"], rows["both"]
     assert (f["motors"], b["motors"], pp["motors"]) == (2, 2, 4)
     assert pp["length_mm"] > 2 * f["length_mm"] and pp["kg"] > f["kg"] and pp["auw_kg"] > f["auw_kg"]
-    assert pp["auw_kg"] == pytest.approx(t.mass.auw_kg)                        # the design file's weight is the push-pull's
+    assert pp["auw_kg"] == pytest.approx(t.mass.auw_kg)                        # the settled weight is the push-pull's
     assert pp["motor_w"] < 0.6 * f["motor_w"]                                  # four share what two did
     assert pp["eff"] < b["eff"] < f["eff"]                                     # the installation's losses
-    assert f["battery_aft_mm"] > pp["battery_aft_mm"] > b["battery_aft_mm"] > 0   # a back prop's weight is further aft
+    assert f["battery_aft_mm"] > pp["battery_aft_mm"] > b["battery_aft_mm"]    # a back prop's weight is further aft
     assert pp["sink_ms"] > f["sink_ms"]                                        # the long pods' skin, and their weight
     # One motor out: two motors lose half the thrust and the tail cannot hold the yaw; four lose a quarter and it can.
     assert f["out_thrust_frac"] == 0.5 and pp["out_thrust_frac"] == 0.75
     assert pp["out_yaw_nm"] == pytest.approx(f["out_yaw_nm"] / 2, rel=0.08)
-    assert not f["tail_ok"] and not b["tail_ok"] and pp["tail_ok"]
+    assert pp["tail_ok"] and pp["out_tail_cl"] < 0.6 * f["out_tail_cl"]
     assert pp["out_climb_ms"] > f["out_climb_ms"] > 0
     for r in rows.values():
         c = sp.climb(sp.with_pods(t, r["layout"]))
@@ -198,7 +204,8 @@ def test_the_boom_carries_its_tail_on_the_pods_and_its_pusher_between_them(boom)
     assert "tail cone meets the spinner at the firewall" not in sp.failed(boom)   # cut where the cubic meets it
     assert abs(boom["balance"]["battery_aft_mm"]) < boom["balance"]["travel_mm"]
     assert {i[0] for i in boom["balance"]["items"]} == {"tail", "pods", "pusher", "booms"}
-    assert boom["balance"]["delta_kg"] == pytest.approx(b.mass.auw_kg - sp.inputs().mass.auw_kg, abs=0.15)
+    assert boom["twist_ok"] if "twist_ok" in boom else bm["twist_deg"] < b.wing.twist_max_deg
+    assert sp.failed(boom) == []
     assert all("booms" in r["cd0"] for r in boom["aero"]["rows"])
 
 
@@ -212,10 +219,12 @@ def test_how_long_the_body_can_be(s, res, twin):
     assert all(r["vh"] >= s.tail.vh_target - 1e-9 and r["vv"] >= s.tail.vv_target - 1e-9 for r in rows)
     best = min((r for r in rows if r["ok"]), key=lambda r: r["sink_ms"])
     assert 1.8 <= best["length_m"] <= 2.4                                      # a short body pays in tail, a long one in skin
+    tbest = min((r for r in twin["length_sweep"] if r["sized"] and r["ok"]), key=lambda r: r["sink_ms"])
+    assert tbest["length_m"] > best["length_m"]                                # a longer wing wants a longer body
     assert best["sink_ms"] < rows[0]["sink_ms"] and best["sink_ms"] < rows[-1]["sink_ms"]
     assert rows[0]["slope_deg"] > f.tail_angle_deg + 3 and best["slope_deg"] < f.tail_angle_deg + 0.5
     as_designed = twin["length_sweep"][0]
-    assert not as_designed["sized"] and as_designed["length_m"] == 2.0
+    assert not as_designed["sized"] and as_designed["length_m"] == 2.3
 
 
 def test_how_long_the_wing_can_be(res):

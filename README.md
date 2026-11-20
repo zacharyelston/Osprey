@@ -425,16 +425,15 @@ flat calm. The notebook, with renders and an Onshape feature for the tilt-wing, 
 
 ### The sailplane (in progress)
 
-A 4.8 m thermal-soaring relay from an engineering handoff package: a laminar body, and a truss-braced wing:
-a thin wing held by a brace a side from the belly to mid-span, as on NASA's transonic truss-braced wing.
+A thermal-soaring radio relay from an engineering handoff package: a laminar body and a truss-braced wing, a
+thin wing held by a brace a side from the belly, as on NASA's transonic truss-braced wing.
 `osprey recon-sailplane` flies the wing through a 4 g pull-up and a push-over with and without the braces,
-builds the drag up by components, checks the package against itself, and writes the brace fittings, wing and
-camera bay as OpenSCAD. The braces cut the spar's bending to a fifth for about two points of glide ratio.
-`--variant twin` moves the props to push-pull pods on the braces, with a V-tail on a body stretched to 2.0 m:
-the sweep of body length finds that best, and 3.07 m the longest the tail cone can be drawn. Of props at the
-front, the back or both ends of each pod, only both lets the V-tail hold the yaw with one motor out.
-`--variant boom` carries the tail on twin booms from the pods, with a pusher on a short body and a tractor on
-each pod. The notebook is [docs/sailplane](docs/sailplane/README.md).
+builds the drag up by components, checks the design against itself, and writes the brace fittings, wing and
+camera bay as OpenSCAD. The pusher is the package as handed over, and fails three of its own numbers.
+`--variant twin` has push-pull props on pods at the braces, a V-tail, a 6.0 m wing and a 2.3 m body;
+`--variant boom` carries its tail on twin booms from the pods, with a pusher on a short body and a tractor on
+each pod. Both sink at 0.51 m/s, fly 5 to 6 h under power and fail nothing. The notebook is
+[docs/sailplane](docs/sailplane/README.md).
 
 ### Anti-piracy awareness
 

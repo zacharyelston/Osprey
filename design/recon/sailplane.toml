@@ -34,12 +34,27 @@ label = "pusher: one prop in the tail cone, inverted V-tail"
 layout = "pusher"          # or "pods": see design/recon/sailplanes
 motor_kg = 0.90            # REF: what moves when the propulsion does: motor, ESC, prop and spinner
 motor_x_mm = 1415.0
+center_prop_in = 16.0      # the body's pusher: "16 x 10 or 17 x 10"
+center_prop_kg = 0.10      # REF: its folding prop, spinner and mount
+center_install = 0.94      # REF: it eats the body's wake
+
+[climb]                    # what the props are sized for
+rate_ms = 3.0              # REF
+speed_ms = 14.5
+blade_eff = 0.80           # REF: the blades' own losses, on top of the ideal (momentum) efficiency
+install = { front = 0.97, back = 0.96, both = 0.92 }   # REF: a tractor's wash scrubs the wing; a pusher eats the wing's
+                           # wake; the back prop of a pair works in the front one's wash
+tail_cl_max = 0.9          # REF: what the tail can hold with its rudders over
+motor_kw_per_kg = 4.0      # REF: motor and ESC together, shaft power per kg
+motor_eff = 0.88           # REF: battery to shaft
+avionics_w = 35.0          # REF: radios, SDR, computer, camera and autopilot
 
 [pods]
 count = 0
 
 [tail]                     # a V-tail on the bulkhead at x = 1250, inverted to keep the pusher's prop off the ground
 kind = "inverted-v"
+size = "given"             # the area in [aero], or "auto": what the two volumes ask for on its arm
 x_mm = 1250.0              # its root's leading edge
 dihedral_deg = 40.0        # each panel, from the horizontal
 root_chord_mm = 210.0      # REF
@@ -54,6 +69,8 @@ stall_clean_ms = 11.2
 stall_flap_ms = 9.6
 min_sink_ms = 0.52
 rho_kgm3 = 1.225
+cl_max = 1.30              # REF: the SD7037's most lift, clean, at these Reynolds numbers
+stall_margin = 1.15        # the slow end of the loiter is at least this many times the stall
 
 [fuselage]                 # a Myring body: an elliptic-power nose, a parallel middle, a cubic tail cone
 length_mm = 1450.0
@@ -125,6 +142,8 @@ airfoil = "sd7037"         # design/recon/airfoils/<name>.dat
 cm = -0.085                # REF: the SD7037's pitching moment about the quarter chord
 dihedral_deg = 2.75        # the outer panels
 skin_mm = 1.5              # REF: the centre section's skin
+skin_g_gpa = 4.0           # REF: its shear stiffness, a glass laminate at +/-45
+twist_max_deg = 1.0        # REF: the most the tail's load may twist the wing at a boom
 rib_mm = 3.0               # skin ribs
 rib_y_mm = [200.0, 400.0, 600.0]   # where, either side; one more at each flap's inboard end
 quoted_area_m2 = 1.63
@@ -149,8 +168,8 @@ step_mm = 5.0              # the loft's slice
 [spar]                     # the centre section's one spar: a square carbon tube the outer panels' joiners slide into
 x_frac = 0.30              # of the chord: the section's thickest point
 shape = "square"
-od_mm = 30.0               # REF
-wall_mm = 2.35             # REF: leaves a 25.3 mm bore, the joiner and its 0.15 mm of clearance a side
+od_mm = 27.3               # REF
+wall_mm = 1.0              # REF: leaves a 25.3 mm bore, the joiner and its 0.15 mm of clearance a side
 saddle_y_mm = 110.0        # the wing sits on the body here, pinned to the two main bulkheads
 rear_x_frac = 0.62         # a light rear spar ahead of the flaps: it closes the torsion box with the skin
 rear_od_mm = 10.0
@@ -165,8 +184,8 @@ wing_drop_mm = 14.0        # the wing pin, under the wing's lower skin
 shape = "round"
 od_mm = 12.0               # REF: the tube inside the brace's fairing
 wall_mm = 1.0              # REF
-chord_mm = 90.0            # the fairing: an aerofoil, because the brace lifts
-t_over_c = 0.18
+chord_mm = 68.0            # the fairing: an aerofoil, because the brace lifts; no wider than its tube needs
+t_over_c = 0.20
 camber = 0.02
 skin_mm = 0.6
 seat_mm = 22.0             # from a pin to the tube's end, in its end fitting
@@ -190,9 +209,9 @@ material = "PA12-CF, printed; 7075 where the loads say so"
 socket_mm = 20.0           # how far a tube goes in
 bond_gap_mm = 0.15         # epoxy, on the radius
 wall_mm = 2.5
-pin_mm = 4.0               # the main strut's pins
+pin_mm = 5.0               # the main strut's pins
 jury_pin_mm = 3.0
-tang_mm = 5.0
+tang_mm = 6.0
 cheek_mm = 4.0             # each side of a fork
 groove_mm = [1.0, 0.3]     # adhesive relief grooves inside each socket: width, depth
 grooves = 2
@@ -200,7 +219,7 @@ bearing_allow_mpa = 60.0   # REF: PA12-CF in bearing under a pin
 
 [joiner]                   # an outer panel's joiner: a square carbon tube that slides into the spar's end
 size_mm = 25.0
-wall_mm = 2.0              # REF
+wall_mm = 1.0              # REF
 engage_mm = 150.0          # how far it goes into the centre spar
 panel_engage_mm = 150.0    # and into the outer panel, where the dihedral is built in
 rib_mm = 4.0               # the centre section's end rib, which carries the connectors
