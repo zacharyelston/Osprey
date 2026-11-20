@@ -1,4 +1,4 @@
-// The sailplane's shared geometry: the body, the frame, the lugs, the joiner box, the wing and the belly flat.
+// The sailplane's shared geometry: the body, the wing and its spars, the braces and their fittings, the belly flat.
 // Definitions only; the part files beside this one draw them. Every number comes from params.scad, which
 // `osprey recon-sailplane` writes from design/recon/sailplane.toml.
 // mm. Origin at the nose tip; +x aft, +y starboard, +z up.
@@ -107,101 +107,167 @@ module internal_structure() {
     for (sy = [-1, 1]) translate([rail_x[0], sy * rail_y - rail_s / 2, rail_z]) cube([rail_x[1] - rail_x[0], rail_s, rail_s]);
 }
 
-// ---- the frame --------------------------------------------------------------------------------------------
+// ---- tubes and the spars ---------------------------------------------------------------------------------
 
 module along(v) { l = norm(v); rotate([0, acos(v[2] / l), atan2(v[1], v[0])]) children(); }
 
 module strut(p1, p2, d) { v = p2 - p1; translate(p1) along(v) cylinder(h = norm(v), d = d, $fn = 24); }
 
-module frame_tubes(grow = 0, only_struts = false) {
-    for (m = members) if (!only_struts || m[2] < od_chord) strut(m[0], m[1], m[2] + grow);
+function flip(p, side) = [p[0], side * p[1], p[2]];
+function unit(v) = v / norm(v);
+
+// The centre section's spar: a square tube from joint to joint; the joiners slide into its ends.
+module spar(grow = 0, hollow = true) translate([spar_x, 0, spar_z]) difference() {
+    cube([spar_od + grow, center_span, spar_od + grow], center = true);
+    if (hollow) cube([spar_od - 2 * spar_wall, center_span + 2, spar_od - 2 * spar_wall], center = true);
 }
 
-// ---- the node lugs ----------------------------------------------------------------------------------------
-// An arm is [direction, tube OD, seat, kind]: kind 0 a socket whose tube stops `seat` short of the node,
-// 1 a chord passing through, 2 a chord ending in a capped socket.
+module rear_spar(grow = 0) translate([rear_x, 0, rear_z]) rotate([90, 0, 0]) cylinder(d = rear_od + grow, h = center_span, center = true, $fn = 24);
 
-function arm_z0(a) = (a[3] == 1) ? -socket : (a[3] == 2) ? -a[2] : a[2];
-function arm_len(a) = (a[3] == 1) ? 2 * socket : (a[3] == 2) ? a[2] + socket : socket;
+module joiner(side = 1) translate([spar_x, side * half, spar_z]) cube([joiner_size, 2 * joiner_engage, joiner_size], center = true);
 
-module lug_arm_solid(a) {
-    od = a[1] + 2 * bond_gap + 2 * lug_wall;
-    along(a[0]) {
-        if (a[3] == 0) cylinder(d = od, h = a[2] + socket, $fn = 36);
-        else translate([0, 0, arm_z0(a) - (a[3] == 2 ? lug_wall : 0)]) cylinder(d = od, h = arm_len(a) + (a[3] == 2 ? lug_wall : 0), $fn = 36);
-    }
+// ---- the braces -------------------------------------------------------------------------------------------
+// One a side, from a pin low on the body to a pin under the wing; a jury strut from mid-brace up to the wing.
+
+function spar_z_at(y) = spar_z + (abs(y) > half ? (abs(y) - half) * tan(dihedral) : 0);
+jury_top = [spar_x, strut_jury[1], spar_z_at(strut_jury[1]) - spar_od / 2 - skin_t - wing_drop];
+
+// The brace's aerofoil fairing over its tube: chord along the flight direction.
+module brace_fairing(side = 1) {
+    a = flip(strut_root, side);
+    b = flip(strut_wing, side);
+    v = b - a;
+    inset = strut_seat + fit_socket;
+    translate(a) along(v) translate([0, 0, inset]) linear_extrude(norm(v) - 2 * inset)
+        rotate([0, 0, side > 0 ? -90 : 90]) translate([-0.3 * strut_chord, 0]) polygon([for (p = brace_pts) [p[0] * strut_chord, side * p[1] * strut_chord]]);
 }
 
-module lug_arm_bore(a) {
-    bd = a[1] + 2 * bond_gap;
-    od = bd + 2 * lug_wall;
-    z0 = arm_z0(a);
-    ln = arm_len(a);
-    along(a[0]) {
-        translate([0, 0, z0 - (a[3] == 1 ? 1 : 0)]) cylinder(d = bd, h = ln + 2, $fn = 36);
-        // adhesive relief grooves
-        for (g = [1 : grooves]) translate([0, 0, z0 + ln * g / (grooves + 1) - groove[0] / 2]) cylinder(d = bd + 2 * groove[1], h = groove[0], $fn = 36);
-        // a port to inject the epoxy through
-        translate([0, 0, z0 + ln / 2]) rotate([0, 90, 0]) cylinder(d = port_d, h = od, $fn = 12);
-    }
+module brace_tube(side = 1) {
+    a = flip(strut_root, side);
+    b = flip(strut_wing, side);
+    u = unit(b - a);
+    strut(a + strut_seat * u, b - strut_seat * u, strut_od);
 }
 
-module lug(i) {
-    arms = lugs[i][2];
+// A tube's end fitting: a bonded socket and a tang with the pin's hole. Drawn with the pin at the origin,
+// the tube leaving along +z and the pin along y.
+module tube_end(od, seat, pin) {
+    bd = od + 2 * bond_gap;
+    sd = bd + 2 * fit_wall;
     difference() {
         union() {
-            for (a = arms) lug_arm_solid(a);
-            sphere(d = od_chord + 2 * bond_gap + 2 * lug_wall, $fn = 36);
+            translate([0, 0, seat - fit_wall]) cylinder(d = sd, h = fit_socket + fit_wall, $fn = 36);
+            hull() {
+                translate([0, 0, seat - fit_wall]) cylinder(d = sd, h = 0.5, $fn = 36);
+                rotate([90, 0, 0]) cylinder(d = 3 * pin, h = tang_t, center = true, $fn = 36);
+            }
         }
-        for (a = arms) lug_arm_bore(a);
+        translate([0, 0, seat]) cylinder(d = bd, h = fit_socket + 1, $fn = 36);
+        for (g = [1 : grooves]) translate([0, 0, seat + fit_socket * g / (grooves + 1) - groove[0] / 2]) cylinder(d = bd + 2 * groove[1], h = groove[0], $fn = 36);
+        rotate([90, 0, 0]) cylinder(d = pin + 0.2, h = sd + 2, center = true, $fn = 24);
     }
 }
 
-module all_lugs() { for (i = [0 : len(lugs) - 1]) translate(lugs[i][1]) lug(i); }
+// The same fitting where it goes: its pin at p, its tube leaving toward q.
+module tube_end_at(p, q, od, seat, pin) { translate(p) along(q - p) tube_end(od, seat, pin); }
 
-// ---- the joiner box: an outer panel's receptacle ----------------------------------------------------------
-// Two plates thread onto the four chords and carry the joiner's couple into them; a square sleeve between
-// them takes the joiner, tilted to the dihedral; a block on the outer plate holds the two connectors.
-
-joiner_so = joiner_size + 2 * joiner_gap + 2 * joiner_wall;
-joiner_yc = half - joiner_engage / 2;
-slot_d = od_strut + 2 * bond_gap + 2 * lug_wall + 1;     // room for a strut in its lug's arm
-
-module joiner_plate(y) {
-    x0 = truss_x[0] - joiner_margin;
-    z0 = truss_z[0] - joiner_margin;
-    translate([x0, y - joiner_plate_t / 2, z0])
-        cube([truss_x[1] - truss_x[0] + 2 * joiner_margin, joiner_plate_t, truss_z[1] - truss_z[0] + 2 * joiner_margin]);
+// A fork for a tang, hung under a square spar: a cradle bonded round the spar's lower half, two cheeks down
+// to the pin. Drawn with the spar's centre line through the origin along y and the pin at [0, 0, -drop].
+module spar_fork(drop, pin, len = 46) {
+    w = spar_od + 2 * bond_gap;
+    difference() {
+        union() {
+            translate([-w / 2 - fit_wall, -len / 2, -w / 2 - fit_wall]) cube([w + 2 * fit_wall, len, w / 2 + fit_wall]);
+            for (sx = [-1, 1]) hull() {
+                translate([sx * (tang_t / 2 + 0.2 + cheek_t / 2), 0, -drop]) rotate([0, 90, 0]) cylinder(d = 3 * pin, h = cheek_t, center = true, $fn = 36);
+                translate([sx * (tang_t / 2 + 0.2 + cheek_t / 2) - cheek_t / 2, -len / 2, -w / 2 - fit_wall]) cube([cheek_t, len, 1]);
+            }
+        }
+        translate([-w / 2, -len / 2 - 1, -w / 2]) cube([w, len + 2, w]);
+        translate([0, 0, -drop]) rotate([0, 90, 0]) cylinder(d = pin + 0.2, h = w + 2 * fit_wall + 2, center = true, $fn = 24);
+    }
 }
 
-module joiner_tilt(side) { translate([joiner_x, side * joiner_yc, joiner_z]) rotate([side * dihedral, 0, 0]) children(); }
+module wing_fork(side = 1) { p = flip(strut_wing, side); translate([spar_x, p[1], spar_z_at(p[1])]) spar_fork(spar_z_at(p[1]) - p[2], pin_d); }
+
+module jury_fork(side = 1) { p = flip(jury_top, side); translate([spar_x, p[1], spar_z_at(p[1])]) spar_fork(spar_z_at(p[1]) - p[2], jury_pin_d, 30); }
+
+// The brace's root on the front main bulkhead: a fork outside the hull on a foot that bolts to the bulkhead.
+module root_fork(side = 1) {
+    p = flip(strut_root, side);
+    foot = [16, 34, 34];
+    inward = side * (strut_root[1] - 26);
+    difference() {
+        union() {
+            for (sx = [-1, 1]) hull() {
+                translate(p + [sx * (tang_t / 2 + 0.2 + cheek_t / 2), 0, 0]) rotate([0, 90, 0]) cylinder(d = 3 * pin_d, h = cheek_t, center = true, $fn = 36);
+                translate([p[0] + sx * (tang_t / 2 + 0.2 + cheek_t / 2), inward, p[2]]) cube([cheek_t, 8, foot[2]], center = true);
+            }
+            translate([p[0], inward - side * 4, p[2]]) cube(foot, center = true);
+        }
+        translate(p) rotate([0, 90, 0]) cylinder(d = pin_d + 0.2, h = 40, center = true, $fn = 24);
+        for (dz = [-10, 10]) translate([p[0], inward - side * 4, p[2] + dz]) rotate([0, 90, 0]) cylinder(d = 4.3, h = 40, center = true, $fn = 20);
+    }
+}
+
+// A collar bonded on the brace's tube where the jury strut leaves it, with an ear for the jury's tang.
+module jury_collar(side = 1) {
+    a = flip(strut_root, side);
+    b = flip(strut_wing, side);
+    j = flip(strut_jury, side);
+    up = unit(flip(jury_top, side) - j);
+    bd = strut_od + 2 * bond_gap;
+    difference() {
+        union() {
+            translate(j) along(b - a) cylinder(d = bd + 2 * fit_wall, h = 22, center = true, $fn = 36);
+            hull() {
+                translate(j) along(b - a) cylinder(d = bd + 2 * fit_wall, h = 10, center = true, $fn = 36);
+                translate(j + (bd / 2 + fit_wall + 2 * jury_pin_d) * up) rotate([0, 90, 0]) cylinder(d = 3 * jury_pin_d, h = tang_t, center = true, $fn = 30);
+            }
+        }
+        translate(j) along(b - a) cylinder(d = bd, h = 60, center = true, $fn = 36);
+        translate(j + (bd / 2 + fit_wall + 2 * jury_pin_d) * up) rotate([0, 90, 0]) cylinder(d = jury_pin_d + 0.2, h = 30, center = true, $fn = 20);
+    }
+}
+
+jury_pin_low = strut_jury + (strut_od / 2 + bond_gap + fit_wall + 2 * jury_pin_d) * unit(jury_top - strut_jury);
+
+module brace_fittings(side = 1) {
+    wing_fork(side);
+    jury_fork(side);
+    root_fork(side);
+    jury_collar(side);
+    tube_end_at(flip(strut_root, side), flip(strut_wing, side), strut_od, strut_seat, pin_d);
+    tube_end_at(flip(strut_wing, side), flip(strut_root, side), strut_od, strut_seat, pin_d);
+    tube_end_at(flip(jury_top, side), flip(jury_pin_low, side), jury_od, jury_seat, jury_pin_d);
+    tube_end_at(flip(jury_pin_low, side), flip(jury_top, side), jury_od, jury_seat, jury_pin_d);
+}
+
+module brace(side = 1) {
+    brace_tube(side);
+    a = flip(jury_pin_low, side);
+    b = flip(jury_top, side);
+    strut(a + jury_seat * unit(b - a), b - jury_seat * unit(b - a), jury_od);
+}
+
+// ---- the centre section's end rib: it closes the section at the joint and carries the two connectors ------
 
 module connector_pocket(x, body) {
     // the body's pocket, open to the mating face, and a slot behind it for the wires, smaller by the shoulder
-    translate([x - body[0] / 2, half - body[2], joiner_z - body[1] / 2]) cube([body[0], body[2] + 1, body[1]]);
-    translate([x - body[0] / 2 + shoulder, half - 60, joiner_z - body[1] / 2 + shoulder]) cube([body[0] - 2 * shoulder, 61, body[1] - 2 * shoulder]);
+    translate([x - body[0] / 2, half - body[2], spar_z - body[1] / 2]) cube([body[0], body[2] + 1, body[1]]);
+    translate([x - body[0] / 2 + shoulder, half - 40, spar_z - body[1] / 2 + shoulder]) cube([body[0] - 2 * shoulder, 41, body[1] - 2 * shoulder]);
 }
 
-module joiner_box(side = 1) {
-    yo = joiner_plate_y[0];
-    yi = joiner_plate_y[1];
+module end_rib(side = 1) {
     block_w = mpx[0] + xt30[0] + 18;
+    block_d = max(mpx[2], xt30[2]) + 3;
     mirror([0, side < 0 ? 1 : 0, 0]) difference() {
-        intersection() {
-            union() {
-                joiner_plate(yo);
-                joiner_plate(yi);
-                joiner_tilt(1) cube([joiner_so, joiner_engage + 10, joiner_so], center = true);
-                translate([connector_x - block_w / 2, yo, joiner_z - max(mpx[1], xt30[1]) / 2 - 4])
-                    cube([block_w, half - yo, max(mpx[1], xt30[1]) + 8]);
-            }
-            translate([0, yi - joiner_plate_t / 2, 0]) cube([L, half - yi + joiner_plate_t / 2, 2 * R]);     // flush at the mouth
+        union() {
+            span_extrude(half - end_rib_t, half) difference() { section2d(skin_t); aft_of(hinge_u - flap_gap / 2 - skin_t); }
+            translate([connector_x - block_w / 2, half - block_d, spar_z - max(mpx[1], xt30[1]) / 2 - 4]) cube([block_w, block_d, max(mpx[1], xt30[1]) + 8]);
         }
-        // the joiner's socket, closed at its inboard end
-        joiner_tilt(1) translate([0, joiner_wall + 10, 0]) cube([joiner_size + 2 * joiner_gap, joiner_engage + 10, joiner_size + 2 * joiner_gap], center = true);
-        // the chords, bonded; every other tube and its lug arm passes through a slot
-        for (x = truss_x, z = truss_z) translate([x, half - joiner_engage, z]) rotate([90, 0, 0]) cylinder(d = od_chord + 2 * bond_gap, h = 4 * joiner_engage, center = true, $fn = 36);
-        frame_tubes(slot_d - od_strut, only_struts = true);
+        spar(2 * bond_gap, hollow = false);
+        rear_spar(2 * bond_gap);
         connector_pocket(connector_x - block_w / 2 + 5 + mpx[0] / 2, mpx);
         connector_pocket(connector_x + block_w / 2 - 5 - xt30[0] / 2, xt30);
     }
@@ -246,14 +312,24 @@ module flap(side = 1) difference() {
     hinge_pockets();
 }
 
-function rib_ys() = concat([for (i = [0 : len(station_y) - 2]) (station_y[i] + station_y[i + 1]) / 2], [-flap_y0, flap_y0]);
+function rib_ys() = concat([for (y = rib_y) each [-y, y]], [-flap_y0, flap_y0]);
 
 module rib(y) difference() {
     span_extrude(y - rib_t / 2, y + rib_t / 2) difference() { section2d(skin_t); aft_of(hinge_u - flap_gap / 2 - skin_t); }
-    frame_tubes(1);
+    spar(2 * bond_gap, hollow = false);
+    rear_spar(2 * bond_gap);
 }
 
 module ribs() { for (y = rib_ys()) rib(y); }
+
+// An outer panel, for the look of the whole wing: tapered, its spar line straight, tilted up by the dihedral.
+module outer_panel(side = 1) {
+    panel = span / 2 - half;
+    mirror([0, side < 0 ? 1 : 0, 0]) translate([0, half, chord_z]) rotate([dihedral, 0, 0]) translate([0, -half, -chord_z]) hull() {
+        span_extrude(half, half + 1) section2d();
+        translate([le_x + spar_frac * (chord - tip_chord), half + panel, chord_z]) rotate([90, 0, 0]) linear_extrude(1) scale(tip_chord / chord) section2d();
+    }
+}
 
 // The root fairing, lofted in slices: at each station the body's circle, a web up to the wing's underside
 // and the wing itself are joined and their inside corners filled to the fillet radius.

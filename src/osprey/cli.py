@@ -1,7 +1,7 @@
 """`uv run osprey calc | sim | render | all --scenario <name> [--rig <name>]`
 `uv run osprey sweep [--workers N]`
 `uv run osprey recon-size | recon-fly | recon | recon-render --mission <name>|all` (Osprey Recon)
-`uv run osprey recon-sailplane` (the sailplane's centre-wing frame: loads, lugs, cut list and OpenSCAD parts)
+`uv run osprey recon-sailplane` (the sailplane's truss-braced wing: loads, drag, cut list and OpenSCAD parts)
 `uv run osprey beet [--workers N]` (the Beet, a flying buoy)
 `uv run osprey trident [--workers N]` (the Trident, a three-module tailsitter)
 `uv run osprey trident-sim [--workers N]` (the Trident in MuJoCo, afloat: let go at angles, and riding waves)
@@ -590,9 +590,9 @@ def cmd_recon_puffin_sar(args) -> int:
 
 
 def cmd_recon_sailplane(args) -> int:
-    """The sailplane: its centre wing's carbon-tube frame flown through a pull-up, every lug's sockets and tube's cut
-    length, the handoff package checked against itself, and the parts as OpenSCAD (design/recon/sailplane.toml).
-    Exits 1 on a FAIL: a design finding."""
+    """The sailplane: its truss-braced wing flown through a pull-up and a push-over, with and without the braces and
+    with their wing station swept, its drag by components, the cut list, the handoff package checked against itself,
+    and the parts as OpenSCAD (design/recon/sailplane.toml). Exits 1 on a FAIL: a design finding."""
     from osprey.recon import figures as rfig
     from osprey.recon import sailplane
 
@@ -602,10 +602,10 @@ def cmd_recon_sailplane(args) -> int:
     (o / "sailplane.json").write_text(json.dumps(res, indent=1, default=float))
     (o / "sailplane.md").write_text(sailplane.report(res))
     sailplane.export(res, o)
-    rfig.sailplane(res, o / "frame.png")
+    rfig.sailplane(res, o / "wing.png")
     for c in res["checks"]:
         print(f"{ {True: 'ok  ', False: 'FAIL', None: 'note'}[c['ok']]}  {c['name']}: {c['text']}")
-    print(f"wrote {o}/sailplane.md, cutlist.csv, frame.png and scad/")
+    print(f"wrote {o}/sailplane.md, cutlist.csv, wing.png and scad/")
     return 1 if sailplane.failed(res) else 0
 
 

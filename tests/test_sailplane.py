@@ -1,4 +1,4 @@
-"""The sailplane: its body, the centre wing's frame in a pull-up, the lugs and the cut list (recon/sailplane.py)."""
+"""The sailplane: its body, its truss-braced wing under load, the drag build-up and the parts (recon/sailplane.py)."""
 
 import math
 import re
@@ -33,90 +33,85 @@ def test_the_body_is_smooth_and_its_cubic_closes_at_the_full_length(s):
     assert sp.myring_r(f, f.truncate_mm) == f.spinner_r_mm                     # held at the spinner's radius
 
 
-def test_the_section_is_the_sd7037(s):
+def test_the_section_is_the_sd7037_and_the_spar_fits_in_it(s, res):
     _, up, lo = sp.airfoil(s.wing.airfoil)
     xc = np.linspace(0, 1, 501)
     t = np.interp(xc, up[:, 0], up[:, 1]) - np.interp(xc, lo[:, 0], lo[:, 1])
     assert t.max() == pytest.approx(0.092, abs=0.001)
+    assert next(c for c in res["checks"] if c["name"] == "spar inside the wing section")["ok"]
 
 
-def test_the_frame_is_the_package_s(s):
-    nodes, members = sp.truss(s)
-    count = {}
-    for m in members:
-        count[m["group"]] = count.get(m["group"], 0) + 1
-    assert count["post"] == 10 and count["cross brace"] == 10 and count["face diagonal"] == 8
-    assert count["planform diagonal"] == 8 and count["pylon"] == 4
-    assert count["station diagonal"] == 3                                     # the tips' two give way to the joiner boxes
-    assert {m["chord"] for m in members if m["group"] == "chord"} == {"FB", "FT", "RB", "RT"}
+def test_the_brace_runs_from_low_on_the_body_to_mid_span(s):
+    sp_ = sp.strut_points(s)
+    assert sp_["y"] == pytest.approx(s.strut.y_frac * s.wing.span_mm / 2)
+    assert sp_["root"][2] < -s.fuselage.radius_mm / 2 and sp_["wing"][2] > s.fuselage.radius_mm
+    r = float(sp.myring_r(s.fuselage, s.strut.root_x_mm))
+    assert math.hypot(sp_["root"][1], sp_["root"][2]) == pytest.approx(r + s.strut.root_out_mm, abs=3.0)
+    assert sp_["root"][1] < sp_["jury"][1] < sp_["wing"][1]
+    nodes, members, fixed = sp.model(s)
+    assert sum(m["group"] == "brace" for m in members) == 4 and sum(m["group"] == "jury strut" for m in members) == 2
+    assert set(fixed) == {"W+110", "W-110", "R+", "R-"}
 
 
-def test_the_pull_up_balances_and_is_the_same_either_side(s, res):
-    for case in sp.CASES:
-        p = res["pull_up"][case]
-        w = s.wing
-        wing_kg = w.center_kg + 2 * (w.panel_day_kg if case == "day" else w.panel_night_kg)
-        assert p["applied_z_n"] == pytest.approx(p["lift_n"] - s.loads.n * sp.G * wing_kg, rel=1e-3)
-        assert -sum(r[2] for r in p["reactions_n"].values()) == pytest.approx(p["applied_z_n"], rel=1e-6)
-        by = {m["name"]: m["axial_n"] for m in p["members"]}
-        for p_ in "FR":
-            for lv in "BT":
-                assert by[f"{p_}{lv}+0>{p_}{lv}+400"] == pytest.approx(by[f"{p_}{lv}-400>{p_}{lv}+0"], rel=1e-6) \
-                    if lv == "T" else True
+def test_every_case_balances_and_is_the_same_either_side(s, res):
+    w = s.wing
+    for c in res["analysis"]["cases"].values():
+        wing_kg = w.center_kg + 2 * (w.panel_day_kg if c["wings"] == "day" else w.panel_night_kg)
+        assert c["applied_z_n"] == pytest.approx(c["lift_n"] - c["n"] * sp.G * wing_kg, rel=2e-3)
+        assert -sum(r[2] for r in c["reactions_n"].values()) == pytest.approx(c["applied_z_n"], rel=1e-6)
+        by = {m["name"]: m for m in c["members"]}
+        assert by["R+>M+"]["axial_n"] == pytest.approx(by["R->M-"]["axial_n"], rel=1e-6)
+        assert c["reactions_n"]["R+"][2] == pytest.approx(c["reactions_n"]["R-"][2], rel=1e-6)
 
 
-def test_the_frame_carries_the_bending_the_loads_make(s, res):
-    """Cut the frame at y = 200: the members' axial loads there balance the bending of everything outboard."""
-    p = res["pull_up"]["day"]
-    nodes = {k: np.array(v) for k, v in res["nodes"].items()}
-    F, _ = sp.loads(s, "day")
-    yc = 200.0
-    zc = (s.truss.z_bot_mm + s.truss.z_top_mm) / 2
-    outboard = sum(v[2] * (nodes[k][1] - yc) for k, v in F.items() if nodes[k][1] > yc)
-    inside = 0.0
-    for m in p["members"]:
-        a, b = nodes[m["a"]], nodes[m["b"]]
-        if min(a[1], b[1]) < yc < max(a[1], b[1]):
-            d = (b - a) / np.linalg.norm(b - a) * (1 if b[1] > a[1] else -1)
-            z = a[2] + (b[2] - a[2]) * (yc - a[1]) / (b[1] - a[1])
-            inside += -m["axial_n"] * d[1] * (z - zc)
-    assert inside == pytest.approx(outboard, rel=0.05)                         # the rest is the tubes' own bending
+def test_with_no_braces_the_root_bending_is_the_cantilever_s(s, res):
+    """Elliptic lift's centre is 4/(3 pi) of the half-span out; the wing's own weight comes off."""
+    c = res["unbraced"]["cases"][sp.cases(s)[0][0]]
+    w, h = s.wing, s.wing.span_mm / 2e3
+    jy = w.center_span_mm / 2e3
+    cr, ct = w.chord_mm, w.tip_chord_mm
+    lift = c["lift_n"] / 2 * 4 / (3 * math.pi) * h
+    weight = c["n"] * sp.G * (w.center_kg / 2 * jy / 2 + w.panel_day_kg * (jy + (h - jy) / 2))
+    saddle = s.spar.saddle_y_mm / 1e3                                          # the wing is held at +/-110, not on the centre line
+    cantilever = lift - weight - c["applied_z_n"] / 2 * saddle
+    assert c["root_moment_nm"] == pytest.approx(cantilever, rel=0.06)
+    assert cr > ct
 
 
-def test_the_top_chords_buckle_and_the_frame_is_deeper_than_the_wing(res):
-    bad = sp.failed(res)
-    assert "frame inside the wing section" in bad
-    assert any(n.startswith("chords at") for n in bad)
-    g = res["pull_up"][res["pull_up"]["governing"]]
-    worst = max((m for m in g["members"] if m["group"] == "chord"), key=lambda m: m["u_buckle"])
-    assert worst["name"][1] == "T" and worst["axial_n"] < 0                    # a top chord, in compression
+def test_the_braces_take_the_bending_off_the_spar(s, res):
+    pull, push = (res["analysis"]["cases"][sp.cases(s)[i][0]] for i in (0, 2))
+    bare = res["unbraced"]["cases"][sp.cases(s)[0][0]]
+    assert pull["spar_moment_nm"] < 0.3 * bare["spar_moment_nm"]
+    assert abs(pull["tip_rise_mm"]) < 0.2 * abs(bare["tip_rise_mm"])
+    assert pull["brace_axial_n"] > 0 and pull["spar_axial_n"] < 0              # the brace pulls, the spar is squeezed
+    assert push["brace_axial_n"] < 0                                           # and pushed in the push-over
+    sw = {r["strut_y_mm"]: r for r in res["sweep"]}
+    assert sw[None]["brace_tension_n"] == 0
+    ys = sorted(y for y in sw if y is not None)
+    assert all(sw[a]["tip_rise_mm"] > sw[b]["tip_rise_mm"] for a, b in zip(ys[:-1], ys[1:]))
+    assert all(sw[a]["brace_used"] < sw[b]["brace_used"] for a, b in zip(ys[:-1], ys[1:]))   # a longer brace buckles sooner
 
 
-def test_every_socket_clears_its_neighbours_and_a_shallow_diagonal_sits_far_out(s, res):
-    lg = s.lug
-    assert len(res["lugs"]) == 24
-    for arms in res["lugs"].values():
-        assert sum(a["kind"] > 0 for a in arms) == 1                           # one chord through each
-        for a in arms:
-            if a["kind"]:
-                continue
-            P = sp._bore_points(np.array(a["dir"]), a["od"] / 2 + lg.bond_gap_mm, a["seat"], a["seat"] + lg.socket_mm)
-            chord = arms[0]
-            t0 = -400.0 if chord["kind"] == 1 else -chord["seat"]
-            assert sp._to_segment(P, np.array(chord["dir"]), t0, 400.0).min() >= chord["od"] / 2 + lg.bond_gap_mm + lg.web_mm - 1e-6
-    seats = {c["group"]: c["seats_mm"] for c in res["cuts"] if "seats_mm" in c}
-    assert seats["post"] == [6.5, 6.5]
-    assert min(seats["face diagonal"]) > 60.0                                  # 6.6 degrees off its chord
+def test_the_drag_build_up_adds_up_and_the_braces_cost_some_glide(s, res):
+    ae = res["aero"]
+    assert sp._cf(1e6, 1.0) == pytest.approx(1.328e-3)                         # all laminar: Blasius
+    assert sp._cf(1e6, 1e-9) == pytest.approx(0.072 * 1e6**-0.2, rel=1e-3)     # all turbulent
+    assert sp._cf(1e6, 1.0) < sp._cf(1e6, 0.5) < sp._cf(1e6, 1e-9)
+    for r in ae["rows"]:
+        total = sum(r["cd0"].values()) + r["cdi"]
+        assert r["braced"]["cd"] == pytest.approx(total)
+        assert r["braced"]["l_over_d"] == pytest.approx(r["cl"] / total)
+        assert r["unbraced"]["l_over_d"] > r["braced"]["l_over_d"]
+        assert 0.03 < r["cd0"]["braces"] / total < 0.15                        # the paper has them at 8 % of the drag
+    assert ae["area_m2"] == pytest.approx(1.6, abs=0.01) and ae["ar"] == pytest.approx(14.4, abs=0.1)
 
 
 def test_the_cut_list_has_every_tube(s, res):
-    nodes, members = sp.truss(s)
-    cuts = res["cuts"]
-    assert len(cuts) == 4 + sum(m["group"] != "chord" for m in members)
-    assert all(c["cut_mm"] > c["in_sockets_mm"] for c in cuts)
-    tubes = [r for r in res["bom"] if r["mass_g"] is not None]
-    assert sum(r["qty"] for r in tubes) == len(cuts)
-    assert sum(r["qty"] * r["cut_mm"] for r in tubes) == pytest.approx(sum(c["cut_mm"] for c in cuts), abs=len(cuts) * 0.05)
+    tubes = {r["item"]: r for r in res["bom"] if r["mass_g"] is not None}
+    assert set(tubes) == {"centre spar", "rear spar", "brace tube", "jury strut", "wing joiner"}
+    sp_ = sp.strut_points(s)
+    assert tubes["brace tube"]["cut_mm"] == pytest.approx(np.linalg.norm(sp_["wing"] - sp_["root"]) - 2 * s.strut.seat_mm)
+    assert tubes["brace tube"]["qty"] == 2 and tubes["jury strut"]["cut_mm"] > 2 * s.fitting.socket_mm
     assert sum(r["item"].startswith("ring bulkhead") for r in res["bom"]) == len(s.bulkhead)
 
 
@@ -126,6 +121,10 @@ def test_the_belly_flat_takes_the_pane_and_ends_ahead_of_the_tail_cone(s, res):
     assert math.sqrt(r**2 - nf["za_mm"] ** 2) == pytest.approx(nf["pane_mm"] / 2 + nd.margin_mm)
     assert nf["from_mm"] < nd.x_mm[0] and nd.x_mm[1] < nf["to_mm"] < nd.recovery_from_mm
     assert 0 < nf["tilt_deg"] < 15
+
+
+def test_only_the_package_s_own_numbers_fail(res):
+    assert sp.failed(res) == ["tail cone meets the spinner at the firewall", "battery holds what it weighs"]
 
 
 def test_params_scad_is_whole_and_used(s, res):
@@ -138,11 +137,11 @@ def test_params_scad_is_whole_and_used(s, res):
 
 
 @pytest.mark.skipif(not shutil.which("openscad"), reason="OpenSCAD is not installed")
-@pytest.mark.parametrize("part", ["lugs", "joiner_box", "nadir_belly"])
+@pytest.mark.parametrize("part", ["tube_end", "wing_fork", "root_fork", "jury_collar", "end_rib", "nadir_belly"])
 def test_the_parts_build_in_openscad(res, tmp_path, part):
     sp.export(res, tmp_path)
     out = tmp_path / f"{part}.stl"
-    extra = ["-D", "lug_index=0"] if part == "lugs" else []
-    subprocess.run(["openscad", *extra, "-o", str(out), str(tmp_path / "scad" / f"{part}.scad")], check=True,
-                   capture_output=True, timeout=600)
-    assert out.stat().st_size > 1000
+    file, extra = (part, []) if part in ("end_rib", "nadir_belly") else ("brace_fittings", ["-D", f'part="{part}"'])
+    done = subprocess.run(["openscad", *extra, "-o", str(out), str(tmp_path / "scad" / f"{file}.scad")],
+                          capture_output=True, text=True, timeout=600)
+    assert done.returncode == 0 and "WARNING" not in done.stderr and out.stat().st_size > 1000

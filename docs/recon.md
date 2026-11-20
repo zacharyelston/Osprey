@@ -258,8 +258,8 @@ Findings:
 - **`liftbody`** and **`tiltwing`**: a larger loiter craft for hours on station, a lifting body and a
   tandem tilt-wing with a V-keel hull, sized side by side for 2–12 h by `osprey recon-loiter`. Their notebook
   and the Onshape feature for the tilt-wing are in [docs/loiter](loiter/README.md).
-- **The sailplane** (`osprey recon-sailplane`): a 4.8 m soaring relay's centre wing taken from a handoff
-  package to parts: the carbon-tube frame in a pull-up, its printed lugs, cut list and OpenSCAD. Its notebook
+- **The sailplane** (`osprey recon-sailplane`): a 4.8 m soaring relay with a truss-braced wing, from a handoff
+  package to parts: the braced wing's loads, its drag by components, cut list and OpenSCAD. Its notebook
   is in [docs/sailplane](sailplane/README.md).
 
 Water operations (floating, take-off from the sea, landing loads, `osprey recon-water` and the `--water`

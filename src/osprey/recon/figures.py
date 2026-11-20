@@ -615,26 +615,41 @@ def puffin(rows: list[dict], path):
 
 
 def sailplane(res: dict, path):
-    """The centre wing's frame from the front and from above, each member coloured by how much of what it can
-    take the pull-up uses at ultimate (buckling or stress, whichever is more)."""
-    pu = res["pull_up"]
-    g = pu[pu["governing"]]
-    nodes = {k: np.array(v) for k, v in res["nodes"].items()}
-    fig, axes = plt.subplots(2, 1, figsize=(12, 6.4), sharex=True, gridspec_kw={"height_ratios": [1, 1.6]})
-    cmap, norm = plt.get_cmap("RdYlGn_r"), matplotlib.colors.Normalize(0.0, 2.0)
-    for ax, (i, lab) in zip(axes, ((2, "z, mm"), (0, "x, mm"))):
-        for m in sorted(g["members"], key=lambda m: max(m["u_buckle"], m["u_stress"])):
-            a, b = nodes[m["a"]], nodes[m["b"]]
-            u = max(m["u_buckle"], m["u_stress"])
-            rear = i == 2 and a[0] > 600 and b[0] > 600
-            ax.plot([a[1], b[1]], [a[i], b[i]], color=cmap(norm(u)), lw=3.2 if m["tube"] == "chord" else 1.8,
-                    ls="--" if rear else "-", solid_capstyle="round")
-        ax.set_ylabel(lab)
-        ax.grid(alpha=0.25)
-    axes[1].invert_yaxis()
-    axes[1].set_xlabel("y, mm (starboard positive); from the front (top; rear plane dashed) and from above")
-    axes[0].set_title(f"The centre wing's frame at {g['lift_n'] / g['auw_kg'] / 9.81:.0f} g, {pu['governing']} wings: "
-                      f"share of each tube's strength used at ultimate", fontsize=11)
-    fig.colorbar(matplotlib.cm.ScalarMappable(norm, cmap), ax=axes, label="used (1.0 = fails; 2.0 and over in red)", pad=0.02)
+    """The truss-braced wing from the front, each tube coloured by the most of its strength any case uses at
+    ultimate, and what moving the braces' wing station does to the spar's bending and the tip's rise."""
+    an = res["analysis"]
+    nodes = {k: np.array(v) for k, v in an["nodes"].items()}
+    used = {}
+    for c in an["cases"].values():
+        for m in c["members"]:
+            used[m["name"]] = (max(used.get(m["name"], (0,))[0], m["u_buckle"], m["u_stress"]), m)
+    fig, (ax, bx) = plt.subplots(2, 1, figsize=(12, 7), gridspec_kw={"height_ratios": [1, 1.25]})
+    cmap, norm = plt.get_cmap("RdYlGn_r"), matplotlib.colors.Normalize(0.0, 1.0)
+    for u, m in sorted(used.values(), key=lambda t: t[0]):
+        a, b = nodes[m["a"]], nodes[m["b"]]
+        ax.plot([a[1], b[1]], [a[2], b[2]], color=cmap(norm(u)), lw=4 if m["kind"] in ("spar", "panel") else 2.4,
+                solid_capstyle="round")
+    ax.add_patch(plt.Circle((0, 0), 150, fc="#eef1f4", ec="#34495e", lw=1.2))
+    ax.set_aspect("equal")
+    ax.set_xlabel("y, mm (from the front)")
+    ax.set_ylabel("z, mm")
+    ax.grid(alpha=0.25)
+    ax.set_title(f"The truss-braced wing, braces at y = \u00b1{an['strut_y_mm']:.0f} mm: share of each tube's strength "
+                 "used at ultimate, worst case", fontsize=10)
+    fig.colorbar(matplotlib.cm.ScalarMappable(norm, cmap), ax=ax, label="used (1.0 fails)", pad=0.01)
+    sw = [r for r in res["sweep"] if r["strut_y_mm"] is not None]
+    bare = next(r for r in res["sweep"] if r["strut_y_mm"] is None)
+    y = [r["strut_y_mm"] for r in sw]
+    bx.plot(y, [r["spar_moment_nm"] for r in sw], "o-", color="#4C72B0", label="spar's largest bending, N m")
+    bx.axhline(bare["spar_moment_nm"], color="#4C72B0", ls=":", label=f"no braces: {bare['spar_moment_nm']:.0f} N m")
+    bx.plot(y, [r["tip_rise_mm"] for r in sw], "s-", color="#DD8452", label="tip's rise, mm")
+    bx.axhline(bare["tip_rise_mm"], color="#DD8452", ls=":", label=f"no braces: {bare['tip_rise_mm']:.0f} mm")
+    bx.plot(y, [r["brace_compression_n"] / 10 for r in sw], "^-", color="#55A868",
+            label="brace's compression in the push-over, N / 10")
+    bx.axvline(an["strut_y_mm"], color="#7f8c8d", lw=1)
+    bx.set_xlabel("where the brace meets the wing, y, mm (the half-span is 2400; the panels join at 800)")
+    bx.set_ylabel("in the pull-up")
+    bx.grid(alpha=0.25)
+    bx.legend(fontsize=8, ncol=2)
     fig.savefig(path, dpi=140, bbox_inches="tight")
     plt.close(fig)
