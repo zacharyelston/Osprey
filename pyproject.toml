@@ -9,6 +9,7 @@ requires-python = ">=3.12"
 dependencies = [
     "matplotlib>=3.9",
     "mujoco>=3.3.0",
+    "neuralfoil>=0.3.3",
     "numpy>=2.0",
     "openaerostruct>=2.12",
     "openmdao>=3.45",

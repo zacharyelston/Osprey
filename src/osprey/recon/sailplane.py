@@ -442,13 +442,22 @@ def aero(s) -> dict:
         bl = (tl["le_x_mm"] + tl["chord_mm"] - ps["end_x_mm"]) / 1e3
         parts["booms"] = (bl, 2 * math.pi * s.boom.od_mm / 1e3 * bl, 1.05, 0.0)
     ar = (w.span_mm / 1e3) ** 2 / S
+    polars = a.sections == "polars"
     rows = []
     for v in a.speeds_ms:
         cd0 = {k: _cf(v * ln / a.nu_m2s, tr) * kf * sw / S for k, (ln, sw, kf, tr) in parts.items()}
         q = 0.5 * fl.rho_kgm3 * v**2
         cl = s.mass.auw_kg * G / (q * S)
-        cdi = cl**2 / (math.pi * ar * a.oswald)
+        cdi = cl**2 / (math.pi * ar * (a.oswald_inviscid if polars else a.oswald))
         row = {"v_ms": v, "cl": cl, "cd0": cd0, "cdi": cdi, "re_wing": v * mac / a.nu_m2s}
+        if polars:
+            # The lifting surfaces' profile drag from their sections, each strip at its own lift and Reynolds
+            # number: it carries the drag that grows with lift, so the induced drag is the lattice's alone.
+            from osprey.recon import sailplane_polars as pol
+
+            pr = pol.profile(s, v)
+            cd0.update(wing=pr["cd"]["wing"], braces=pr["cd"].get("brace", 0.0), tail=pr["cd"]["tail"])
+            row.update(stalled=pr["stalled"], conf=pr["conf"], wing_xtr=pr["wing_xtr"])
         for label, total in (("braced", sum(cd0.values())), ("unbraced", sum(cd0.values()) - cd0["braces"])):
             ld = cl / (total + cdi)
             row[label] = {"cd": total + cdi, "l_over_d": ld, "sink_ms": v / ld}
@@ -560,8 +569,12 @@ def endurance(s) -> dict:
 
 def stall(s) -> dict:
     fl = s.flight
+    if s.aero.sections == "polars":
+        from osprey.recon import sailplane_polars as pol
+
+        return pol.stall(s)
     vs = math.sqrt(2 * s.mass.auw_kg * G / (fl.rho_kgm3 * wing_area_m2(s) * fl.cl_max))
-    return {"vs_ms": vs, "margin": fl.loiter_ms[0] / vs, "ok": fl.loiter_ms[0] / vs >= fl.stall_margin}
+    return {"vs_ms": vs, "cl_max": fl.cl_max, "margin": fl.loiter_ms[0] / vs, "ok": fl.loiter_ms[0] / vs >= fl.stall_margin}
 
 
 def climb(s) -> dict:
@@ -892,8 +905,15 @@ def checks(s, an: dict, bare: dict, ae: dict) -> list[dict]:
         f"best sink {row['braced']['sink_ms']:.2f} m/s at {row['v_ms']:g} m/s with the braces "
         f"(L/D {row['braced']['l_over_d']:.0f}), {row['unbraced']['sink_ms']:.2f} without (L/D "
         f"{row['unbraced']['l_over_d']:.0f}); the package quotes {s.flight.min_sink_ms:g}. The braces are "
-        f"{row['cd0']['braces'] / (sum(row['cd0'].values()) + row['cdi']):.0%} of the drag there. Skin friction and "
-        f"induced drag only: no interference, gaps, antennas or propeller")
+        f"{row['cd0']['braces'] / (sum(row['cd0'].values()) + row['cdi']):.0%} of the drag there. "
+        + ("The wing's, braces' and tail's drag is their sections' own; the body's, pods' and booms' is skin friction. "
+           if s.aero.sections == "polars" else "Skin friction and induced drag only: ")
+        + "No interference, gaps, antennas or propeller")
+    if ae["rows"] and any(r.get("stalled") for r in ae["rows"]):
+        slow = [r["v_ms"] for r in ae["rows"] if r.get("stalled")]
+        add("no strip past its section's stall in the loiter", False,
+            f"at {', '.join(f'{v:g}' for v in slow)} m/s a strip of the wing or a brace is asked for more lift than its "
+            "section has at its Reynolds number")
     r_end = float(myring_r(f, f.truncate_mm, clamp=False))
     xx = np.arange(f.nose_mm + f.mid_mm, f.truncate_mm, 0.5)
     rr = myring_r(f, xx, clamp=False)
@@ -988,8 +1008,12 @@ def checks(s, an: dict, bare: dict, ae: dict) -> list[dict]:
     cl = 2 * s.mass.auw_kg * G / (s.flight.rho_kgm3 * s.flight.stall_clean_ms**2 * area)
     stl = stall(s)
     add("stall speed", stl["ok"],
-        f"at a lift coefficient of {s.flight.cl_max:g} and {s.mass.auw_kg:.1f} kg it stalls at {stl['vs_ms']:.1f} m/s clean; "
-        f"the loiter's slow end, {s.flight.loiter_ms[0]:g} m/s, is {stl['margin']:.2f} times that (wants "
+        (f"the wing's first strip to reach its section's most lift ({stl['section_cl_max']:.2f} at a Reynolds number of "
+         f"{stl['re_there']:,.0f}) is {stl['first_y_m']:.2f} m out, at {stl['alpha_deg']:.1f} deg; the wing and braces then "
+         f"carry a lift coefficient of {stl['cl_max']:.2f} and {s.mass.auw_kg:.1f} kg stalls at {stl['vs_ms']:.1f} m/s clean; "
+         if "first_y_m" in stl else
+         f"at a lift coefficient of {s.flight.cl_max:g} and {s.mass.auw_kg:.1f} kg it stalls at {stl['vs_ms']:.1f} m/s clean; ")
+        + f"the loiter's slow end, {s.flight.loiter_ms[0]:g} m/s, is {stl['margin']:.2f} times that (wants "
         f"{s.flight.stall_margin:g}). The package's {s.flight.stall_clean_ms:g} m/s would take {cl:.2f}")
     en = endurance(s)
     add("endurance under power", en["hours"] >= b.loiter_h,
@@ -1012,7 +1036,7 @@ def run(variant: str = "pusher", pods: str | None = None) -> dict:
     rows = bom(s, cuts)
     sp = strut_points(s)
     return {"variant": variant, "label": s.variant.label, "span_sweep": span_sweep(s), "tail": tail(s),
-            "lift": _lift_solved(s), "auw_kg": s.mass.auw_kg, "stall": stall(s), "endurance": endurance(s),
+            "lift": _lift_solved(s), "sections": _sections(s), "auw_kg": s.mass.auw_kg, "stall": stall(s), "endurance": endurance(s),
             "pod": pod(s), "pod_sweep": pod_sweep(s) if s.pods.count else [], "booms": booms(s),
             "length_sweep": length_sweep(s), "max_length_m": max_length_mm(s) / 1e3,
             "balance": balance(s),
@@ -1028,6 +1052,14 @@ def _lift_solved(s) -> dict | None:
     from osprey.recon import sailplane_vlm as vlm
 
     return vlm.run_for(s)
+
+
+def _sections(s) -> dict | None:
+    if s.aero.sections != "polars":
+        return None
+    from osprey.recon import sailplane_polars as pol
+
+    return pol.summary(s)
 
 
 def failed(res: dict) -> list[str]:
@@ -1085,9 +1117,27 @@ def report(res: dict) -> str:
                  f"{r['brace_tension_n']:.0f} | {r['brace_compression_n']:.0f} | {max(-r['spar_axial_n'], 0):.0f} | "
                  f"{r['brace_used']:.2f} | {r['u_max']:.2f} |")
     ae = res["aero"]
+    if res.get("sections"):
+        sc = res["sections"]
+        st = sc["stall"]
+        L += ["", "## The sections", "",
+              f"Each surface's section at the loiter's slow end, {sc['v_ms']:g} m/s, from NeuralFoil (a neural-network "
+              "stand-in for XFOIL). The wing's is read at the lift coefficient it flies at there, the others at zero.", "",
+              "| Surface | Chord, mm | Reynolds number | Most lift | Drag | at lift | Upper surface turbulent from | Confidence |",
+              "|---|---|---|---|---|---|---|---|"]
+        for r in sc["rows"]:
+            L.append(f"| {r['surface']} | {r['chord_mm']:.0f} | {r['re']:,.0f} | {r['cl_max']:.2f} | {r['cd']:.4f} | "
+                     f"{r['at_cl']:.2f} | {r['xtr']:.0%} chord | {r['conf']:.2f} |")
+        L += ["", f"The wing's section there has a moment coefficient of {sc['section']['cm']:.3f} and flies at "
+              f"{sc['section']['alpha']:.1f} deg. The wing stalls where a strip first reaches its section's most lift: "
+              f"{st['first_y_m']:.2f} m out, at {st['alpha_deg']:.1f} deg, a lift coefficient of {st['cl_max']:.2f} for the "
+              f"wing and braces and {st['vs_ms']:.1f} m/s.", ""]
     L += ["", "## Drag, by components", "",
-          "Skin friction with transition times a form factor times wetted area for each part, plus induced drag, as "
-          "Ting, Reynolds, Nguyen and Totah build the truss-braced wing's up. Counts are 0.0001 on the wing's "
+          ("The wing's, braces' and tail's drag is each strip's section drag at its own lift and Reynolds number; the "
+           "body's, pods' and booms' is skin friction with transition times a form factor times wetted area, as Ting, "
+           "Reynolds, Nguyen and Totah build the truss-braced wing's up; plus induced drag. " if res.get("sections") else
+           "Skin friction with transition times a form factor times wetted area for each part, plus induced drag, as "
+           "Ting, Reynolds, Nguyen and Totah build the truss-braced wing's up. ") + "Counts are 0.0001 on the wing's "
           f"{ae['area_m2']:.2f} m^2. The braces' planform is {ae['brace_area_frac']:.0%} of the wing's.", "",
           "| Speed, m/s | CL | Wing | Braces | Tail | Body | Pods | Induced | L/D | Sink, m/s | L/D, no braces | Sink, no braces |",
           "|---|---|---|---|---|---|---|---|---|---|---|---|"]

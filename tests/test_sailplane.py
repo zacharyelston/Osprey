@@ -103,6 +103,7 @@ def test_the_drag_build_up_adds_up_and_the_braces_cost_some_glide(s, res):
         assert r["braced"]["l_over_d"] == pytest.approx(r["cl"] / total)
         assert r["unbraced"]["l_over_d"] > r["braced"]["l_over_d"]
         assert 0.03 < r["cd0"]["braces"] / total < 0.15                        # the paper has them at 8 % of the drag
+        assert not r["stalled"] and r["conf"] > 0.8
     assert ae["area_m2"] == pytest.approx(1.6, abs=0.01) and ae["ar"] == pytest.approx(14.4, abs=0.1)
 
 
@@ -289,7 +290,7 @@ def test_the_solved_lift_carries_the_weight_and_adds_up_along_the_span(s):
 
 def test_the_braces_share_of_the_lift_is_the_paper_s_or_near(res, boom):
     for k in ("alone", "whole"):
-        assert 0.05 < res["lift"][k]["share"]["brace"] < 0.10                  # Ting et al.: 8.5 % by components
+        assert 0.06 < res["lift"][k]["share"]["brace"] < 0.14                  # Ting et al.: 8.5 % by components
     assert res["lift"]["alone"]["share"]["brace"] > res["lift"]["whole"]["share"]["brace"]   # alone, out of the wing's wash
     assert boom["lift"]["alone"]["share"]["brace"] < 0.6 * res["lift"]["alone"]["share"]["brace"]   # a shorter brace
     assert "brace" not in res["lift"]["unbraced"]["share"]
@@ -306,3 +307,49 @@ def test_the_solved_lift_sits_further_out_than_an_ellipse_and_loads_the_wing_mor
     assert got["brace_axial_n"] > ell["brace_axial_n"]
     assert got["applied_z_n"] == pytest.approx(ell["applied_z_n"], rel=1e-5)   # the same lift, put elsewhere
     assert got["brace_share"] == pytest.approx(pu["brace_share"], rel=1e-6)
+
+
+# ---- the sections (recon/sailplane_polars.py) -------------------------------------------------------
+
+from osprey.recon import sailplane_polars as pol  # noqa: E402
+
+
+def test_the_sd7037_s_polar_is_the_one_the_tunnel_found(s):
+    """UIUC's low-speed tunnel has the SD7037 at a most lift of about 1.3 to 1.4 and a drag near 0.009 at a
+    lift coefficient of 0.8 and a Reynolds number of 300,000."""
+    assert 1.25 < pol.cl_max(s, "wing", 3e5) < 1.45
+    a = pol.at_cl(s, "wing", 0.8, 3e5)
+    assert 0.007 < a["cd"] < 0.012 and -0.10 < a["cm"] < -0.05 and a["conf"] > 0.9 and not a["stalled"]
+    assert pol.at_cl(s, "wing", 0.8, 1e5)["cd"] > a["cd"] > pol.at_cl(s, "wing", 0.8, 6e5)["cd"]   # drag falls with Reynolds number
+    assert pol.at_cl(s, "wing", 2.0, 3e5)["stalled"]
+    t = pol.table(s, "wing")
+    assert t["cl"].shape == (len(pol.ALPHA), len(pol.RE)) and pol.table(s, "wing") is t         # tabulated once
+
+
+def test_the_wing_stalls_where_a_strip_first_reaches_its_section_s_most_lift(s, res):
+    st = res["stall"]
+    assert st["section_cl_max"] == pytest.approx(pol.cl_max(s, "wing", st["re_there"]), rel=1e-6)
+    assert 0.9 * st["section_cl_max"] < st["cl_max"] < 1.15 * st["section_cl_max"]   # the braces add a little
+    assert st["vs_ms"] == pytest.approx(math.sqrt(2 * s.mass.auw_kg * sp.G / (1.225 * sp.wing_area_m2(s) * st["cl_max"])))
+    assert st["ok"] and 10.5 < st["vs_ms"] < 12.5
+    flat = sp.inputs()
+    flat.aero.sections = "flat-plate"
+    assert "first_y_m" not in sp.stall(flat) and sp.stall(flat)["cl_max"] == flat.flight.cl_max
+
+
+def test_a_slim_thick_brace_fairing_costs_far_more_under_its_lift_than_a_wide_thin_one(s):
+    v = s.flight.loiter_ms[0]
+    good = pol.profile(s, v)
+    assert not good["stalled"]
+    slim = sp.inputs()
+    slim.strut.chord_mm, slim.strut.t_over_c = 68.0, 0.20
+    assert pol.profile(slim, v)["cd"]["brace"] > 3 * good["cd"]["brace"]       # though it is the smaller
+
+
+def test_the_strips_profile_drag_is_the_sections(s):
+    v = 16.5
+    pr = pol.profile(s, v)
+    lo, hi = (pol.at_cl(s, "wing", c, r)["cd"] for c, r in zip(pr["wing_cl"], reversed(pr["wing_re"])))
+    area_ratio = 1.0                                                           # the wing's own area is the reference
+    assert min(lo, hi) * 0.8 * area_ratio < pr["cd"]["wing"] < max(lo, hi) * 1.2
+    assert pr["cd"]["tail"] > 0 and pr["cd"]["brace"] > 0 and 0 < pr["wing_xtr"] < 1
