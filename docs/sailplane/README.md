@@ -1,42 +1,53 @@
 # The sailplane: a soaring relay with a truss-braced wing
 
-**Status: work in progress.** A 4.8 m, 18 kg thermal-soaring sailplane that loiters for hours as an airborne
-radio relay and spectrum scanner: a laminar body of revolution, a thin wing of aspect ratio 14 in three
-pieces with swappable outer panels (solar by day, light by night), and a pusher in the tail cone. The wing is
-braced as NASA's transonic truss-braced wing is: one brace a side from low on the body up to the wing at
-mid-span, and a jury strut from each brace up to the wing.
-
-![The sailplane from above and ahead: a thin wing on a round body, a brace a side from the belly to mid-span](../img/recon-sailplane-assembly.png)
-
-| | |
-|---|---|
-| ![From the front: the wing, the two braces and their jury struts](../img/recon-sailplane-front.png) | ![From below: a brace's aerofoil fairing, the jury struts and the camera's window](../img/recon-sailplane-below.png) |
+**Status: work in progress.** A thermal-soaring sailplane that loiters for hours as an airborne radio relay
+and spectrum scanner: a laminar body of revolution and a thin, high-aspect-ratio wing in three pieces with
+swappable outer panels (solar by day, light by night). The wing is braced as NASA's transonic truss-braced
+wing is: one brace a side from low on the body up to the wing, and a jury strut from each brace up to the wing.
 
 It arrived as an engineering handoff package. Its numbers are in
 [`design/recon/sailplane.toml`](../../design/recon/sailplane.toml); where the package was silent the value is a
-REF stand-in. The section's coordinates are the UIUC SD7037, in
-[`design/recon/airfoils/sd7037.dat`](../../design/recon/airfoils/sd7037.dat).
+REF stand-in. Three designs come out of it:
+
+| | |
+|---|---|
+| ![The pusher: a thin braced wing on a round body](../img/recon-sailplane-assembly.png) | **Pusher**: the package's own body, tail and 4.8 m span, kept as the record of what was handed over. One prop in the tail cone. |
+| ![The twin: push-pull pods on the wing, a V-tail on a longer body](../img/recon-sailplane-twin.png) | **Twin** ([`twin.toml`](../../design/recon/sailplanes/twin.toml)): a push-pull pod on each wing where the brace meets it, an upright V-tail, a 6.0 m wing and a 2.3 m body. |
+| ![The boom: tractor props on the pods, booms aft to a tailplane and two fins](../img/recon-sailplane-boom.png) | **Boom** ([`boom.toml`](../../design/recon/sailplanes/boom.toml)): the tail on twin booms from the wing's pods, a short body hung from the wing with a pusher at its back, a tractor on each pod, the same 6.0 m wing. |
 
 ```
-uv run osprey recon-sailplane      # out/recon-sailplane: sailplane.md, cutlist.csv, wing.png, scad/
+uv run osprey recon-sailplane                      # the pusher; out/recon-sailplane/pusher
+uv run osprey recon-sailplane --variant twin       # or boom
+uv run osprey recon-sailplane --variant twin --pods front    # the twin's props at the front, back or both
 ```
 
-It exits 1 while any finding fails. Two do, both in the package's own numbers.
+Each writes `sailplane.md`, `cutlist.csv`, `wing.png` and `scad/`, and exits 1 while any finding fails. The
+pusher fails three, all in the package's own numbers. The twin and the boom fail none.
 
-## What changed from the package
+| | Span, m | All-up, kg | Motors | Tail, m² | Tail volumes | L/D | Sink, m/s | Stall, m/s | Under power, h | One motor out | Fails |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| pusher (the package) | 4.8 | 18.0 | 1 | 0.22 | 0.18, 0.009 | 25.9 | 0.56 | 11.8 | 5.6 | no thrust | 3 |
+| twin | 6 | 21.3 | 4 | 0.31 | 0.40, 0.020 | 28.5 | 0.51 | 11.5 | 5.2 | 2.1 m/s, tail CL 0.62 | none |
+| boom | 6 | 19.5 | 3 | 0.44 | 0.40, 0.020 | 28.4 | 0.51 | 11.0 | 5.9 | 1.8 m/s, tail CL 0.41 | none |
 
-The package drew a "Warren space-frame truss" inside the centre wing: four chords in a box 56 mm deep, in a
-section 35 mm thick. That was a misreading of *truss-braced wing*. The first pass here built it as drawn and
-found it could not fit and buckled at 4 g. This is the wing the name means:
+The pusher's glide is with a tail less than half the size it needs. A variant's all-up weight is worked out:
+the package's 18.0 kg plus what its propulsion, tail, booms, body skin and longer panels add.
 
-- **One spar** inside the section at 30 % chord, a 30 x 25.3 mm square carbon tube. The outer panels'
-  25 mm joiners slide into its ends, so the dihedral is built into the panels, not the centre.
-- **A brace a side**, from a pin outside the hull on the front main bulkhead (x = 520, z = -110) to a pin
-  under the wing at y = ±1200. It is a 12 mm tube inside a 90 mm aerofoil fairing.
-- **A jury strut** from the middle of each brace up to the spar. It halves the brace's buckling length.
+## What was wrong, and what was done
 
-The braces meet the wing on the outer panels, 400 mm beyond the joint, so swapping a panel also means pulling
-the brace's wing pin. The package did not give the station; mid-span is from the paper below.
+| Flaw | Where | Fix |
+|---|---|---|
+| A "Warren space-frame truss" inside the wing: 56 mm deep in a 35 mm section, and its chords buckled at 4 g | the package | A misreading of *truss-braced wing*. One spar inside the section, and braces outside it |
+| Tail volumes of 0.18 and 0.009 against 0.40 and 0.020 | the package: 0.22 m² of tail 0.74 m behind the wing | The twin's body is stretched and its V-tail sized, and angled, to just meet both; the boom's tail is sized the same way |
+| The tail cone is at 7 mm radius at the firewall, not the spinner's 22: a 62 mm parallel stinger | the package | The boom's body is cut at x = 1352, where the cubic meets the spinner. The twin has no spinner there |
+| 72 cells are 1,296 Wh, not the quoted 488 | the package | The pack is right and the figure was wrong: holding height under power takes about 200 W, so 4 h needs the 72 cells. The variants quote what the cells hold |
+| The sink quoted, 0.52 m/s, is what a wing with no braces and an undersized tail gives | the package | Induced drag is most of the sink. The wing is stretched to 6.0 m: 0.51 m/s with braces, pods and a full-sized tail |
+| One of two motors out: the tail cannot hold the yaw | the twin with props at the front or back only | A prop at both ends of each pod: one of four out leaves 75 % of the thrust and half the yaw |
+| Brace pins at 57 to 63 MPa of bearing in a printed tang, against 60 | all three | 5 mm pins through 6 mm tangs: 51 MPa on the twin and 54 on the boom |
+| A 30 mm spar at 7 % of its strength, 645 g | my first sizing | A 27.3 x 25.3 mm tube and 1 mm joiners: 541 g of carbon in the pusher's wing, was 1,006 |
+| A 90 mm brace fairing, a quarter of the wing's own profile drag | my first sizing | 68 mm at 20 % thick, as slim as the 12 mm tube allows |
+| The boom's tail load twists the wing, unchecked | the boom | Checked: 0.66° in the skin box between body and boom, against 1° allowed |
+| All-up weights set by hand | the variants | Worked out from what each variant adds; a motor's weight follows the climb's power |
 
 ## The science
 
@@ -44,71 +55,155 @@ Ting, Reynolds, Nguyen and Totah, *Aerodynamic Analysis of the Truss-Braced Wing
 Vortex-Lattice Superposition Approach* (AIAA), on the Boeing SUGAR truss-braced wing. Three things are taken
 from it:
 
-- The wing is braced "at approximately mid-span" with one jury strut a side. So is this one.
+- The wing is braced "at approximately mid-span" with one jury strut a side. So are the pusher and the twin.
 - The braces are lifting surfaces. In their component build-up the braces carry 8.5 % of the lift and about
-  8 % of the drag. Here the braces carry that share of the lift in the load cases (`[aero] brace_lift_frac`),
-  and their fairing is an aerofoil, not a streamlined tube.
+  8 % of the drag. Here the braces carry that share of the lift in the load cases, and their fairing is an
+  aerofoil, not a streamlined tube.
 - Their drag build-up (their Eqs. 1–4): each component's skin friction with transition, times a form factor,
   times its wetted area, plus induced drag. It leaves out interference where the parts meet, as theirs does.
 
 What is not taken: their vortex-lattice superposition itself. The lift here is an assumed elliptic
 distribution, not a solved one.
 
-## Findings
+## The wing and its braces
 
-| Check | | |
-|---|---|---|
-| spar inside the wing section | ok | a 30 mm spar at 30% chord; 31.0 mm inside the SD7037's skin |
-| centre spar at ultimate | ok | 0.07 of what it can take (night wings, +4 g: stress, 22 MPa) |
-| outer panel spar at ultimate | ok | 0.03 of what it can take (night wings, +4 g: stress, 11 MPa) |
-| brace at ultimate | ok | 0.30 of what it can take (night wings, -2 g: buckling, 378 N on 563 mm against 1884 N) |
-| jury strut at ultimate | ok | 0.06 of what it can take (day wings, +4 g: stress, 21 MPa) |
-| wing joiners at ultimate | ok | 19.8 N m at the joint, 23 MPa in a 25 mm square tube |
-| brace pins in a printed tang | ok | 756 N on a 4 mm pin through 5 mm is 57 MPa in bearing against 60: printed will do |
-| brace tube inside its fairing | ok | 15.0 mm inside a 90 mm, 18% thick fairing for a 12 mm tube |
-| what the braces buy | note | in the pull-up the spar's bending falls from 228 to 41 N m and the tip's rise from 85 to 8 mm; each brace pulls 713 N and puts 690 N of compression in the spar; in the push-over it carries 356 N in compression |
-| glide and sink | note | best sink 0.56 m/s at 14.5 m/s with the braces (L/D 26), 0.52 without (L/D 28); the package quotes 0.52. The braces are 7% of the drag there. Skin friction and induced drag only: no interference, gaps, antennas or propeller |
-| tail cone meets the spinner at the firewall | **FAIL** | the cubic is down to 7.2 mm radius at x = 1415, not 22: it reaches the spinner's radius at x = 1352, and held there the last 62 mm are a parallel stinger. Cut at x = 1352 or close the cubic on the spinner. Its steepest slope is 16.0 deg |
-| belly flat ends ahead of the tail cone's recovery | ok | one plane tilted 7.8 deg nose-up, flat from x = 93 to 546, up to 138 mm wide and 18.9 mm off the round |
-| battery holds what it weighs | **FAIL** | 72 cells are 4.97 kg and 1296 Wh (12P, 60 Ah), not 488 Wh; 21 Ah at 6S is 24 cells, 1.7 kg. The loiter needs 400 Wh |
-| wing area | note | 1.600 m^2 from the planform (quoted 1.63), aspect ratio 14.4 (quoted 14.1), 112 g/dm^2 by day |
-| stall speed | note | 11.2 m/s clean at 18 kg takes a lift coefficient of 1.44 |
-| centre flaps | note | hinge at x = 745; 60 deg down the trailing edge is at z = 88, inside the body within 120 mm of the centreline, so the flaps start at y = +/-143 and the middle is fixed |
+One spar inside the SD7037 at 30 % chord, a square carbon tube whose bore takes the outer panels' 25 mm
+joiners. A brace a side, a 12 mm tube in an aerofoil fairing, from a pin outside the hull on the front main
+bulkhead to a pin under the wing. A jury strut from the middle of each brace up to the spar halves the brace's
+buckling length.
 
-## The loads
+![From the front: the wing, the two braces and their jury struts](../img/recon-sailplane-front.png)
 
-A +4 g pull-up and a -2 g push-over at a 1.5 ultimate factor, day and night wings. The wing is solved
-as a frame of beam elements, pinned to the body at its saddle and at the braces' roots. In the pull-up the
-braces cut the spar's bending from 228 to 41 N m and the tip's rise from
-85 to 8 mm. Each brace pulls 713 N, and squeezes the spar by 690 N.
+The loads are a +4 g pull-up and a -2 g push-over at a 1.5 ultimate factor, day and night wings, on a frame
+of beam elements pinned to the body at the wing's saddle and at the braces' roots.
 
-![The wing from the front with each tube coloured by how much of its strength is used, and the effect of the brace's station on bending, tip rise and brace compression](../img/recon-sailplane-wing.png)
+| | Spar bending with no braces, N m | with braces | Tip's rise with no braces, mm | with braces | Each brace pulls, N |
+|---|---|---|---|---|---|
+| pusher, braces at mid-span | 228 | 40 | 234 | 18 | 726 |
+| twin, braces at mid-span | 305 | 53 | 478 | 39 | 959 |
+| boom, braces at the panels' joint | 289 | 125 | 453 | 128 | 1047 |
+
+Where the braces meet the wing, on the pusher:
+
+![The wing from the front with each tube coloured by how much of its strength is used, and the effect of the brace's station](../img/recon-sailplane-wing.png)
 
 | Brace at y, mm | Spar bending, N m | at the root, N m | Tip in the pull-up, mm | Brace tension, N | Brace compression in the push-over, N | Spar compression, N | Brace used | Most used |
 |---|---|---|---|---|---|---|---|---|
-| no braces | 228 | 228 | 85 | 0 | -0 | 0 | 0.00 | 0.31 |
-| 500 | 124 | 44 | 33 | 920 | 460 | 763 | 0.08 | 0.15 |
-| 650 | 100 | 42 | 25 | 840 | 420 | 755 | 0.10 | 0.15 |
-| 800 | 79 | 40 | 18 | 789 | 394 | 737 | 0.14 | 0.14 |
-| 1000 | 55 | 39 | 12 | 746 | 373 | 716 | 0.22 | 0.22 |
-| 1200 | 41 | 41 | 8 | 713 | 356 | 690 | 0.30 | 0.30 |
-| 1400 | 45 | 45 | 5 | 685 | 342 | 668 | 0.40 | 0.40 |
+| no braces | 228 | 228 | 234 | 0 | -0 | 0 | 0.00 | 0.77 |
+| 500 | 124 | 46 | 88 | 940 | 470 | 783 | 0.13 | 0.38 |
+| 650 | 100 | 43 | 65 | 858 | 429 | 773 | 0.11 | 0.30 |
+| 800 | 79 | 41 | 47 | 806 | 403 | 754 | 0.15 | 0.23 |
+| 1000 | 55 | 39 | 30 | 762 | 381 | 732 | 0.22 | 0.22 |
+| 1200 | 40 | 40 | 18 | 726 | 363 | 704 | 0.31 | 0.31 |
+| 1400 | 43 | 43 | 10 | 700 | 350 | 682 | 0.41 | 0.41 |
 
-Moving the braces outboard keeps cutting the tip's rise, but the spar's bending bottoms out near mid-span and
-the longer brace is closer to buckling in the push-over. The paper's mid-span is about the best station here
-too. At the panel joint (800) the panels would swap without touching the braces, for about twice the bending.
+At mid-span the brace's wing pin is on the outer panel, so swapping a panel means pulling it. At the joint
+(800) the panels swap freely, for about twice the bending.
+
+## The twin
+
+![The twin from the front](../img/recon-sailplane-twin-front.png)
+
+- **Wing.** 6.0 m: the outer panels are 2.2 m each, not 1.6. Sink falls from 0.58 to 0.51 m/s and the
+  stall from 12.2 to 11.5 m/s. The brace is at 0.65 of its buckling load in the push-over, the
+  most-used tube.
+- **Body.** 2.3 m. With the tail sized at each length, the best for this wing is 2.4 m and the curve is
+  flat; 2.3 m is 0.7 kg lighter than 2.6. The cubic tail cone can be drawn out to 3.07 m before it swells
+  past the body's radius.
+- **Tail.** A V of 0.31 m² at 43.7° from the horizontal: the angle at which one area meets both volumes.
+- **Weight.** 21.3 kg. That is 3.3 kg over the package's 18: longer panels, more body skin, a bigger tail
+  and four motors.
+- **Balance.** The battery slides 39 mm aft of where the package has it, of 160 mm either way.
+
+### Where the props go on the pods
+
+| | | |
+|---|---|---|
+| ![Front: a tractor prop ahead of the leading edge](../img/recon-sailplane-pods-front.png) | ![Back: a pusher behind the trailing edge](../img/recon-sailplane-pods-back.png) | ![Both: a pod the length of the chord with a prop at each end](../img/recon-sailplane-pods-both.png) |
+| front | back | both |
+
+| Props | Motors | Pod, mm | Pod, kg | All-up, kg | Battery slides aft, mm | Pods, counts | L/D | Sink, m/s | Props' efficiency | Shaft a motor, W | One out: thrust left | climb, m/s | yaw, N m | tail CL | Brace pull at 4 g, N |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| front | 2 | 200 | 0.33 | 20.8 | 72 of 160 | 1.8 | 28.6 | 0.507 | 55% | 644 | 50% | 1.2 | 37 | 1.21 **over** | 966 |
+| back | 2 | 200 | 0.33 | 20.8 | 17 of 160 | 1.8 | 28.6 | 0.507 | 55% | 650 | 50% | 1.2 | 37 | 1.21 **over** | 966 |
+| both | 4 | 535 | 0.58 | 21.3 | 39 of 160 | 3.3 | 28.5 | 0.508 | 52% | 350 | 75% | 2.1 | 19 | 0.62 | 959 |
+
+- **Front and back fail with one motor out.** Half the thrust is gone, 1.5 m off the centre line, and the
+  V-tail is asked for a lift coefficient of 1.21. It has about 0.9.
+- **Both holds**, at 0.62, with 2.1 m/s of climb left. It costs 0.5 kg and almost nothing in sink.
+- **Front against back is a draw** but for the balance: a back prop's weight is further aft.
+
+### How long the body can be
+
+| Length, m | Fineness | Tail arm, m | Tail, m^2 | Volumes, horizontal and vertical | Body skin, m^2 | Body, counts | Tail, counts | All-up, kg | Tail cone's steepest, deg | L/D | Sink, m/s | |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 2.3 | 7.7 | 1.59 | 0.31 | 0.40, 0.020 | 1.59 | 23 | 19 | 21.3 | 10.9 | 28.5 | 0.508 | as designed |
+| 1.45 | 4.8 | 0.74 | 0.67 | 0.40, 0.020 | 1.00 | 14 | 41 | 20.0 | 16.0 | 27.1 | 0.536 |  |
+| 1.6 | 5.3 | 0.89 | 0.56 | 0.40, 0.020 | 1.10 | 15 | 34 | 20.1 | 13.3 | 27.6 | 0.525 |  |
+| 1.8 | 6.0 | 1.09 | 0.45 | 0.40, 0.020 | 1.23 | 17 | 28 | 20.4 | 11.3 | 28.1 | 0.517 |  |
+| 2 | 6.7 | 1.29 | 0.38 | 0.40, 0.020 | 1.37 | 20 | 23 | 20.7 | 11.0 | 28.3 | 0.512 |  |
+| 2.2 | 7.3 | 1.49 | 0.33 | 0.40, 0.020 | 1.52 | 22 | 20 | 21.1 | 10.9 | 28.5 | 0.509 |  |
+| 2.3 | 7.7 | 1.59 | 0.31 | 0.40, 0.020 | 1.59 | 23 | 19 | 21.3 | 10.9 | 28.5 | 0.508 |  |
+| 2.4 | 8.0 | 1.69 | 0.29 | 0.40, 0.020 | 1.67 | 24 | 18 | 21.5 | 10.9 | 28.5 | 0.508 |  |
+| 2.6 | 8.7 | 1.89 | 0.26 | 0.40, 0.020 | 1.84 | 27 | 16 | 21.9 | 10.9 | 28.5 | 0.508 |  |
+| 2.8 | 9.3 | 2.09 | 0.24 | 0.40, 0.020 | 2.01 | 29 | 14 | 22.4 | 10.9 | 28.5 | 0.509 |  |
+| 3 | 10.0 | 2.29 | 0.22 | 0.40, 0.020 | 2.19 | 32 | 13 | 22.9 | 10.9 | 28.4 | 0.511 |  |
+| 3.2 | 10.7 | 2.49 | 0.20 | 0.40, 0.020 | 2.38 | 35 | 12 | 23.5 | 10.9 | 28.2 | 0.514 | swells |
+
+A short body pays in tail area, a long one in skin and weight. From about 2.0 m the tail cone is never steeper
+than its 11° closing angle; at the package's 1.45 m it reaches 16°.
+
+## The boom
+
+| | |
+|---|---|
+| ![From behind: the pusher's disc at the body's tail, between the booms and ahead of the tailplane](../img/recon-sailplane-boom-rear.png) | ![From the front](../img/recon-sailplane-boom-front.png) |
+
+- **The braces, pods and booms are at the outer panels' joint**, y = ±800. The booms are 1.6 m apart and the
+  outer panels swap without touching brace or boom. A tailplane between booms at mid-span would be twice as
+  wide and half the chord.
+- **The tail sizes itself.** The tailplane spans the booms 250 mm behind the pusher's disc, 144 mm in
+  chord; two fins 525 mm tall. Longer booms than the first cut: 0.44 m² of tail, not 0.52.
+- **Booms.** Two 25 mm carbon tubes 1241 mm long, 290 g the pair, at 0.27 of their strength under the
+  tailplane's most lift, bending 26 mm. The load twists the wing 0.66° at each pod.
+- **Three motors.** One pod motor out leaves two thirds of the thrust, 1.8 m/s of climb, and the fins hold
+  the yaw at a lift coefficient of 0.41. With the pusher out there is no yaw at all.
+- **Weight and balance.** 19.5 kg, 1.8 kg lighter than the twin, on the package's short body. The battery
+  sits 5 mm from where the package has it.
+- **The wing bends more.** With the braces at the joint of a 6.0 m wing the tip rises 128 mm in the pull-up,
+  4 % of the half-span, against the twin's 39.
+
+## How long the wing can be
+
+The outer panels stretched, the tubes as they are. On the twin:
+
+| Span, m | Area, m^2 | Aspect ratio | All-up, kg | Brace, mm | Most-used tube | Joiner | Tip's rise | What limits | L/D | Sink, m/s | Vertical tail volume | |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 4.8 | 1.60 | 14.4 | 20.0 | 1127 | 0.32 | 0.10 | 0.9% | brace (buckling, night wings, -2 g), 0.32 | 24.8 | 0.58 | 0.0200 | ok |
+| 5.4 | 1.79 | 16.3 | 20.6 | 1275 | 0.47 | 0.10 | 1.1% | brace (buckling, night wings, -2 g), 0.47 | 27.0 | 0.54 | 0.0200 | ok |
+| 6 | 1.97 | 18.3 | 21.3 | 1422 | 0.65 | 0.23 | 1.3% | brace (buckling, night wings, -2 g), 0.65 | 28.5 | 0.51 | 0.0200 | ok |
+| 6.6 | 2.16 | 20.2 | 21.9 | 1571 | 0.87 | 0.25 | 1.5% | brace (buckling, night wings, -2 g), 0.87 | 29.6 | 0.49 | 0.0200 | ok |
+| 7.2 | 2.34 | 22.1 | 22.5 | 1719 | 1.14 | 0.28 | 1.7% | brace (buckling, night wings, -2 g), 1.14 | 30.4 | 0.48 | 0.0200 | **over** |
+| 7.8 | 2.53 | 24.0 | 23.1 | 1868 | 1.46 | 0.30 | 1.9% | brace (buckling, night wings, -2 g), 1.46 | 30.8 | 0.47 | 0.0200 | **over** |
+| 8.4 | 2.72 | 26.0 | 23.8 | 2017 | 1.84 | 0.33 | 2.2% | brace (buckling, night wings, -2 g), 1.84 | 31.0 | 0.47 | 0.0200 | **over** |
+| 9 | 2.90 | 27.9 | 24.4 | 2166 | 2.28 | 0.35 | 2.4% | brace (buckling, night wings, -2 g), 2.28 | 31.0 | 0.47 | 0.0200 | **over** |
+| 9.6 | 3.09 | 29.8 | 25.0 | 2316 | 2.78 | 0.38 | 2.6% | brace (buckling, night wings, -2 g), 2.78 | 30.9 | 0.47 | 0.0200 | **over** |
+| 10.2 | 3.27 | 31.8 | 25.7 | 2465 | 3.35 | 0.40 | 2.9% | brace (buckling, night wings, -2 g), 3.35 | 30.8 | 0.47 | 0.0200 | **over** |
+
+What stops the wing is the 12 mm brace tube buckling in the push-over as the brace gets longer. 6.0 m leaves
+it a third in hand. Both variants carry the same 6.0 m wing, so they share outer panels.
 
 ## The drag
 
-| Speed, m/s | CL | Wing | Braces | Tail | Body | Induced | L/D | Sink, m/s | L/D, no braces | Sink, no braces |
-|---|---|---|---|---|---|---|---|---|---|---|
-| 14.5 | 0.86 | 89 | 24 | 16 | 23 | 180 | 25.7 | 0.56 | 27.7 | 0.52 |
-| 16.5 | 0.66 | 86 | 23 | 16 | 22 | 108 | 26.1 | 0.63 | 28.7 | 0.58 |
-| 18.5 | 0.53 | 82 | 22 | 15 | 21 | 68 | 25.2 | 0.73 | 28.2 | 0.66 |
+Counts of 0.0001 on the wing's area, by the paper's build-up, for the twin:
 
-Counts of 0.0001 on the wing's area. The braces cost about two points of glide ratio and 0.04 m/s of sink at
-the slow end. The package's 0.52 m/s is what this method gives with no braces at all, and it is optimistic:
-no interference, gaps, antennas, jury struts or stopped propeller.
+| Speed, m/s | CL | Wing | Braces | Tail | Body | Pods | Induced | L/D | Sink, m/s | L/D, no braces | Sink, no braces |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 14.5 | 0.82 | 90 | 22 | 19 | 23 | 3 | 131 | 28.5 | 0.51 | 30.9 | 0.47 |
+| 16.5 | 0.63 | 86 | 21 | 18 | 22 | 3 | 78 | 27.7 | 0.59 | 30.6 | 0.54 |
+| 18.5 | 0.50 | 83 | 20 | 17 | 22 | 3 | 49 | 25.9 | 0.71 | 29.0 | 0.64 |
+
+It is optimistic: no interference, gaps, antennas, jury struts or stopped propellers.
 
 ## The parts
 
@@ -117,7 +212,7 @@ no interference, gaps, antennas, jury struts or stopped propeller.
 
 | File | What it draws |
 |---|---|
-| `assembly.scad` | The whole aircraft; `-D see_inside=true` clears the skin and takes the brace fairings off |
+| `assembly.scad` | The whole aircraft, with the variant's tail, pods, booms and props; `-D see_inside=true` clears the skin and takes the brace fairings off |
 | `brace_fittings.scad` | A brace's fittings where they go: the fork under the wing, the root fork on the bulkhead, the jury strut's fork and collar, the tube ends. `-D part="wing_fork"` and so on give one for the printer |
 | `end_rib.scad` | The centre section's end rib: the spar's mouth for the joiner, and pockets for the MPX and XT30 connectors in the mating face |
 | `center_wing.scad` | The SD7037 lofted over the two spars: skin, ribs, flaps with hinge pockets, and the root fairing |
@@ -125,23 +220,26 @@ no interference, gaps, antennas, jury struts or stopped propeller.
 
 ![A brace with its fairing off: the tube, its end fittings, the jury strut and its collar](../img/recon-sailplane-brace.png)
 
-- **Tube ends.** A bonded socket 20 mm deep with two adhesive grooves, and a tang for the pin. At 4 g a
-  brace's 4 mm pin puts 57 MPa of bearing in a 5 mm printed tang, against a stand-in allowable of 60. That
-  is too close: make the two main brace ends and forks in aluminium.
+- **Tube ends.** A bonded socket 20 mm deep with two adhesive grooves, and a tang for the pin.
 - **Forks.** The wing and jury forks are cradles bonded round the lower half of the square spar, with two
   cheeks down to the pin. The root fork bolts to the front main bulkhead through the hull.
 - **Flaps.** Hinged on the lower surface at 75 % chord. Fully down as brakes, a flap's trailing edge is
   below the body's crown, so the flaps start outboard of the fairing and the trailing edge over the body is
   fixed.
-- **Belly flat.** The body is cut by one plane through the hull at the pane's two ends, 7.8° nose-up, from
-  x = 93 to 546. A convex body cut by a plane leaves a flat with no step.
+- **Belly flat.** The body is cut by one plane through the hull at the pane's two ends, 7.8° nose-up. A
+  convex body cut by a plane leaves a flat with no step.
+
+![From below: a brace's aerofoil fairing, the jury struts and the camera's window](../img/recon-sailplane-below.png)
 
 ## Not done
 
 - The parts build in OpenSCAD as closed solids (the tests export them), but none has been sliced or printed.
-  The root fairing is stepped slices and the outer panels are a plain loft, for looking at.
-- The outer panels' structure, the tail, the hatch and the wing's saddle pins are not designed.
+  The pods, booms, tails, root fairing and outer panels are drawn for the look, not for making.
+- The outer panels' structure, the tails' structure, the hatch and the wing's saddle pins are not designed.
 - The lift is an assumed elliptic distribution with a fixed share on the braces. No vortex-lattice solution,
-  no gust, landing or torsion case, no flutter. A braced wing this slender wants an aeroelastic check.
-- The brace's root is low on a belly-landing aircraft. Nothing here checks what a landing does to it.
+  no gust, landing or flutter case. A braced wing this slender, and booms, want an aeroelastic check.
+- The props: their wash over the wing, braces and tailplane, the thrust's bending of the wing fore and aft,
+  a back prop's clearance from a deflected aileron.
+- The CG is only moved, never found: the balance is each variant against the package, not against the wing.
+- The braces' roots, and the boom's lower fin tips, are low on a belly-landing aircraft.
 - Bond and fitting strength are not checked, beyond the pins' bearing.

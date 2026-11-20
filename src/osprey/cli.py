@@ -596,9 +596,9 @@ def cmd_recon_sailplane(args) -> int:
     from osprey.recon import figures as rfig
     from osprey.recon import sailplane
 
-    o = Path(args.out) if args.out else OUT / "recon-sailplane"
+    o = Path(args.out) if args.out else OUT / "recon-sailplane" / (args.variant + (f"-{args.pods}" if args.pods else ""))
     o.mkdir(parents=True, exist_ok=True)
-    res = sailplane.run()
+    res = sailplane.run(args.variant, args.pods)
     (o / "sailplane.json").write_text(json.dumps(res, indent=1, default=float))
     (o / "sailplane.md").write_text(sailplane.report(res))
     sailplane.export(res, o)
@@ -745,6 +745,9 @@ def main(argv=None) -> int:
     ap.add_argument("--payload", default="gimbal", help="recon: gimbal, or a design/recon/payloads variant (dual); "
                                                               "recon-cyclone and recon-cyclone-sweep also take all")
     ap.add_argument("--airframe", default="twinboom", help="recon: twinboom, or a design/recon/airframes variant (bwb)")
+    ap.add_argument("--variant", default="pusher", help="recon-sailplane: pusher, or a design/recon/sailplanes variant (twin)")
+    ap.add_argument("--pods", default=None, choices=["front", "back", "both"],
+                    help="recon-sailplane --variant twin: where each pod's props are (default: the variant's own)")
     ap.add_argument("--floats", action="store_true", help="recon-loiter: sweep the tilt-wing's float tails instead")
     ap.add_argument("--water", action="store_true", help="recon: size and fly with the float kit aboard (recon/water.py)")
     ap.add_argument("--run", default=None, help="recon-render, -plug, -frame, -water: a run directory holding <mission>/design.json "

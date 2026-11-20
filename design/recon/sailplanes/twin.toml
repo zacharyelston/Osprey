@@ -1,0 +1,83 @@
+# The twin (osprey recon-sailplane --variant twin): the sailplane with its propulsion moved out of the tail cone.
+# Props on pods where the braces meet the wing (a tractor and a pusher on each), an upright V-tail, a wing
+# stretched to 6.0 m and a body stretched to 2.3 m. Induced drag is most of the sink, so the span is what buys
+# glide; the longer body keeps the tail that span asks for small, and its tail cone never steeper than its
+# closing angle. The tail cone closes to a point. The all-up weight and the tail's area are worked out, not given. Laid over design/recon/sailplane.toml: only what differs is here.
+
+[variant]
+label = "twin: push-pull props on pods at the braces, upright V-tail, 6.0 m wing, 2.3 m body"
+
+[propulsion]
+layout = "pods"
+
+[pods]                     # one each side, on the wing where the brace's pin is
+count = 2
+layout = "both"            # where a pod's props are: "front" (tractor), "back" (pusher) or "both" (push-pull).
+                           # Both: with one motor out of four the V-tail can still hold the yaw
+layouts = ["front", "back", "both"]   # swept by osprey recon-sailplane
+diameter_mm = 48.0         # REF
+length_mm = 200.0          # REF: a pod with one prop; a push-pull pod runs the whole chord
+nose_ahead_mm = 110.0      # a front spinner's tip, ahead of the wing's leading edge
+tail_behind_mm = 90.0      # a back spinner's tip, behind the trailing edge
+prop_in = 13.0             # REF: folding 13 x 8
+shell_kg_per_m = 0.50      # REF: the pod's shell and mount, per metre of pod
+prop_kg = 0.07             # REF: a folding prop, spinner and motor mount
+
+[wing]
+span_mm = 6000.0           # the outer panels stretched from 1.6 to 2.2 m each; the boom has the same wing
+
+[tail]
+kind = "v"                 # upright: nothing behind it to protect now
+size = "auto"              # as big as its two volumes ask for
+x_mm = 2100.0
+
+[battery]                  # the 72 cells the package weighs, with the energy they hold
+quoted_wh = 1296.0
+quoted_ah = 60.0
+
+[fuselage]
+length_mm = 2300.0
+spinner_r_mm = 2.0         # no spinner: the cubic runs on almost to its point
+truncate_mm = 2290.0
+
+[[bulkhead]]
+x_mm = 250.0
+t_mm = 4.0
+web_mm = 22.0
+material = "G10"
+
+[[bulkhead]]
+x_mm = 400.0
+t_mm = 4.0
+web_mm = 22.0
+material = "G10"
+
+[[bulkhead]]
+x_mm = 520.0
+t_mm = 6.0
+web_mm = 22.0
+material = "carbon"
+
+[[bulkhead]]
+x_mm = 720.0
+t_mm = 6.0
+web_mm = 22.0
+material = "carbon"
+
+[[bulkhead]]
+x_mm = 850.0
+t_mm = 4.0
+web_mm = 22.0
+material = "G10"
+
+[[bulkhead]]
+x_mm = 1500.0
+t_mm = 4.0
+web_mm = 22.0
+material = "G10"
+
+[[bulkhead]]               # the tail's mount
+x_mm = 2100.0
+t_mm = 4.0
+web_mm = 18.0
+material = "G10"

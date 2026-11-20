@@ -425,11 +425,15 @@ flat calm. The notebook, with renders and an Onshape feature for the tilt-wing, 
 
 ### The sailplane (in progress)
 
-A 4.8 m thermal-soaring relay from an engineering handoff package: a laminar body, and a truss-braced wing:
-a thin wing held by a brace a side from the belly to mid-span, as on NASA's transonic truss-braced wing.
+A thermal-soaring radio relay from an engineering handoff package: a laminar body and a truss-braced wing, a
+thin wing held by a brace a side from the belly, as on NASA's transonic truss-braced wing.
 `osprey recon-sailplane` flies the wing through a 4 g pull-up and a push-over with and without the braces,
-builds the drag up by components, checks the package against itself, and writes the brace fittings, wing and
-camera bay as OpenSCAD. The braces cut the spar's bending to a fifth for about two points of glide ratio. The notebook is [docs/sailplane](docs/sailplane/README.md).
+builds the drag up by components, checks the design against itself, and writes the brace fittings, wing and
+camera bay as OpenSCAD. The pusher is the package as handed over, and fails three of its own numbers.
+`--variant twin` has push-pull props on pods at the braces, a V-tail, a 6.0 m wing and a 2.3 m body;
+`--variant boom` carries its tail on twin booms from the pods, with a pusher on a short body and a tractor on
+each pod. Both sink at 0.51 m/s, fly 5 to 6 h under power and fail nothing. The notebook is
+[docs/sailplane](docs/sailplane/README.md).
 
 ### Anti-piracy awareness
 
@@ -558,7 +562,7 @@ uv run osprey recon-cyclone-sweep --payload all             # Recon: the Cyclone
 uv run osprey recon-loiter --workers 8                      # Recon: the loiter craft, 2-12 h on station
 uv run osprey recon-puffin --workers 8                      # Recon: the spar Puffin, righting curves
 uv run osprey recon-puffin-sar --workers 8                  # Recon: the spar Puffin SAR build's budget
-uv run osprey recon-sailplane                               # Recon: the sailplane's truss-braced wing, loads, drag, SCAD
+uv run osprey recon-sailplane [--variant twin|boom]             # Recon: the sailplane's truss-braced wing, loads, drag, SCAD
 uv run osprey recon-awareness                               # Recon: anti-piracy ranges
 uv run osprey beet --workers 8                              # the Beet: a flying buoy, sized and floated
 uv run osprey trident --workers 8                           # the Trident: three modules round a core, sized and floated
